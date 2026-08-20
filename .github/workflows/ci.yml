@@ -78,7 +78,10 @@ jobs:
           path: artifacts/
 
   dependency-review:
-    if: github.event_name == 'pull_request'
+    # GitHub's dependency-review API requires Advanced Security for private
+    # repositories. Dependabot alerts and npm audit cover the private RC; this
+    # job activates automatically when the repository is made public.
+    if: github.event_name == 'pull_request' && github.event.repository.private == false
     runs-on: ubuntu-latest
     permissions:
       contents: read

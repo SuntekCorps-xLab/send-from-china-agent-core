@@ -20,6 +20,13 @@ theme settings committed to Git, or sample payloads.
 If a secret is committed, revoke or rotate it immediately. Removing it from the
 latest commit is not sufficient because Git history and build logs may retain it.
 
+## Dependency assurance
+
+Private release candidates use locked installs, `npm audit`, Dependabot alerts,
+and automated security updates. GitHub dependency review runs on pull requests
+once the repository is public; GitHub does not provide that API to a private
+repository without Advanced Security.
+
 ## Supported Versions
 
 Until the first stable release, security fixes target the newest release
