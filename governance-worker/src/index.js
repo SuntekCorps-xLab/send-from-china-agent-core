@@ -23,7 +23,13 @@ async function route(request, env, id, corsHeaders) {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
   if (request.method === "GET" && url.pathname === "/health") {
-    return jsonResponse({ ok: true, mode: "synthetic_demo", writes_enabled: false }, 200, id, corsHeaders);
+    return jsonResponse({
+      ok: true,
+      mode: "synthetic_demo",
+      writes_enabled: false,
+      sourcing_demo_enabled: String(env.DEMO_AGENT_TOKEN || "").length >= 16,
+      sourcing_state: "ephemeral_synthetic",
+    }, 200, id, corsHeaders);
   }
   if (request.method === "GET" && url.pathname === "/api/catalog") {
     const limit = parseLimit(url.searchParams.get("limit"));
@@ -74,7 +80,10 @@ async function route(request, env, id, corsHeaders) {
       const status = parsed.error === "PAYLOAD_TOO_LARGE" ? 413 : 400;
       return errorResponse(parsed.error, status, id, corsHeaders);
     }
-    const response = handleMcp(parsed.value);
+    const response = await handleMcp(parsed.value, {
+      authorization: request.headers.get("Authorization") || "",
+      env,
+    });
     return jsonResponse(response.body, response.status, id, corsHeaders);
   }
   return errorResponse("NOT_FOUND", 404, id, corsHeaders);

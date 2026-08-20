@@ -2,6 +2,18 @@
 
 All notable changes to the public reference implementation are documented here.
 
+## 0.2.0-rc.1 - 2026-08-21
+
+- Added bounded `product_search` with a truthful terminal `no_match` handoff.
+- Added bearer-authenticated demo-agent access with explicit catalog and
+  sourcing scopes and all transactional permissions disabled.
+- Added an idempotent, preview-only synthetic sourcing lifecycle and paginated
+  non-purchasable results.
+- Kept all task state ephemeral and excluded supplier, product, cart, checkout,
+  order, payment, and publication writes.
+- Added lifecycle, authorization, ownership, idempotency, pagination, and
+  fail-closed regression tests.
+
 ## 0.1.0-rc.4 - 2026-08-16
 
 - Aligned the public project identity with the Send From China product name.

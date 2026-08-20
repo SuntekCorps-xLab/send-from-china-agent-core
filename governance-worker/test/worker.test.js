@@ -9,13 +9,19 @@ async function call(path, options = {}, env = ENV) {
   return worker.fetch(new Request(`https://worker.example${path}`, options), env);
 }
 
-test("health is read-only and sends security headers", async () => {
+test("health distinguishes production writes from the optional synthetic sourcing demo", async () => {
   const response = await call("/health");
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("x-content-type-options"), "nosniff");
   assert.equal(response.headers.get("cache-control"), "no-store");
   assert.match(response.headers.get("x-request-id"), /.+/);
-  assert.deepEqual(await response.json(), { ok: true, mode: "synthetic_demo", writes_enabled: false });
+  assert.deepEqual(await response.json(), {
+    ok: true,
+    mode: "synthetic_demo",
+    writes_enabled: false,
+    sourcing_demo_enabled: false,
+    sourcing_state: "ephemeral_synthetic",
+  });
 });
 
 test("catalog exposes only synthetic non-purchasable products", async () => {
@@ -86,13 +92,25 @@ test("CORS allowlist accepts known origins and rejects unknown origins", async (
   assert.equal(denied.headers.get("access-control-allow-origin"), null);
 });
 
-test("MCP lists and calls only read-only tools", async () => {
+test("MCP lists bounded catalog tools and explicit synthetic sourcing tools", async () => {
   const list = await call("/mcp", {
     method: "POST",
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
   });
   const listBody = await list.json();
-  assert.deepEqual(listBody.result.tools.map((tool) => tool.name), ["search_catalog", "get_product"]);
+  assert.deepEqual(listBody.result.tools.map((tool) => tool.name), [
+    "product_search",
+    "search_catalog",
+    "get_product",
+    "get_agent_access",
+    "create_sourcing_task",
+    "get_sourcing_task",
+    "list_sourcing_results",
+  ]);
+  assert.deepEqual(
+    listBody.result.tools.find((tool) => tool.name === "create_sourcing_task").inputSchema.properties.plan_id.enum,
+    ["preview"],
+  );
 
   const search = await call("/mcp", {
     method: "POST",

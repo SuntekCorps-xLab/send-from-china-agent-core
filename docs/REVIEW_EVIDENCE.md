@@ -2,9 +2,10 @@
 
 ## Scope
 
-- Candidate: `0.1.0-rc.4`
-- Review date: 2026-08-16
-- Scope: synthetic read-only Worker, read-only MCP tools, and file-only ETL
+- Candidate: `0.2.0-rc.1`
+- Review date: 2026-08-21
+- Scope: synthetic catalog Worker, guarded synthetic sourcing MCP contract, and
+  file-only ETL
 - Excluded: production catalogs, accounts, payments, orders, supplier systems,
   fulfillment systems, private connectors, and production credentials
 
@@ -36,11 +37,13 @@ node scripts/scan-public.mjs .
 
 ## Recorded Local Results
 
-The 2026-08-16 clean-snapshot run produced these results:
+The 2026-08-21 candidate run produced these results:
 
 - locked dependency installation completed successfully;
 - Worker static checks passed;
-- 11 of 11 Worker tests passed;
+- 17 of 17 Worker tests passed, including sourcing authorization, explicit
+  scope, idempotency, ownership, lifecycle, pagination, and non-commerce
+  boundary coverage;
 - locked dependency installation and the complete test suite passed. The
   registry-backed vulnerability query was attempted, but the local proxy
   rejected the request; this candidate does not claim a fresh audit result;
@@ -51,6 +54,10 @@ The 2026-08-16 clean-snapshot run produced these results:
   network call;
 - the public safety scan found no credential, private host, private path,
   private integration, customer data, or oversized-file finding.
+
+Synthetic sourcing is synchronous and ephemeral in this candidate. These tests
+verify a public client contract; they do not claim a durable production task,
+external provider call, purchasable result, or transaction.
 
 The destination GitHub repository must run `.github/workflows/ci.yml` on the
 exact candidate commit. Until that workflow reaches a successful terminal

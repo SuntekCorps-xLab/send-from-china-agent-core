@@ -29,9 +29,10 @@ supplier, customer-account, or production-store capability.
 | Area | Included capability | Safety posture |
 | --- | --- | --- |
 | Catalog | Cursor pagination, search, product detail | Synthetic data only |
-| Agent API | HTTP endpoints and JSON responses | Read-only |
-| MCP | `search_catalog`, `get_product` | No write tools |
+| Agent API | HTTP endpoints and JSON responses | Catalog remains read-only |
+| MCP | Bounded search, product detail, access check, synthetic sourcing lifecycle | No commerce or production writes |
 | Conversation | Deterministic criteria example | Not represented as a purchasing agent |
+| Sourcing | Authenticated, idempotent preview contract with three synthetic results | Ephemeral, non-billable, and non-purchasable |
 | ETL | Schema validation and Shopify JSONL file build | Writes local files only |
 | Operations | Health check, CI evidence, dependency and safety scans | No production bindings |
 
@@ -44,6 +45,18 @@ git clone https://github.com/Peter-Fu-Collab/send-from-china-agent-core.git
 cd send-from-china-agent-core/governance-worker
 npm ci
 npm run verify
+```
+
+Synthetic sourcing is disabled until a local demo credential is supplied. Put
+a random value of at least 16 characters in an ignored `.dev.vars` file:
+
+```text
+DEMO_AGENT_TOKEN=replace-with-a-locally-generated-random-value
+```
+
+Then start the Worker:
+
+```bash
 npm run dev
 ```
 
@@ -69,7 +82,7 @@ Every demo product is returned as `purchasable=false`,
 | `GET` | `/api/search?q=...` | Ranked synthetic search |
 | `GET` | `/api/products/:handle` | One synthetic product |
 | `POST` | `/api/chat` | Deterministic conversation example |
-| `POST` | `/mcp` | Read-only MCP server |
+| `POST` | `/mcp` | Catalog and guarded synthetic sourcing MCP server |
 
 ### MCP example
 
@@ -79,8 +92,15 @@ curl http://localhost:8787/mcp \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"search_catalog","arguments":{"query":"desk organizer","limit":3}}}'
 ```
 
-The MCP server has exactly two tools. Neither can create a cart, checkout,
-order, payment, sourcing task, or catalog write.
+The MCP server exposes seven tools: bounded product search, catalog search,
+product detail, agent-access inspection, sourcing-task creation, task status,
+and result pagination. The sourcing tools require a bearer credential and only
+accept the non-billable `preview` plan. They create ephemeral in-memory demo
+state; they cannot create or modify a supplier request, product, cart,
+checkout, order, payment, or publication.
+
+See [Synthetic sourcing quick start](docs/SOURCING_QUICKSTART.md) for the full
+tool sequence and idempotency example.
 
 ## Architecture
 
@@ -91,9 +111,12 @@ flowchart LR
     C --> D[Synthetic governed catalog]
     D --> E[Search and product evidence]
     E --> F[Explicit demo-only response]
+    C --> K[Bearer-authenticated preview contract]
+    K --> L[Ephemeral synthetic task and results]
     G[Sample product file] --> H[Schema validator]
     H --> I[Local Shopify JSONL artifact]
     F -. no commerce writes .-> J[External production systems]
+    L -. no production writes .-> J
     I -. no automatic publish .-> J
 ```
 
@@ -129,12 +152,14 @@ ALLOWED_ORIGINS=http://localhost:8787,http://127.0.0.1:8787
 ```
 
 Unknown browser origins fail closed. Requests without an `Origin` header are
-accepted for server-to-server and command-line use. No secret or persistent
-store is needed for this reference.
+accepted for server-to-server and command-line use. Synthetic sourcing also
+requires `DEMO_AGENT_TOKEN`, supplied through `.dev.vars` for local development
+or the deployment platform's secret store. Never commit that value. No
+persistent store is used by this reference.
 
 ## Project status
 
-Current version: `0.1.0-rc.4`.
+Current version: `0.2.0-rc.1`.
 
 This is a release candidate and engineering reference, not a hosted marketplace
 or a production purchasing system. The hosted product has a broader contract;
@@ -167,6 +192,7 @@ scripts/            Repository safety scanner
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md)
+- [Synthetic sourcing quick start](docs/SOURCING_QUICKSTART.md)
 - [Security model](docs/SECURITY_MODEL.md)
 - [Deployment and rollback](docs/DEPLOYMENT.md)
 - [Operations and incident response](docs/OPERATIONS.md)
@@ -179,8 +205,9 @@ scripts/            Repository safety scanner
 <details>
 <summary>Can an agent buy a product with this repository?</summary>
 
-No. The sample catalog is explicitly non-purchasable and the MCP surface is
-read-only.
+No. The sample catalog and synthetic sourcing results are explicitly
+non-purchasable. The MCP surface has no cart, checkout, order, payment, or
+publication capability.
 </details>
 
 <details>
