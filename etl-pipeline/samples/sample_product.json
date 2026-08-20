@@ -1,0 +1,15 @@
+{
+  "products": [
+    {
+      "source_id": "synthetic-001",
+      "title": "Synthetic Modular Desk Organizer",
+      "description_html": "<p>A synthetic product used only for local import validation.</p>",
+      "images": [
+        { "url": "https://images.example.com/synthetic-desk-organizer.jpg" }
+      ],
+      "variants": [
+        { "sku": "DEMO-DESK-001", "price": "19.90" }
+      ]
+    }
+  ]
+}

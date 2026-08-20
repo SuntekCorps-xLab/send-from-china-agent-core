@@ -1,0 +1,11 @@
+.dev.vars
+.env
+.wrangler/
+node_modules/
+build/
+coverage/
+*.log
+__pycache__/
+*.py[cod]
+.DS_Store
+Thumbs.db

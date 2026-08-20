@@ -1,0 +1,9 @@
+Send From China Agent Core
+Copyright 2026 Send From China
+
+This distribution contains only project-authored reference code and synthetic
+sample data. The private production application, Shopify theme, customer data,
+private catalog data, and company-specific integrations are not included.
+
+Wrangler is used as a development dependency under its own license and is not
+bundled as project-authored source code.

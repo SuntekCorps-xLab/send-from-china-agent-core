@@ -1,0 +1,6 @@
+name = "send-from-china-governance-demo"
+main = "src/index.js"
+compatibility_date = "2025-08-01"
+
+[vars]
+ALLOWED_ORIGINS = "http://localhost:8787,http://127.0.0.1:8787"

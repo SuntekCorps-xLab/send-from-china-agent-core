@@ -1,0 +1,20 @@
+name: Setup help
+description: Ask about the documented synthetic demo setup.
+title: "setup: "
+labels: [setup]
+body:
+  - type: markdown
+    attributes:
+      value: Remove tokens, account identifiers, and private URLs before submitting.
+  - type: textarea
+    id: command
+    attributes:
+      label: Command and sanitized output
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Node, Python, and operating system versions
+    validations:
+      required: true

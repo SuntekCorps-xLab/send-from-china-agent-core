@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  worker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: governance-worker/package-lock.json
+      - name: Install locked dependencies
+        working-directory: governance-worker
+        run: npm ci
+      - name: Check and test Worker
+        run: |
+          mkdir -p artifacts
+          cd governance-worker
+          npm run verify 2>&1 | tee ../artifacts/worker-verify.log
+      - name: Audit locked dependencies
+        run: |
+          cd governance-worker
+          npm audit --audit-level=high 2>&1 | tee ../artifacts/npm-audit.log
+      - name: Upload Worker evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: worker-verification
+          path: artifacts/
+
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile Python
+        run: python -m py_compile etl-pipeline/scripts/*.py etl-pipeline/tests/*.py
+      - name: Test product validator
+        run: |
+          mkdir -p artifacts
+          python etl-pipeline/scripts/validate_import.py --source etl-pipeline/samples/sample_product.json --output /tmp/products.json --report artifacts/validation-report.json
+      - name: Test ETL pipeline
+        run: python -m unittest discover -s etl-pipeline/tests -p 'test_*.py' -v 2>&1 | tee artifacts/etl-tests.log
+      - name: Upload Python evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-verification
+          path: artifacts/
+
+  safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Scan public repository
+        run: |
+          mkdir -p artifacts
+          node scripts/scan-public.mjs . 2>&1 | tee artifacts/public-safety-scan.log
+      - name: Upload safety evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-safety-scan
+          path: artifacts/
+
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
