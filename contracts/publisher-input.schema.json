@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/contracts/publisher-input.schema.json",
+  "title": "Catalog Publisher Input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["products", "tenants"],
+  "properties": {
+    "products": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["source_id", "title", "availability_band"],
+        "properties": {
+          "source_id": {"type": "string", "minLength": 1, "maxLength": 200},
+          "slug": {"type": "string", "pattern": "^[a-z0-9-]{1,100}$"},
+          "title": {"type": "string", "minLength": 1, "maxLength": 300},
+          "description": {"type": "string", "maxLength": 5000},
+          "category": {"type": "string", "maxLength": 200},
+          "tags": {"type": "array", "maxItems": 50, "items": {"type": "string", "maxLength": 100}},
+          "images": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["url"],
+              "properties": {
+                "url": {"type": "string", "format": "uri", "pattern": "^https://"},
+                "alt": {"type": "string", "maxLength": 300}
+              }
+            }
+          },
+          "attributes": {"type": "object", "maxProperties": 50, "additionalProperties": {"type": ["string", "number"]}},
+          "price": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["amount", "currency"],
+            "properties": {
+              "amount": {"type": "number", "minimum": 0},
+              "currency": {"type": "string", "pattern": "^[A-Za-z]{3}$"},
+              "tier": {"type": "string", "maxLength": 100}
+            }
+          },
+          "availability_band": {"enum": ["in_stock", "low", "out_of_stock"]},
+          "lead_time_days": {"type": "integer", "minimum": 0},
+          "purchasable": {"type": "boolean"}
+        }
+      }
+    },
+    "tenants": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_ids", "price_tier", "allow_full_enumeration"],
+        "properties": {
+          "source_ids": {"type": "array", "items": {"type": "string"}},
+          "price_tier": {"type": "string", "minLength": 1, "maxLength": 100},
+          "allow_full_enumeration": {"type": "boolean"}
+        }
+      }
+    }
+  }
+}

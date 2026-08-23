@@ -2,14 +2,16 @@
 
 ## Scope
 
-Agent Core is a deployable boundary between a pre-published product snapshot
-and external HTTP or MCP clients. The gateway validates input, resolves a
-tenant, applies product scope and quota controls, and returns only public
-allowlisted fields.
+Agent Core is a deployable boundary between a user-owned product input and
+external HTTP or MCP clients. A local publisher creates the public artifact;
+the gateway validates it, resolves a tenant, applies scope and quota controls,
+and returns only public allowlisted fields.
 
 ```mermaid
 flowchart LR
-    Publisher[Private publisher] -->|one-way public snapshot| Artifact[Published snapshot artifact]
+    Input[User-owned JSON or JSONL] --> Publisher[Local file-only publisher]
+    IdKey[User-owned identifier key] --> Publisher
+    Publisher -->|one-way public snapshot| Artifact[Published snapshot artifact]
     Artifact --> Validator[Atomic snapshot validator]
     Human[HTTP client] --> Gateway[Worker gateway]
     Agent[MCP client] --> Gateway
@@ -20,11 +22,23 @@ flowchart LR
     Policy --> Catalog[Search and product detail]
     Guard --> Catalog
     Catalog --> Quote[Non-binding quote]
-    Gateway -. no runtime connection .-> PrivateSystems[Private systems]
+    Gateway -. no runtime connection .-> SourceEnvironment[Source environment]
 ```
 
 The snapshot arrow is one-way. The public gateway has no credential, route, or
-runtime connection back to the private publishing environment.
+runtime connection back to the publishing environment. The identifier key and
+local source identifiers never cross the artifact boundary.
+
+## Build flow
+
+1. The publisher reads a user-selected JSON or JSONL file.
+2. A keyed one-way function creates stable opaque product identifiers.
+3. Unknown product fields are counted and discarded; malformed public fields
+   fail the whole build.
+4. Tenant source references are resolved to public identifiers.
+5. The snapshot and a data-free verification report are written atomically.
+6. The Node snapshot validator rechecks the exact artifact consumed by the
+   Worker before bundling.
 
 ## Runtime request flow
 
@@ -52,16 +66,24 @@ runtime connection back to the private publishing environment.
 - `src/sourcing.js`: optional fixture preview lifecycle with no commerce writes.
 - `src/index.js`: HTTP routing and error boundaries.
 
+Publisher modules:
+
+- `publisher/build_snapshot.py`: file-only normalization, identifier derivation,
+  tenant resolution, and atomic output.
+- `scripts/validate-snapshot.mjs`: final contract validation using the same
+  snapshot code as the Worker.
+
 ## Deliberate limitations
 
 - The sample snapshot is compiled into the Worker. Runtime filesystem access is
   not available and runtime network access is prohibited.
-- Tenant keys and quota counters are Phase 1 adapters. A multi-isolate
+- Tenant keys and quota counters are reference adapters. A multi-isolate
   production deployment needs durable identity and counters.
 - Quotes are non-binding and use the current snapshot price. No reservation,
   inventory mutation, or checkout is created.
 - The fixture sourcing lifecycle is in-memory, non-billable, and
   non-purchasable.
 
-Private publishers and write-capable commerce systems belong in separate,
-independently reviewed repositories.
+Source connectors and write-capable commerce systems belong in separate,
+independently reviewed repositories. This publisher deliberately accepts files
+instead of connecting to a source platform.

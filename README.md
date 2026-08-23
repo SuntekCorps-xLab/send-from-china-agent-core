@@ -26,8 +26,8 @@ surface. An application, shopping assistant, or automation can:
 
 The gateway has no connection to a private catalog, supplier system, store,
 customer account, payment provider, or order system. It makes no outbound
-runtime network request. You supply a validated published snapshot at build
-time and tenant credentials at deployment time.
+runtime network request. The included local publisher turns your JSON or JSONL
+catalog into a validated build-time snapshot without sending it anywhere.
 
 ## Five-minute local run
 
@@ -140,12 +140,38 @@ Available tools:
 There are no cart, checkout, order, payment, refund, product-write, or publish
 tools in this repository.
 
-## Supply your own published snapshot
+## Publish your own catalog
 
-The sample snapshot is [fixtures/published-catalog.sample.json](fixtures/published-catalog.sample.json).
-Replace it with data that conforms to
-[contracts/published-catalog.schema.json](contracts/published-catalog.schema.json),
-then rebuild or restart the Worker.
+The gateway includes a standard-library Python publisher. It accepts user-owned
+JSON or JSONL, strips fields outside the public contract, creates stable opaque
+identifiers using a key kept in your environment, resolves tenant scopes, and
+writes the final snapshot atomically.
+
+```bash
+export CATALOG_ID_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+python publisher/build_snapshot.py \
+  --source publisher/samples/catalog-input.sample.json \
+  --output build/published-catalog.json \
+  --report build/publisher-report.json
+node scripts/validate-snapshot.mjs build/published-catalog.json
+```
+
+The same input and identifier key produce the same public product IDs. Neither
+the input `source_id` nor the key appears in the snapshot or report. The
+`build/` directory is ignored by Git.
+
+To run the Worker with the generated snapshot, copy it over the development
+fixture before bundling:
+
+```bash
+cp build/published-catalog.json fixtures/published-catalog.sample.json
+cd governance-worker
+npm run verify
+npm run dev
+```
+
+See the complete [publisher guide](publisher/README.md) and
+[publisher input schema](contracts/publisher-input.schema.json).
 
 The snapshot contract contains:
 
@@ -156,7 +182,8 @@ The snapshot contract contains:
 
 Snapshot validation is atomic: one invalid record rejects the whole snapshot.
 The gateway never reads a local file or remote service at runtime. A production
-publisher should create and deliver the snapshot outside this repository. See
+build should treat its input, identifier key, tenant configuration, generated
+snapshot, and deployment bundle as private artifacts. See
 [the identifier contract](publisher/id-mapping.md) and
 [architecture](docs/ARCHITECTURE.md).
 
@@ -231,9 +258,10 @@ scripts/               Repository safety scanner
 
 ## Project boundary
 
-Version `0.3.0-rc.1` is a Phase 1 reference gateway. It is usable for local
-integration, contract tests, and adapting a pre-published catalog. It is not a
-hosted marketplace and cannot complete a purchase.
+Version `0.4.0-rc.1` adds a Phase 2 local publishing path to the reference
+gateway. It is usable for local integration, contract tests, and adapting a
+user-owned catalog. It is not a hosted marketplace and cannot complete a
+purchase.
 
 Before adding a write-capable system, independently design durable identity,
 authorization, idempotency, audit logging, retention, deletion, pricing,

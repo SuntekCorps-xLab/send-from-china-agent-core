@@ -16,6 +16,9 @@ These rules apply to the entire repository.
 - Keep code, comments, fixtures, and documentation in English.
 - Do not commit credentials, production catalog records, internal mappings, customer data, or private integration names.
 - Keep catalog, quote, and sourcing examples non-binding and free of cart, checkout, order, payment, or publication writes.
+- Publisher code may read user-selected local files and write ignored build artifacts, but it must not make network requests.
+- Publisher keys must come from the environment and must never appear in snapshots, reports, exceptions, or logs.
+- Local source identifiers must never appear in a published snapshot or report.
 
 ## Required verification
 
@@ -24,4 +27,5 @@ Run both commands before committing:
 ```bash
 cd governance-worker && npm run verify
 cd .. && node scripts/scan-public.mjs .
+python -m unittest discover -s publisher/tests -p 'test_*.py'
 ```

@@ -2,6 +2,18 @@
 
 All notable changes to the public reference implementation are documented here.
 
+## 0.4.0-rc.1 - 2026-08-23
+
+- Added a standard-library Python publisher for user-owned JSON and JSONL
+  catalogs.
+- Added keyed stable public identifiers without emitting source identifiers or
+  the identifier key.
+- Added tenant source resolution, atomic snapshot and report writes, a
+  publisher input schema, and a synthetic input example.
+- Added a Node-side final snapshot validator and end-to-end CI coverage.
+- Added ten publisher tests and external build, deployment, operations, and
+  troubleshooting documentation.
+
 ## 0.3.0-rc.1 - 2026-08-23
 
 - Replaced the hard-coded four-product catalog with an atomically validated

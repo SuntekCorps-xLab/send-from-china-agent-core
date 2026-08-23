@@ -17,6 +17,8 @@ const PATTERNS = [
   ["Han character", /[\u3400-\u9fff]/u],
   ["outbound fetch in worker", /(?:await|globalThis\.)\s*fetch\s*\(/,
     (path) => path.startsWith("governance-worker/src/")],
+  ["outbound network in publisher", /(?:urllib\.request|requests\s*\.|httpx\s*\.|socket\s*\.|urlopen\s*\()/,
+    (path) => path.startsWith("publisher/") && path.endsWith(".py")],
   ["internal codename", /\b(?:Aquilla|M4X|istore2|advtmanager)\b/i],
 ];
 

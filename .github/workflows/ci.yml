@@ -45,13 +45,20 @@ jobs:
         with:
           python-version: "3.11"
       - name: Compile Python
-        run: python -m py_compile etl-pipeline/scripts/*.py etl-pipeline/tests/*.py
+        run: python -m py_compile etl-pipeline/scripts/*.py etl-pipeline/tests/*.py publisher/*.py publisher/tests/*.py
       - name: Test product validator
         run: |
           mkdir -p artifacts
           python etl-pipeline/scripts/validate_import.py --source etl-pipeline/samples/sample_product.json --output /tmp/products.json --report artifacts/validation-report.json
       - name: Test ETL pipeline
         run: python -m unittest discover -s etl-pipeline/tests -p 'test_*.py' -v 2>&1 | tee artifacts/etl-tests.log
+      - name: Test snapshot publisher
+        run: python -m unittest discover -s publisher/tests -p 'test_*.py' -v 2>&1 | tee artifacts/publisher-tests.log
+      - name: Build and validate a published snapshot
+        run: |
+          export CATALOG_ID_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+          python publisher/build_snapshot.py --source publisher/samples/catalog-input.sample.json --output /tmp/published-catalog.json --report artifacts/publisher-report.json --generated-at 2026-08-23T12:00:00Z
+          node scripts/validate-snapshot.mjs /tmp/published-catalog.json
       - name: Upload Python evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

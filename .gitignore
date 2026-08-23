@@ -3,6 +3,7 @@
 .wrangler/
 node_modules/
 build/
+.publisher-local/
 coverage/
 *.log
 __pycache__/
