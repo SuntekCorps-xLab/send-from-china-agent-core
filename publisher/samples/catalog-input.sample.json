@@ -1,0 +1,59 @@
+{
+  "products": [
+    {
+      "source_id": "sample-desk-001",
+      "title": "Modular Desk Organizer",
+      "description": "Stackable bamboo trays for pens, notes, and small desk accessories.",
+      "category": "Office",
+      "tags": ["desk", "organizer", "storage"],
+      "images": [
+        {
+          "url": "https://images.example.com/catalog/desk-organizer.jpg",
+          "alt": "Modular desk organizer"
+        }
+      ],
+      "attributes": {
+        "material": "bamboo",
+        "width_cm": 24
+      },
+      "price": {
+        "amount": 24.9,
+        "currency": "USD",
+        "tier": "tier_a"
+      },
+      "availability_band": "in_stock",
+      "lead_time_days": 5
+    },
+    {
+      "source_id": "sample-travel-002",
+      "title": "Compact Packing Cube Set",
+      "description": "A lightweight three-piece organizer set for carry-on luggage.",
+      "category": "Travel",
+      "tags": ["travel", "packing", "organizer"],
+      "images": [
+        {
+          "url": "https://images.example.com/catalog/packing-cubes.jpg",
+          "alt": "Compact packing cube set"
+        }
+      ],
+      "attributes": {
+        "material": "recycled polyester",
+        "pieces": 3
+      },
+      "price": {
+        "amount": 18.5,
+        "currency": "USD",
+        "tier": "tier_a"
+      },
+      "availability_band": "low",
+      "lead_time_days": 7
+    }
+  ],
+  "tenants": {
+    "tenant_alpha": {
+      "source_ids": ["sample-desk-001", "sample-travel-002"],
+      "price_tier": "tier_a",
+      "allow_full_enumeration": false
+    }
+  }
+}

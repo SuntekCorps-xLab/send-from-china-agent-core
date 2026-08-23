@@ -7,8 +7,25 @@
 3. Set `ALLOWED_ORIGINS` to the exact HTTPS origins that need browser access.
 4. Inject `TENANT_KEYS` through the destination secret store. Never place it in
    `wrangler.toml` or source control.
-5. Validate the published snapshot and tenant scopes before building.
-6. Confirm the deployment exposes no commerce or production write route.
+5. Keep `CATALOG_ID_KEY`, source files, and tenant source configuration in the
+   publishing environment only.
+6. Build the snapshot and validate it with `scripts/validate-snapshot.mjs`.
+7. Confirm the deployment exposes no commerce or production write route.
+
+## Build the snapshot
+
+```bash
+python publisher/build_snapshot.py \
+  --source PATH_TO_CATALOG.json \
+  --output build/published-catalog.json \
+  --report build/publisher-report.json
+node scripts/validate-snapshot.mjs build/published-catalog.json
+cp build/published-catalog.json fixtures/published-catalog.sample.json
+```
+
+The input, identifier key, generated snapshot, and bundled production artifact
+must remain private. The report is designed for CI evidence and contains no
+product records or local identifiers.
 
 ## Cloudflare Worker
 

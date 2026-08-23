@@ -13,6 +13,7 @@ system credentials.
 | --- | --- | --- |
 | Worker code contains no private system address, connection string, credential, or account | Repository safety scan and review boundary | `scripts/scan-public.mjs` |
 | Worker runtime makes no outbound network request | Source scan scoped to Worker runtime and a fetch-blocking integration test | `test/no-egress.test.js` |
+| Publisher makes no outbound network request | Source scan scoped to publisher Python files | `scripts/scan-public.mjs` |
 | Product output uses a positive field allowlist | `toPublicProduct` reconstructs every response | `test/field-policy.test.js` |
 
 ## Trust boundaries
@@ -25,14 +26,17 @@ system credentials.
 - Restricted tenants cannot enumerate the full catalog.
 - A product outside a tenant scope returns the same not-found behavior as an
   unknown product.
-- The private publisher is outside the runtime boundary; only its public
-  snapshot artifact crosses into this project.
+- The publisher runs outside the gateway runtime; only its public snapshot
+  artifact crosses into the Worker bundle.
 
 ## Controls
 
 - Constant-time credential comparison.
 - Positive product field allowlist with atomic snapshot rejection.
-- Opaque public identifiers with no public mapping implementation.
+- Opaque public identifiers derived with a user-owned key that is never written
+  to an artifact.
+- Local source identifiers are removed before both snapshot and report output.
+- File-only publisher with atomic output and no network client.
 - Maximum request body, query, cursor, and tenant-specific page sizes.
 - Search result truncation and a reference daily quota with `Retry-After`.
 - Generic error codes that do not echo input, dropped fields, or stack traces.
@@ -41,13 +45,13 @@ system credentials.
 - No cart, checkout, order, payment, refund, product-write, or publication tool.
 - Lockfile, pinned CI actions, dependency audit, and repository safety scan.
 
-## Phase 1 limitations
+## Reference limitations
 
 `TENANT_KEYS` is deployment JSON and the quota counter is per isolate. Replace
 both with audited durable services before a multi-instance production rollout.
-The checked-in snapshot is a synthetic fixture. A real publisher must validate
-catalog ownership, media rights, customer-visible pricing, availability, and
-retention before producing a snapshot.
+The checked-in snapshot and publisher input are synthetic fixtures. A deployer
+must validate catalog ownership, media rights, customer-visible pricing,
+availability, and retention before producing a real snapshot.
 
 The optional sourcing preview is fixture state and disappears on restart. It
 cannot represent a supplier commitment or business transaction.
@@ -61,6 +65,7 @@ npm run verify
 npm audit --audit-level=high
 cd ..
 node scripts/scan-public.mjs .
+python -m unittest discover -s publisher/tests -p 'test_*.py'
 ```
 
 Additional coverage:
@@ -70,3 +75,5 @@ Additional coverage:
 - `test/enumeration.test.js`: page limits, quota, and enumeration denial.
 - `test/quote.test.js`: non-binding quote and tenant-bound price access.
 - `test/no-egress.test.js`: every HTTP route and MCP tool with outbound fetch disabled.
+- `publisher/tests/test_build_snapshot.py`: stable identifiers, source-field
+  removal, tenant resolution, malformed input rejection, and atomic output.

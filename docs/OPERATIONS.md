@@ -14,6 +14,18 @@ payment flow, order flow, or commerce write-capable tool.
 - Use the response `X-Request-Id` to correlate a report with platform logs.
 - Do not log request bodies, authorization headers, cookies, or client data.
 
+## Snapshot Publication
+
+- Reuse the same identifier key for every routine publication.
+- Run the publisher, Node snapshot validator, Worker tests, and safety scan in
+  that order.
+- Compare `product_count`, `tenant_count`, freshness timestamps, and
+  `snapshot_sha256` with the expected release manifest.
+- Never upload source files, keys, local identifiers, or production snapshots
+  as public CI artifacts.
+- Treat an unexpected large count change, discarded field count, or identifier
+  churn as a failed release.
+
 The service intentionally has no analytics SDK. A deployer may use platform
 request metrics, but must document retention, access, and privacy boundaries
 before adding application telemetry.

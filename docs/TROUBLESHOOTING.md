@@ -39,6 +39,30 @@ integration testing, not billing.
 Browsing may display a stale snapshot with its `as_of` timestamp. Quotes fail
 closed until a snapshot with a future `valid_until` is deployed.
 
+## Publisher `ID_KEY_TOO_SHORT`
+
+Set `CATALOG_ID_KEY` in the local environment to a randomly generated value of
+at least 32 bytes. Reuse the same value on later builds. Do not add it to a
+file, CLI argument, issue, or log.
+
+## Publisher `UNKNOWN_TENANT_PRODUCT`
+
+A tenant scope references a `source_id` that is not present in the same input.
+Correct the source file or tenant configuration; the publisher deliberately
+rejects the entire snapshot.
+
+## Publisher Output Changes Every Run
+
+Product identifiers change only when the identifier key or source ID changes.
+Timestamps change by default. Pass a fixed `--generated-at` for reproducible
+contract tests, but use the real publication time for deployments.
+
+## Publisher `INVALID_OUTPUT_PATH`
+
+The snapshot and report must use different paths and neither may overwrite the
+source catalog or tenant configuration. Choose paths under the ignored
+`build/` directory.
+
 ## A Sourcing Task Disappeared
 
 This release deliberately stores synthetic tasks and idempotency records only
