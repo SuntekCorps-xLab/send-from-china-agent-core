@@ -2,49 +2,66 @@
 
 ## Scope
 
-The public project demonstrates a read-only agent-ready catalog plus a guarded
-synthetic sourcing lifecycle. It deliberately stops before production identity,
-payment, ordering, procurement, fulfillment, and private product-governance
-systems.
+Agent Core is a deployable boundary between a pre-published product snapshot
+and external HTTP or MCP clients. The gateway validates input, resolves a
+tenant, applies product scope and quota controls, and returns only public
+allowlisted fields.
 
 ```mermaid
 flowchart LR
-    Human[Human client] --> HTTP[HTTP catalog API]
-    Agent[Software agent] --> MCP[Catalog and preview MCP]
-    HTTP --> Router[Worker router]
-    MCP --> Router
-    Router --> Catalog[Synthetic catalog]
-    Router --> Sourcing[Ephemeral synthetic sourcing state]
-    Source[Synthetic product JSON] --> Validator[Schema validation]
-    Validator --> Builder[Shopify JSONL file builder]
-    Builder --> Artifact[Local file artifact]
+    Publisher[Private publisher] -->|one-way public snapshot| Artifact[Published snapshot artifact]
+    Artifact --> Validator[Atomic snapshot validator]
+    Human[HTTP client] --> Gateway[Worker gateway]
+    Agent[MCP client] --> Gateway
+    KeyStore[Deployment tenant keys] --> Gateway
+    Validator --> Gateway
+    Gateway --> Policy[Positive field policy]
+    Gateway --> Guard[Tenant scope, quota, anti-enumeration]
+    Policy --> Catalog[Search and product detail]
+    Guard --> Catalog
+    Catalog --> Quote[Non-binding quote]
+    Gateway -. no runtime connection .-> PrivateSystems[Private systems]
 ```
 
-## Request Flow
+The snapshot arrow is one-way. The public gateway has no credential, route, or
+runtime connection back to the private publishing environment.
 
-1. The Worker assigns a request identifier.
-2. Browser origins are checked against `ALLOWED_ORIGINS`.
-3. Request paths, methods, sizes, and parameters are validated.
-4. The router calls pure catalog functions or the MCP dispatcher.
-5. Authenticated sourcing calls validate plan, criteria, destination,
-   idempotency key, ownership, cursor, and quota before touching demo state.
-6. Responses receive no-store caching and defensive security headers.
+## Runtime request flow
 
-There is no runtime database and no external network request. Synthetic tasks
-live only in one Worker isolate and disappear on restart. This cannot lose a
-business transaction because the public demo performs no business transaction.
-The displayed lifecycle is completed synchronously as a contract fixture; it is
-not evidence of an asynchronous production workflow.
+1. The Worker assigns a request identifier and validates the browser origin.
+2. `/health`, MCP `initialize`, and MCP `tools/list` remain public.
+3. Data requests resolve a tenant from the deployment-injected key registry
+   using constant-time comparison.
+4. The tenant's page limit, daily quota, product identifiers, and enumeration
+   policy are applied.
+5. Catalog functions read the in-memory validated snapshot.
+6. Every product is rebuilt through `toPublicProduct`; unknown fields are not
+   copied into the response.
+7. Browsing responses include snapshot `as_of`. Quote requests fail when the
+   active snapshot is stale and otherwise expire after 15 minutes.
 
-## Module Boundaries
+## Module boundaries
 
-- `src/catalog.js`: immutable synthetic products, ranking, and pagination.
-- `src/http.js`: HTTP limits, CORS, identifiers, headers, and safe errors.
-- `src/mcp.js`: JSON-RPC dispatch for catalog and synthetic sourcing tools.
-- `src/sourcing.js`: bearer authorization, scoped preview access, ephemeral
-  idempotency, task ownership, lifecycle fixtures, and result pagination.
-- `src/index.js`: routing and response composition.
+- `src/field-policy.js`: positive public product field policy.
+- `src/snapshot.js`: pure validation and atomic activation of snapshot data.
+- `src/tenant.js`: tenant key resolution, scopes, page limits, and reference quota counter.
+- `src/catalog.js`: tenant-filtered ranking, pagination, and detail lookup.
+- `src/quote.js`: short-lived non-binding quote contract.
+- `src/http.js`: request limits, CORS, response headers, and safe errors.
+- `src/mcp.js`: public discovery and authenticated tool dispatch.
+- `src/sourcing.js`: optional fixture preview lifecycle with no commerce writes.
+- `src/index.js`: HTTP routing and error boundaries.
 
-Provider integrations should be implemented behind separate interfaces in a
-downstream project. Do not add private endpoints or credentials to this public
-repository.
+## Deliberate limitations
+
+- The sample snapshot is compiled into the Worker. Runtime filesystem access is
+  not available and runtime network access is prohibited.
+- Tenant keys and quota counters are Phase 1 adapters. A multi-isolate
+  production deployment needs durable identity and counters.
+- Quotes are non-binding and use the current snapshot price. No reservation,
+  inventory mutation, or checkout is created.
+- The fixture sourcing lifecycle is in-memory, non-billable, and
+  non-purchasable.
+
+Private publishers and write-capable commerce systems belong in separate,
+independently reviewed repositories.

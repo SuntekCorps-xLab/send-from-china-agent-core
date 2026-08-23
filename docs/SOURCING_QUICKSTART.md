@@ -1,26 +1,27 @@
 # Synthetic Sourcing Quick Start
 
-This walkthrough lets an external agent exercise the sourcing contract without
-touching a supplier, production catalog, cart, checkout, order, or payment.
-Every task and result is synthetic, non-billable, non-purchasable, and stored
-only in one Worker isolate's memory.
+This walkthrough lets an external agent exercise the fixture sourcing contract
+without touching a supplier, private catalog, cart, checkout, order, or
+payment. Every task and result is non-billable, non-purchasable, and stored only
+in one Worker isolate's memory.
 
 ## 1. Configure the local boundary
 
-Create an ignored `governance-worker/.dev.vars` file containing a random value
-of at least 16 characters:
+Copy `governance-worker/.dev.vars.example` to an ignored `.dev.vars` file and
+replace the local test key before sharing the deployment:
 
 ```text
-DEMO_AGENT_TOKEN=replace-with-a-locally-generated-random-value
+TENANT_KEYS={"<random-key>":{"tenant_id":"tenant_alpha","max_page_size":5,"daily_quota":100}}
 ```
 
-Start the service from `governance-worker` with `npm run dev`. Keep the same
-value in the client's process as `DEMO_AGENT_TOKEN`; never paste it into an
-issue, log, URL, screenshot, or committed file.
+Start the service from `governance-worker` with `npm run dev`. Keep the key in
+the client's controlled environment; never paste it into an issue, log, URL,
+screenshot, or committed file.
 
 ## 2. Discover and verify access
 
-Call MCP `tools/list`, then call `get_agent_access` with the bearer credential.
+Call MCP `tools/list` without a credential, then call `get_agent_access` with
+the bearer credential.
 The response must include:
 
 - `catalog:read`, `sourcing:read`, and `sourcing:write` scopes;
@@ -77,7 +78,7 @@ Repeat the identical call to verify it returns the same `task.id` with
 
 Call `get_sourcing_task` with the returned ID, then page through
 `list_sourcing_results`. The demo synchronously reports the lifecycle
-`QUEUED -> SOURCING -> GOVERNING -> RESULTS_READY` and returns three reviewed
+`QUEUED -> SOURCING -> GOVERNING -> RESULTS_READY` and returns up to three
 fixtures. Every result must remain `available=false`, `purchasable=false`, with
 no product or add-to-cart URL.
 

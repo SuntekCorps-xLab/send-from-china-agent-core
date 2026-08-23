@@ -5,10 +5,10 @@
 1. Use Node.js 22 or newer.
 2. Run `npm ci`, `npm run verify`, and the repository safety scan.
 3. Set `ALLOWED_ORIGINS` to the exact HTTPS origins that need browser access.
-4. Generate `DEMO_AGENT_TOKEN` in the destination secret store if synthetic
-   sourcing will be tested; otherwise leave it unset so the tools fail closed.
-5. Confirm the deployment still uses synthetic data and exposes no commerce or
-   production write route.
+4. Inject `TENANT_KEYS` through the destination secret store. Never place it in
+   `wrangler.toml` or source control.
+5. Validate the published snapshot and tenant scopes before building.
+6. Confirm the deployment exposes no commerce or production write route.
 
 ## Cloudflare Worker
 
@@ -26,13 +26,14 @@ Verify after deployment:
 
 ```bash
 curl https://YOUR_WORKER.example/health
-curl "https://YOUR_WORKER.example/api/search?q=desk"
+curl "https://YOUR_WORKER.example/api/search?q=desk" \
+  -H "Authorization: Bearer ${TENANT_KEY}"
 ```
 
-The health response must report `mode=synthetic_demo` and
-`writes_enabled=false`. It reports `sourcing_demo_enabled=true` only when a
-valid demo token is configured and `sourcing_state=ephemeral_synthetic` in
-either case.
+The health response must report `mode=published_snapshot_gateway`,
+`writes_enabled=false`, the expected snapshot timestamps, and
+`tenant_auth_configured=true`. A stale snapshot may remain browsable, but the
+quote route fails closed until a fresh snapshot is deployed.
 
 ## Rollback
 
@@ -41,6 +42,7 @@ version, then repeat both verification requests. If origin policy is wrong,
 restore the previous `ALLOWED_ORIGINS` value instead of weakening it to `*`.
 
 This reference project has no migration, database, or persistent queue to roll
-back. Deploying or rolling back clears ephemeral sourcing tasks and idempotency
-records. A downstream production integration must document durable migrations,
-queues, and recovery independently.
+back. Deploying or rolling back clears quotas, fixture sourcing tasks, and
+idempotency records. Rollback also restores the snapshot bundled with that
+deployment. A downstream integration must document durable migrations, queues,
+and recovery independently.

@@ -8,8 +8,8 @@ use a wildcard as a quick fix.
 
 ## `INVALID_QUERY`, `INVALID_LIMIT`, or `INVALID_CURSOR`
 
-Queries must be 1 to 300 characters. Page size must be 1 to 50. Cursors are
-opaque and must be reused exactly as returned.
+Queries must be 1 to 300 characters. Page size cannot exceed the tenant's
+`max_page_size`. Cursors are opaque and must be reused exactly as returned.
 
 ## `PAYLOAD_TOO_LARGE`
 
@@ -18,15 +18,26 @@ than 20 messages.
 
 ## Search Finds Few Products
 
-The repository contains four synthetic products by design. It is suitable for
-contract and interface testing, not merchandising evaluation.
+The sample snapshot contains twelve products split between two tenant scopes.
+Search only sees identifiers allowed for the current tenant.
 
-## `SOURCING_DEMO_DISABLED` or `INVALID_AGENT_TOKEN`
+## `MISSING_CREDENTIAL`, `INVALID_CREDENTIAL`, or `AUTH_CONFIGURATION_ERROR`
 
-Synthetic sourcing is fail-closed. Configure a random `DEMO_AGENT_TOKEN` of at
-least 16 characters in local `.dev.vars` or the platform secret store, then
-send the same value as a bearer credential. Do not place it in source, a URL,
-an issue, or a test artifact.
+Copy `.dev.vars.example` to `.dev.vars`, replace the local test key, and send it
+as a bearer credential. `AUTH_CONFIGURATION_ERROR` means `TENANT_KEYS` is
+missing or malformed. Do not place a real key in source, a URL, an issue, or a
+test artifact.
+
+## `ENUMERATION_NOT_ALLOWED` or `QUOTA_EXCEEDED`
+
+Restricted tenants cannot call `/api/catalog`; use `/api/search`. Quota errors
+include `Retry-After`. Phase 1 counters are per isolate and intended for
+integration testing, not billing.
+
+## `CATALOG_STALE`
+
+Browsing may display a stale snapshot with its `as_of` timestamp. Quotes fail
+closed until a snapshot with a future `valid_until` is deployed.
 
 ## A Sourcing Task Disappeared
 

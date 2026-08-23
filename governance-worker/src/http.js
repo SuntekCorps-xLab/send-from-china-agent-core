@@ -1,6 +1,6 @@
 export const MAX_BODY_BYTES = 32 * 1024;
 export const MAX_QUERY_CHARS = 300;
-export const MAX_PAGE_SIZE = 50;
+export const MAX_PAGE_SIZE = 100;
 
 function baseHeaders(requestId) {
   return {
@@ -53,10 +53,10 @@ export function errorResponse(code, status, id, extraHeaders = {}) {
   return jsonResponse({ error: { code }, request_id: id }, status, id, extraHeaders);
 }
 
-export function parseLimit(value, fallback = 20) {
+export function parseLimit(value, fallback = 20, maximum = MAX_PAGE_SIZE) {
   if (value === null || value === "") return fallback;
   const parsed = Number.parseInt(value, 10);
-  return Number.isSafeInteger(parsed) && parsed >= 1 && parsed <= MAX_PAGE_SIZE ? parsed : null;
+  return Number.isSafeInteger(parsed) && parsed >= 1 && parsed <= maximum ? parsed : null;
 }
 
 export function parseQuery(value) {

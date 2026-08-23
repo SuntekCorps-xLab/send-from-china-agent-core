@@ -2,232 +2,245 @@
 
 # Send From China Agent Core
 
-**A governed, agent-ready commerce reference for catalog discovery and safe tool use.**
+**A self-hosted, tenant-scoped catalog gateway for commerce agents.**
 
-[![Release candidate](https://img.shields.io/badge/status-release%20candidate-c64b1a)](#project-status)
 [![CI](https://github.com/Peter-Fu-Collab/send-from-china-agent-core/actions/workflows/ci.yml/badge.svg)](https://github.com/Peter-Fu-Collab/send-from-china-agent-core/actions/workflows/ci.yml)
 [![Node.js 22](https://img.shields.io/badge/Node.js-22-142b2f)](governance-worker/package.json)
-[![Python 3.11](https://img.shields.io/badge/Python-3.11-142b2f)](.github/workflows/ci.yml)
+[![MCP](https://img.shields.io/badge/MCP-2025--06--18-c64b1a)](contracts/openapi.yaml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-6b7c70)](LICENSE)
 
-<img src="docs/images/governed-commerce-hero.png" alt="Illustration of a catalog flowing through governance and evidence checks to a guarded commerce boundary" width="100%">
+<img src="docs/images/governed-commerce-hero.png" alt="A published product snapshot passing through governance controls to HTTP and MCP clients" width="100%">
 
 </div>
 
-## Why this exists
+## What you can build with it
 
-Commerce agents need more than search. They need explicit facts, bounded tools,
-stable identifiers, honest availability semantics, and a hard boundary before
-any customer or merchant write. This repository is a small, runnable reference
-for those foundations.
+Agent Core turns a pre-published product snapshot into a guarded HTTP and MCP
+surface. An application, shopping assistant, or automation can:
 
-It deliberately uses synthetic products and exposes no order, payment, publish,
-supplier, customer-account, or production-store capability.
+- search a catalog without receiving unrestricted enumeration access;
+- read tenant-visible product facts through a positive field allowlist;
+- request a short-lived, non-binding quote;
+- inspect its own scopes and explicit non-transactional permissions;
+- run an idempotent fixture sourcing preview after a catalog miss.
 
-## What is included
+The gateway has no connection to a private catalog, supplier system, store,
+customer account, payment provider, or order system. It makes no outbound
+runtime network request. You supply a validated published snapshot at build
+time and tenant credentials at deployment time.
 
-| Area | Included capability | Safety posture |
-| --- | --- | --- |
-| Catalog | Cursor pagination, search, product detail | Synthetic data only |
-| Agent API | HTTP endpoints and JSON responses | Catalog remains read-only |
-| MCP | Bounded search, product detail, access check, synthetic sourcing lifecycle | No commerce or production writes |
-| Conversation | Deterministic criteria example | Not represented as a purchasing agent |
-| Sourcing | Authenticated, idempotent preview contract with three synthetic results | Ephemeral, non-billable, and non-purchasable |
-| ETL | Schema validation and Shopify JSONL file build | Writes local files only |
-| Operations | Health check, CI evidence, dependency and safety scans | No production bindings |
+## Five-minute local run
 
-## Quick start
-
-Requirements: Node.js 22+ and Python 3.11+.
+Requirements: Node.js 22+ and npm.
 
 ```bash
 git clone https://github.com/Peter-Fu-Collab/send-from-china-agent-core.git
 cd send-from-china-agent-core/governance-worker
 npm ci
+cp .dev.vars.example .dev.vars
 npm run verify
-```
-
-Synthetic sourcing is disabled until a local demo credential is supplied. Put
-a random value of at least 16 characters in an ignored `.dev.vars` file:
-
-```text
-DEMO_AGENT_TOKEN=replace-with-a-locally-generated-random-value
-```
-
-Then start the Worker:
-
-```bash
 npm run dev
 ```
 
-In another terminal:
+On Windows PowerShell, replace the copy command with:
+
+```powershell
+Copy-Item .dev.vars.example .dev.vars
+```
+
+The checked-in key is an obvious local test value. Replace it before sharing a
+development deployment. In another terminal, set the same value locally:
+
+```bash
+export TENANT_KEY="key_test_alpha_1234567890"
+```
+
+PowerShell equivalent:
+
+```powershell
+$env:TENANT_KEY = "key_test_alpha_1234567890"
+```
+
+Check the public health endpoint:
 
 ```bash
 curl http://localhost:8787/health
-curl "http://localhost:8787/api/catalog?limit=3"
-curl "http://localhost:8787/api/search?q=desk%20organizer"
 ```
 
-Every demo product is returned as `purchasable=false`,
-`availability=demo_only`, and `source=synthetic_demo`.
-
-## Agent interface
-
-### HTTP surface
-
-| Method | Path | Purpose |
-| --- | --- | --- |
-| `GET` | `/health` | Readiness and operating mode |
-| `GET` | `/api/catalog` | Cursor-paginated synthetic catalog |
-| `GET` | `/api/search?q=...` | Ranked synthetic search |
-| `GET` | `/api/products/:handle` | One synthetic product |
-| `POST` | `/api/chat` | Deterministic conversation example |
-| `POST` | `/mcp` | Catalog and guarded synthetic sourcing MCP server |
-
-### MCP example
+Search the five products visible to the sample tenant:
 
 ```bash
-curl http://localhost:8787/mcp \
+curl "http://localhost:8787/api/search?q=desk&limit=5" \
+  -H "Authorization: Bearer ${TENANT_KEY}"
+```
+
+Read one product by public slug:
+
+```bash
+curl http://localhost:8787/api/products/modular-desk-organizer \
+  -H "Authorization: Bearer ${TENANT_KEY}"
+```
+
+Create a non-binding quote:
+
+```bash
+curl http://localhost:8787/api/quote \
+  -H "Authorization: Bearer ${TENANT_KEY}" \
   -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"search_catalog","arguments":{"query":"desk organizer","limit":3}}}'
+  -d '{"public_id":"A1b2C3d4E5f6G7h8J9k0Lm","quantity":2,"ship_to":"US"}'
 ```
 
-The MCP server exposes seven tools: bounded product search, catalog search,
-product detail, agent-access inspection, sourcing-task creation, task status,
-and result pagination. The sourcing tools require a bearer credential and only
-accept the non-billable `preview` plan. They create ephemeral in-memory demo
-state; they cannot create or modify a supplier request, product, cart,
-checkout, order, payment, or publication.
+Expected quote shape:
 
-See [Synthetic sourcing quick start](docs/SOURCING_QUICKSTART.md) for the full
-tool sequence and idempotency example.
-
-## Architecture
-
-```mermaid
-flowchart LR
-    A[Human or software agent] --> B[HTTP / MCP boundary]
-    B --> C[Input validation]
-    C --> D[Synthetic governed catalog]
-    D --> E[Search and product evidence]
-    E --> F[Explicit demo-only response]
-    C --> K[Bearer-authenticated preview contract]
-    K --> L[Ephemeral synthetic task and results]
-    G[Sample product file] --> H[Schema validator]
-    H --> I[Local Shopify JSONL artifact]
-    F -. no commerce writes .-> J[External production systems]
-    L -. no production writes .-> J
-    I -. no automatic publish .-> J
+```json
+{
+  "quote_id": "quote_<random-id>",
+  "public_id": "A1b2C3d4E5f6G7h8J9k0Lm",
+  "unit_price": {"amount": 24.9, "currency": "USD"},
+  "quantity": 2,
+  "availability": "in_stock",
+  "expires_at": "<ISO-8601 timestamp>",
+  "binding": false
+}
 ```
 
-See [Architecture](docs/ARCHITECTURE.md) and
-[Security model](docs/SECURITY_MODEL.md) for trust boundaries and failure
-behavior.
+## Connect an MCP client
 
-## Product import dry run
+MCP discovery is public so clients can call `initialize` and `tools/list`
+before a key is configured. Every `tools/call` requires a tenant credential.
 
-The ETL example builds files only. It does not connect to Shopify.
+Use this server definition in an MCP client that supports custom headers:
 
-```bash
-python etl-pipeline/scripts/validate_import.py \
-  --source etl-pipeline/samples/sample_product.json \
-  --output build/products.normalized.json \
-  --report build/validation-report.json
-
-python etl-pipeline/scripts/build_shopify_jsonl.py \
-  --input build/products.normalized.json \
-  --output build/shopify-products.jsonl \
-  --manifest build/import-manifest.json
+```json
+{
+  "mcpServers": {
+    "commerce-catalog": {
+      "url": "http://localhost:8787/mcp",
+      "headers": {
+        "Authorization": "Bearer ${TENANT_KEY}"
+      }
+    }
+  }
+}
 ```
 
-The sample image URL is a placeholder. A deployer must verify product data and
-image rights before using any generated artifact.
+Available tools:
 
-## Configuration
+| Tool | Purpose |
+| --- | --- |
+| `product_search` | Criteria-first bounded search with terminal status |
+| `search_catalog` | Tenant-scoped catalog search |
+| `get_product` | Product detail by public slug |
+| `get_quote` | Short-lived, non-binding quote |
+| `get_agent_access` | Tenant scope and permissions |
+| `create_sourcing_task` | Idempotent fixture preview |
+| `get_sourcing_task` | Preview task status |
+| `list_sourcing_results` | Paginated non-purchasable preview results |
 
-The Worker has one non-secret setting:
+There are no cart, checkout, order, payment, refund, product-write, or publish
+tools in this repository.
+
+## Supply your own published snapshot
+
+The sample snapshot is [fixtures/published-catalog.sample.json](fixtures/published-catalog.sample.json).
+Replace it with data that conforms to
+[contracts/published-catalog.schema.json](contracts/published-catalog.schema.json),
+then rebuild or restart the Worker.
+
+The snapshot contract contains:
+
+- `generated_at` and `valid_until` freshness boundaries;
+- public product records accepted by the field allowlist;
+- opaque 22-character public product identifiers;
+- per-tenant product scopes and price tiers.
+
+Snapshot validation is atomic: one invalid record rejects the whole snapshot.
+The gateway never reads a local file or remote service at runtime. A production
+publisher should create and deliver the snapshot outside this repository. See
+[the identifier contract](publisher/id-mapping.md) and
+[architecture](docs/ARCHITECTURE.md).
+
+## Configure tenants
+
+`TENANT_KEYS` is a JSON object injected through `.dev.vars` locally or your
+deployment platform's secret store:
 
 ```text
-ALLOWED_ORIGINS=http://localhost:8787,http://127.0.0.1:8787
+TENANT_KEYS={"<random-key>":{"tenant_id":"tenant_alpha","max_page_size":5,"daily_quota":100}}
 ```
 
-Unknown browser origins fail closed. Requests without an `Origin` header are
-accepted for server-to-server and command-line use. Synthetic sourcing also
-requires `DEMO_AGENT_TOKEN`, supplied through `.dev.vars` for local development
-or the deployment platform's secret store. Never commit that value. No
-persistent store is used by this reference.
+The tenant identifier selects the matching scope in the published snapshot.
+Optional deployment fields are `product_ids`, `price_tier`,
+`allow_full_enumeration`, `max_page_size`, and `daily_quota`.
 
-## Project status
+Restricted tenants cannot call `GET /api/catalog`. They can use bounded search,
+and search stops returning cursors after 200 results. Quota errors return HTTP
+429 with `Retry-After`. The in-memory counter is a Phase 1 reference and must be
+replaced by durable storage for multi-isolate production use.
 
-Current version: `0.2.0-rc.1`.
+## HTTP API
 
-This is a release candidate and engineering reference, not a hosted marketplace
-or a production purchasing system. The hosted product has a broader contract;
-production behavior must not be inferred from this synthetic starter.
+| Method | Path | Credential | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/health` | No | Snapshot freshness and gateway state |
+| `GET` | `/api/catalog` | Yes | Full listing only for explicitly allowed tenants |
+| `GET` | `/api/search?q=...` | Yes | Bounded tenant-scoped search |
+| `GET` | `/api/products/:slug` | Yes | One tenant-visible product |
+| `POST` | `/api/quote` | Yes | Short-lived non-binding quote |
+| `POST` | `/api/chat` | Yes | Deterministic search conversation example |
+| `POST` | `/mcp` | Mixed | Public discovery; authenticated tool calls |
 
-## Production boundary
+The complete request and error contract is in
+[contracts/openapi.yaml](contracts/openapi.yaml).
 
-A real deployment must independently provide and review:
+## Security properties
 
-- catalog ownership, compliance, media rights, and lifecycle controls;
-- authentication, authorization, customer isolation, and deletion;
-- truthful price, inventory, tax, shipping, and purchasability semantics;
-- durable idempotency for sourcing, cart, checkout, order, and refund writes;
-- queues, replay controls, observability, retention, and incident response;
-- model privacy and prompt-injection controls when an LLM is introduced.
+Three invariants are enforced in code and tests:
 
-Do not attach write-capable systems to this starter without an authorization
-design, durable idempotency, and an independent security review.
+1. Worker code contains no private system address or credential.
+2. Worker runtime code makes no outbound request.
+3. Product responses pass through a positive field allowlist.
+
+Additional controls include constant-time credential comparison, tenant product
+isolation, page-size limits, anti-enumeration behavior, daily quotas, generic
+errors, restrictive response headers, and a repository safety scan.
+
+Run the full verification suite:
+
+```bash
+cd governance-worker
+npm run verify
+cd ..
+node scripts/scan-public.mjs .
+```
+
+See [Security model](docs/SECURITY_MODEL.md) for the exact test files behind
+each claim.
 
 ## Repository map
 
 ```text
-governance-worker/  Cloudflare Worker, HTTP/MCP contracts, tests
-etl-pipeline/       Product schema, synthetic sample, file-only transforms
-docs/               Architecture, security, deployment, operations
-scripts/            Repository safety scanner
-.github/            CI, dependency review, issue and review templates
+contracts/            Snapshot schema and OpenAPI contract
+fixtures/             Synthetic published snapshot for local use
+governance-worker/    HTTP and MCP gateway with tests
+publisher/            Public-side publishing rules, never private mappings
+etl-pipeline/          File-only product validation examples
+docs/                  Architecture, deployment, operations, and security
+scripts/               Repository safety scanner
 ```
 
-## Documentation
+## Project boundary
 
-- [Architecture](docs/ARCHITECTURE.md)
-- [Synthetic sourcing quick start](docs/SOURCING_QUICKSTART.md)
-- [Security model](docs/SECURITY_MODEL.md)
-- [Deployment and rollback](docs/DEPLOYMENT.md)
-- [Operations and incident response](docs/OPERATIONS.md)
-- [Troubleshooting and limits](docs/TROUBLESHOOTING.md)
-- [Release process](docs/RELEASING.md)
-- [Verification evidence](docs/REVIEW_EVIDENCE.md)
+Version `0.3.0-rc.1` is a Phase 1 reference gateway. It is usable for local
+integration, contract tests, and adapting a pre-published catalog. It is not a
+hosted marketplace and cannot complete a purchase.
 
-## FAQ
+Before adding a write-capable system, independently design durable identity,
+authorization, idempotency, audit logging, retention, deletion, pricing,
+inventory, tax, shipping, returns, and incident response.
 
-<details>
-<summary>Can an agent buy a product with this repository?</summary>
+## License and support
 
-No. The sample catalog and synthetic sourcing results are explicitly
-non-purchasable. The MCP surface has no cart, checkout, order, payment, or
-publication capability.
-</details>
-
-<details>
-<summary>Does the repository include a real catalog or customer data?</summary>
-
-No. All checked-in products are synthetic and no production credentials or
-customer records are required.
-</details>
-
-<details>
-<summary>Is this the full Send From China production stack?</summary>
-
-No. It is the smallest independently runnable contract intended for review,
-testing, and extension.
-</details>
-
-## Security and license
-
-Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
-Never place credentials, private catalog records, or customer data in an issue.
-
-Licensed under the Apache License 2.0. See [LICENSE](LICENSE) and
-[NOTICE](NOTICE).
+Licensed under Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+Report vulnerabilities privately through [SECURITY.md](SECURITY.md). Use the
+issue templates for reproducible bugs and setup questions.

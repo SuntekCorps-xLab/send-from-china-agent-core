@@ -1,0 +1,323 @@
+openapi: 3.1.0
+info:
+  title: Send From China Agent Core API
+  version: 0.3.0-rc.1
+  description: Tenant-scoped, read-only catalog and non-binding quote gateway.
+  license:
+    name: Apache-2.0
+    identifier: Apache-2.0
+servers:
+  - url: https://agent-core.invalid
+    description: Replace with the deployed Worker URL
+tags:
+  - name: System
+    description: Public readiness and snapshot metadata.
+  - name: Catalog
+    description: Tenant-scoped product discovery and detail.
+  - name: Quote
+    description: Short-lived, non-binding price and availability responses.
+  - name: Agent
+    description: Deterministic conversation and MCP interfaces.
+paths:
+  /health:
+    get:
+      tags: [System]
+      summary: Read gateway and snapshot freshness
+      operationId: getHealth
+      security: []
+      responses:
+        "200":
+          description: Gateway is running
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+        "403":
+          description: Browser origin is not allowed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /api/catalog:
+    get:
+      tags: [Catalog]
+      summary: List the tenant-visible catalog when enumeration is allowed
+      operationId: listCatalog
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Catalog page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogPage"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/EnumerationDenied" }
+        "429": { $ref: "#/components/responses/QuotaExceeded" }
+  /api/search:
+    get:
+      tags: [Catalog]
+      summary: Search the tenant-visible catalog
+      operationId: searchCatalog
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 300 }
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Bounded search page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogPage"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/QuotaExceeded" }
+  /api/products/{slug}:
+    get:
+      tags: [Catalog]
+      summary: Read one tenant-visible product
+      operationId: getProduct
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string, pattern: "^[a-z0-9-]{1,100}$" }
+      responses:
+        "200":
+          description: Product detail
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [product, mode]
+                properties:
+                  product: { $ref: "#/components/schemas/Product" }
+                  mode: { const: published_snapshot }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/QuotaExceeded" }
+  /api/quote:
+    post:
+      tags: [Quote]
+      summary: Create a short-lived non-binding quote
+      operationId: createQuote
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [public_id, quantity, ship_to]
+              properties:
+                public_id: { type: string, pattern: "^[A-Za-z0-9]{22}$" }
+                quantity: { type: integer, minimum: 1, maximum: 1000 }
+                ship_to: { type: string, pattern: "^[A-Z]{2}$" }
+      responses:
+        "200":
+          description: Non-binding quote
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/QuotaExceeded" }
+        "503":
+          description: The published snapshot is too stale for a quote
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /api/chat:
+    post:
+      tags: [Agent]
+      summary: Run the deterministic catalog conversation example
+      operationId: catalogChat
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [messages]
+              properties:
+                messages:
+                  type: array
+                  minItems: 1
+                  maxItems: 20
+                  items:
+                    type: object
+                    required: [role, content]
+                    properties:
+                      role: { enum: [user, assistant] }
+                      content: { type: string, maxLength: 300 }
+      responses:
+        "200": { description: Deterministic response }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/QuotaExceeded" }
+  /mcp:
+    post:
+      tags: [Agent]
+      summary: Call the MCP JSON-RPC endpoint
+      description: initialize and tools/list are public. tools/call requires bearer authentication and returns authentication failures as MCP tool errors.
+      operationId: callMcp
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method]
+              properties:
+                jsonrpc: { const: "2.0" }
+                id: {}
+                method: { type: string }
+                params: { type: object }
+      responses:
+        "200": { description: JSON-RPC response or MCP tool result }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { description: Unknown JSON-RPC method or tool }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    Cursor:
+      name: cursor
+      in: query
+      schema: { type: string }
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Missing or invalid tenant credential
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    EnumerationDenied:
+      description: The tenant cannot enumerate the full catalog
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: The resource does not exist in the tenant scope
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    QuotaExceeded:
+      description: Tenant daily quota exceeded
+      headers:
+        Retry-After:
+          schema: { type: integer, minimum: 1 }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+  schemas:
+    Money:
+      type: object
+      additionalProperties: false
+      required: [amount, currency]
+      properties:
+        amount: { type: number, minimum: 0 }
+        currency: { type: string, pattern: "^[A-Z]{3}$" }
+        tier: { type: string }
+    Product:
+      type: object
+      additionalProperties: false
+      required: [public_id, title, availability_band, as_of]
+      properties:
+        public_id: { type: string, pattern: "^[A-Za-z0-9]{22}$" }
+        slug: { type: string, pattern: "^[a-z0-9-]{1,100}$" }
+        title: { type: string }
+        description: { type: string }
+        category: { type: string }
+        tags: { type: array, items: { type: string } }
+        images:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [url]
+            properties:
+              url: { type: string, format: uri }
+              alt: { type: string }
+        attributes:
+          type: object
+          additionalProperties: { type: [string, number] }
+        price: { $ref: "#/components/schemas/Money" }
+        availability_band: { enum: [in_stock, low, out_of_stock] }
+        lead_time_days: { type: integer, minimum: 0 }
+        as_of: { type: string, format: date-time }
+        source: { type: string }
+        purchasable: { type: boolean }
+    CatalogPage:
+      type: object
+      required: [items, next_cursor, total, truncated]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Product" } }
+        next_cursor: { type: [string, "null"] }
+        total: { type: integer, minimum: 0 }
+        truncated: { type: boolean }
+        mode: { type: string }
+    Quote:
+      type: object
+      additionalProperties: false
+      required: [quote_id, public_id, unit_price, quantity, availability, expires_at, binding]
+      properties:
+        quote_id: { type: string }
+        public_id: { type: string, pattern: "^[A-Za-z0-9]{22}$" }
+        unit_price: { $ref: "#/components/schemas/Money" }
+        quantity: { type: integer, minimum: 1 }
+        availability: { enum: [in_stock, low, out_of_stock] }
+        expires_at: { type: string, format: date-time }
+        binding: { const: false }
+    Health:
+      type: object
+      required: [ok, mode, writes_enabled, catalog_generated_at, catalog_valid_until, catalog_stale, catalog_max_staleness_seconds, product_count]
+      properties:
+        ok: { type: boolean }
+        mode: { type: string }
+        writes_enabled: { type: boolean }
+        tenant_auth_configured: { type: boolean }
+        catalog_generated_at: { type: string, format: date-time }
+        catalog_valid_until: { type: string, format: date-time }
+        catalog_stale: { type: boolean }
+        catalog_max_staleness_seconds: { type: integer, minimum: 0 }
+        product_count: { type: integer, minimum: 0 }
+    Error:
+      type: object
+      required: [error, request_id]
+      properties:
+        error:
+          type: object
+          required: [code]
+          properties:
+            code: { type: string }
+        request_id: { type: string }
