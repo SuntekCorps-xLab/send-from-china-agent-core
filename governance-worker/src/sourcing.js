@@ -1,4 +1,5 @@
 import { listCatalog, searchCatalog } from "./catalog.js";
+import { resolveTenant, TenantError } from "./tenant.js";
 
 const TASK_STATES = Object.freeze(["QUEUED", "SOURCING", "GOVERNING", "RESULTS_READY"]);
 const TASKS = new Map();
@@ -26,30 +27,18 @@ function stableHash(value) {
   return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
-function constantTimeEqual(left, right) {
-  const a = String(left || "");
-  const b = String(right || "");
-  let difference = a.length ^ b.length;
-  const length = Math.max(a.length, b.length);
-  for (let index = 0; index < length; index += 1) {
-    difference |= (a.charCodeAt(index) || 0) ^ (b.charCodeAt(index) || 0);
-  }
-  return difference === 0;
-}
-
 function authenticatedAgent(authorization, env = {}) {
-  const configured = String(env.DEMO_AGENT_TOKEN || "");
-  if (configured.length < 16) {
-    throw new DemoSourcingError(
-      "SOURCING_DEMO_DISABLED",
-      "Set a local DEMO_AGENT_TOKEN with at least 16 characters before testing synthetic sourcing.",
-    );
+  try {
+    const tenant = resolveTenant(authorization, env);
+    return {
+      id: `tenant-agent-${stableHash(tenant.tenant_id)}`,
+      label: "Tenant-scoped preview agent",
+      tenant,
+    };
+  } catch (error) {
+    if (error instanceof TenantError) throw new DemoSourcingError(error.code, "A valid tenant credential is required.");
+    throw error;
   }
-  const match = /^Bearer\s+(.+)$/i.exec(String(authorization || ""));
-  if (!match || !constantTimeEqual(match[1], configured)) {
-    throw new DemoSourcingError("INVALID_AGENT_TOKEN", "A valid local demo agent token is required.");
-  }
-  return { id: `demo-agent-${stableHash(configured)}`, label: "Local synthetic sourcing agent" };
 }
 
 function cleanList(value) {
@@ -117,26 +106,26 @@ function publicTask(task) {
   };
 }
 
-function syntheticResults(query, criteria) {
+function syntheticResults(query, criteria, tenant) {
   const selected = [];
   const seen = new Set();
   for (const product of [
-    ...searchCatalog(query, { limit: 3 }).items,
-    ...listCatalog({ limit: 50 }).items,
+    ...searchCatalog(query, { limit: 3 }, tenant).items,
+    ...listCatalog({ limit: tenant.max_page_size }, tenant).items,
   ]) {
-    if (seen.has(product.id)) continue;
-    seen.add(product.id);
+    if (seen.has(product.public_id)) continue;
+    seen.add(product.public_id);
     selected.push(product);
     if (selected.length === 3) break;
   }
   return selected.map((product, index) => ({
-    id: `demo-result-${index + 1}-${product.id}`,
+    id: `demo-result-${index + 1}-${product.public_id}`,
     rank: index + 1,
     title: product.title,
     category: product.category,
     summary: product.description,
     why: `Synthetic reviewed fixture for ${criteria.ship_to}; verify all commercial facts in a real deployment.`,
-    source: "synthetic_demo",
+    source: product.source,
     governance_status: "REVIEWED_PREVIEW",
     availability: "demo_only",
     available: false,
@@ -169,6 +158,7 @@ export function getDemoAgentAccess({ authorization, env = {} }) {
     agent: {
       id: agent.id,
       label: agent.label,
+      tenant_id: agent.tenant.tenant_id,
       scopes: ["catalog:read", "sourcing:read", "sourcing:write"],
     },
     preview_access: {
@@ -207,7 +197,7 @@ export function createDemoSourcingTask(value, { authorization, env = {} }) {
     ...request,
     status: "RESULTS_READY",
     status_history: [...TASK_STATES],
-    results: syntheticResults(request.query, request.criteria),
+    results: syntheticResults(request.query, request.criteria, agent.tenant),
     created_at: now,
     updated_at: now,
   };

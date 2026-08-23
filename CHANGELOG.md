@@ -2,6 +2,17 @@
 
 All notable changes to the public reference implementation are documented here.
 
+## 0.3.0-rc.1 - 2026-08-23
+
+- Replaced the hard-coded four-product catalog with an atomically validated
+  twelve-product published snapshot fixture.
+- Added a positive public product field policy and opaque public identifiers.
+- Added tenant keys, product isolation, page limits, anti-enumeration behavior,
+  daily quota responses, and public MCP discovery.
+- Added a short-lived non-binding HTTP and MCP quote contract.
+- Added OpenAPI, snapshot schema, external setup instructions, no-egress
+  enforcement, and 37 Worker tests.
+
 ## 0.2.0-rc.1 - 2026-08-21
 
 - Added bounded `product_search` with a truthful terminal `no_match` handoff.

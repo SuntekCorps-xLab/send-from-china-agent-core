@@ -1,0 +1,2 @@
+# Copy this file to .dev.vars and replace the test key before sharing a deployment.
+TENANT_KEYS={"key_test_alpha_1234567890":{"tenant_id":"tenant_alpha","max_page_size":5,"daily_quota":100}}

@@ -1,16 +1,15 @@
 # Operations and Incident Response
 
-This repository is a synthetic reference service with ephemeral per-isolate
-sourcing fixtures. It has no database, customer records, payment flow, order
-flow, or commerce write-capable tool. The following controls apply to any
-deployed copy.
+This repository is a published-snapshot reference gateway with ephemeral
+per-isolate quota and sourcing fixtures. It has no database, customer records,
+payment flow, order flow, or commerce write-capable tool.
 
 ## Readiness and Monitoring
 
 - Probe `GET /health` from outside the deployment network.
-- Require HTTP 200, `mode=synthetic_demo`, and `writes_enabled=false`.
-- Treat `sourcing_demo_enabled` as configuration state, not proof that a full
-  workflow succeeded; test the MCP lifecycle separately with a controlled token.
+- Require HTTP 200, `mode=published_snapshot_gateway`, and `writes_enabled=false`.
+- Alert when `catalog_stale=true` or the snapshot timestamps are unexpected.
+- Test tenant isolation, search, and non-binding quote behavior with a controlled key.
 - Alert on sustained 5xx responses, elevated latency, or health-check failure.
 - Use the response `X-Request-Id` to correlate a report with platform logs.
 - Do not log request bodies, authorization headers, cookies, or client data.
@@ -22,10 +21,10 @@ before adding application telemetry.
 ## Capacity Boundaries
 
 Request bodies are limited to 32 KiB, search text to 300 characters, chat
-history to 20 messages, and result pages to 100 items. The bundled catalog is
-small and immutable. Synthetic task state and the daily quota are local to an
-isolate and reset on restart. Replacing either with a large or durable system
-requires a new capacity test and threat review.
+history to 20 messages, search output to 200 results, and page size to the
+tenant's configured maximum. Fixture task state and the daily quota are local
+to an isolate and reset on restart. Replacing either with a large or durable
+system requires a new capacity test and threat review.
 
 ## Failure Response
 

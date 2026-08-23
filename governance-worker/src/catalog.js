@@ -1,64 +1,38 @@
-const PRODUCTS = Object.freeze([
-  Object.freeze({
-    id: "demo-desk-organizer",
-    handle: "demo-desk-organizer",
-    title: "Modular Desk Organizer",
-    description: "A synthetic demonstration product for organizing pens and small accessories.",
-    category: "Office",
-    tags: Object.freeze(["desk", "organizer", "office", "storage"]),
-  }),
-  Object.freeze({
-    id: "demo-garden-trowel",
-    handle: "demo-garden-trowel",
-    title: "Compact Garden Trowel",
-    description: "A synthetic demonstration product for balcony and container gardening.",
-    category: "Garden",
-    tags: Object.freeze(["garden", "tool", "trowel", "balcony"]),
-  }),
-  Object.freeze({
-    id: "demo-building-blocks",
-    handle: "demo-building-blocks",
-    title: "Wooden Building Blocks",
-    description: "A synthetic demonstration product for open-ended construction play.",
-    category: "Toys",
-    tags: Object.freeze(["toy", "blocks", "wooden", "building"]),
-  }),
-  Object.freeze({
-    id: "demo-travel-pouch",
-    handle: "demo-travel-pouch",
-    title: "Travel Cable Pouch",
-    description: "A synthetic demonstration product for keeping charging cables together.",
-    category: "Travel",
-    tags: Object.freeze(["travel", "cable", "pouch", "organizer"]),
-  }),
-]);
+import fixture from "../../fixtures/published-catalog.sample.json" with { type: "json" };
+
+import { toPublicProduct } from "./field-policy.js";
+import { getActiveSnapshot, loadSnapshot } from "./snapshot.js";
+
+const MAX_SEARCH_RESULTS = 200;
+
+loadSnapshot(fixture);
+
+export function setCatalogSource(snapshot) {
+  return loadSnapshot(snapshot);
+}
+
+function visibleProducts(tenant) {
+  if (!tenant) return [];
+  const products = getActiveSnapshot().products;
+  if (tenant.allowed_product_ids === null) return products;
+  return products.filter((product) => tenant.allowed_product_ids.has(product.public_id));
+}
 
 function publicProduct(product) {
-  return {
-    ...product,
-    tags: [...product.tags],
-    source: "synthetic_demo",
-    availability: "demo_only",
-    purchasable: false,
-  };
+  return toPublicProduct(product, { as_of: getActiveSnapshot().generated_at });
 }
 
 function tokenize(value) {
-  return String(value || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 12);
+  return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()
+    .split(/\s+/).filter(Boolean).slice(0, 12);
 }
 
 function score(product, terms) {
   if (!terms.length) return 1;
-  const title = product.title.toLowerCase();
-  const category = product.category.toLowerCase();
-  const tags = product.tags.join(" ").toLowerCase();
-  const description = product.description.toLowerCase();
+  const title = String(product.title || "").toLowerCase();
+  const category = String(product.category || "").toLowerCase();
+  const tags = (product.tags || []).join(" ").toLowerCase();
+  const description = String(product.description || "").toLowerCase();
   let total = 0;
   for (const term of terms) {
     if (title.includes(term)) total += 8;
@@ -83,36 +57,40 @@ function decodeCursor(cursor) {
   }
 }
 
-export function listCatalog({ limit = 20, cursor = "" } = {}) {
+export function listCatalog({ limit = 20, cursor = "" } = {}, tenant) {
   const offset = decodeCursor(cursor);
   if (offset === null) return { error: "INVALID_CURSOR" };
-  const items = PRODUCTS.slice(offset, offset + limit).map(publicProduct);
+  const products = visibleProducts(tenant);
+  const items = products.slice(offset, offset + limit).map(publicProduct);
   const nextOffset = offset + items.length;
-  return {
-    items,
-    next_cursor: nextOffset < PRODUCTS.length ? encodeCursor(nextOffset) : null,
-    total: PRODUCTS.length,
-  };
+  return { items, next_cursor: nextOffset < products.length ? encodeCursor(nextOffset) : null, total: products.length, truncated: false };
 }
 
-export function searchCatalog(query, { limit = 20, cursor = "" } = {}) {
+export function searchCatalog(query, { limit = 20, cursor = "" } = {}, tenant) {
   const offset = decodeCursor(cursor);
   if (offset === null) return { error: "INVALID_CURSOR" };
   const terms = tokenize(query);
-  const ranked = PRODUCTS
+  const ranked = visibleProducts(tenant)
     .map((product) => ({ product, score: score(product, terms) }))
     .filter((entry) => entry.score > 0)
-    .sort((left, right) => right.score - left.score || left.product.id.localeCompare(right.product.id));
-  const items = ranked.slice(offset, offset + limit).map((entry) => publicProduct(entry.product));
+    .sort((left, right) => right.score - left.score || left.product.public_id.localeCompare(right.product.public_id));
+  const bounded = ranked.slice(0, MAX_SEARCH_RESULTS);
+  const items = bounded.slice(offset, offset + limit).map((entry) => publicProduct(entry.product));
   const nextOffset = offset + items.length;
   return {
     items,
-    next_cursor: nextOffset < ranked.length ? encodeCursor(nextOffset) : null,
-    total: ranked.length,
+    next_cursor: nextOffset < bounded.length ? encodeCursor(nextOffset) : null,
+    total: Math.min(ranked.length, MAX_SEARCH_RESULTS),
+    truncated: ranked.length > MAX_SEARCH_RESULTS,
   };
 }
 
-export function getProduct(handle) {
-  const product = PRODUCTS.find((entry) => entry.handle === handle);
+export function getProduct(slug, tenant) {
+  const product = visibleProducts(tenant).find((entry) => entry.slug === slug);
+  return product ? publicProduct(product) : null;
+}
+
+export function getProductByPublicId(publicId, tenant) {
+  const product = visibleProducts(tenant).find((entry) => entry.public_id === publicId);
   return product ? publicProduct(product) : null;
 }

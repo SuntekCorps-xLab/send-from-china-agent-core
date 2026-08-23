@@ -15,6 +15,9 @@ const PATTERNS = [
   ["developer path", /(?:[A-Za-z]:[\\/]Users[\\/]|\/Users\/|\/home\/)[^\s"']+/i],
   ["private integration", /\b(?:PIPO|StoryLab|DCD|SFC|ERiC|iStore|iShip2)\b/i],
   ["Han character", /[\u3400-\u9fff]/u],
+  ["outbound fetch in worker", /(?:await|globalThis\.)\s*fetch\s*\(/,
+    (path) => path.startsWith("governance-worker/src/")],
+  ["internal codename", /\b(?:Aquilla|M4X|istore2|advtmanager)\b/i],
 ];
 
 async function filesUnder(path) {
@@ -31,7 +34,8 @@ async function filesUnder(path) {
 
 const findings = [];
 for (const file of await filesUnder(ROOT)) {
-  if (relative(ROOT, file).replaceAll("\\", "/") === "scripts/scan-public.mjs") continue;
+  const relativePath = relative(ROOT, file).replaceAll("\\", "/");
+  if (relativePath === "scripts/scan-public.mjs") continue;
   const stats = await lstat(file);
   const data = await readFile(file);
   if (data.subarray(0, 8192).includes(0)) continue;
@@ -40,7 +44,8 @@ for (const file of await filesUnder(ROOT)) {
     continue;
   }
   const text = data.toString("utf8");
-  for (const [label, pattern] of PATTERNS) {
+  for (const [label, pattern, pathPredicate] of PATTERNS) {
+    if (pathPredicate && !pathPredicate(relativePath)) continue;
     if (pattern.test(text)) findings.push(`${relative(ROOT, file)}: ${label}`);
   }
 }
