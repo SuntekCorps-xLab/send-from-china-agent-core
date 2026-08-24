@@ -25,10 +25,15 @@ export function createQuote(value, tenant, now = Date.now()) {
   if (!Number.isFinite(issuedAt.getTime())) throw new QuoteError("INVALID_QUOTE_TIME", 500);
   return {
     quote_id: `quote_${crypto.randomUUID()}`,
+    quote_kind: "catalog_estimate",
     public_id: product.public_id,
     unit_price: { amount: product.price.amount, currency: product.price.currency },
     quantity,
+    ship_to: shipTo,
     availability: product.availability_band,
+    shipping_included: false,
+    tax_included: false,
+    destination_evaluated: false,
     expires_at: new Date(issuedAt.getTime() + 15 * 60 * 1000).toISOString(),
     binding: false,
   };

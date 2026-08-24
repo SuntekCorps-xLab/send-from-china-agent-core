@@ -24,12 +24,48 @@ function request(overrides = {}) {
   };
 }
 
+async function confirmedRequest(overrides = {}) {
+  const value = request(overrides);
+  const search = await mcp("product_search", {
+    query: value.query,
+    criteria: value.criteria,
+    operation: "confirm_search",
+  });
+  const result = search.body.result.structuredContent;
+  assert.equal(result.status, "no_match");
+  assert.match(result.search_id, /^search_demo_/);
+  return { ...value, search_id: result.search_id, confirmed: true };
+}
+
 test("product search reaches a truthful terminal catalog miss", async () => {
   const { body } = await mcp("product_search", { query: "zirconium telescope mount", criteria: { category: "astronomy", ship_to: "US" }, operation: "confirm_search" });
   const result = body.result.structuredContent;
   assert.equal(result.status, "no_match");
   assert.equal(result.exhaustive, true);
   assert.equal(result.dynamic_request_recommended, true);
+  assert.match(result.search_id, /^search_demo_/);
+});
+
+test("product search enforces structured criteria instead of returning approximate violations", async () => {
+  const match = (await mcp("product_search", {
+    query: "desk organizer",
+    criteria: { category: "Office", materials: ["bamboo"], price_max: 30, ship_to: "US" },
+    operation: "confirm_search",
+  })).body.result.structuredContent;
+  assert.equal(match.status, "catalog_match");
+  assert.equal(match.products.length, 1);
+  assert.equal(match.products[0].slug, "modular-desk-organizer");
+  assert.equal(match.search_id, null);
+  assert.deepEqual(match.criteria_evaluation.informational, ["ship_to"]);
+
+  const rejected = (await mcp("product_search", {
+    query: "desk organizer",
+    criteria: { category: "Office", price_max: 15, ship_to: "US" },
+    operation: "confirm_search",
+  })).body.result.structuredContent;
+  assert.equal(rejected.status, "no_match");
+  assert.equal(rejected.products.length, 0);
+  assert.equal(rejected.dynamic_request_recommended, true);
 });
 
 test("agent access exposes tenant scope and no transactional permission", async () => {
@@ -39,17 +75,18 @@ test("agent access exposes tenant scope and no transactional permission", async 
 });
 
 test("identical sourcing submissions reuse one task and conflicting reuse fails", async () => {
-  const first = await mcp("create_sourcing_task", request());
-  const second = await mcp("create_sourcing_task", request());
+  const value = await confirmedRequest();
+  const first = await mcp("create_sourcing_task", value);
+  const second = await mcp("create_sourcing_task", value);
   assert.equal(first.body.result.structuredContent.idempotent, false);
   assert.equal(second.body.result.structuredContent.idempotent, true);
   assert.equal(first.body.result.structuredContent.task.id, second.body.result.structuredContent.task.id);
-  const conflict = await mcp("create_sourcing_task", request({ query: "a different request" }));
+  const conflict = await mcp("create_sourcing_task", { ...value, query: "a different request" });
   assert.equal(conflict.body.result.structuredContent.error, "IDEMPOTENCY_CONFLICT");
 });
 
 test("task status and paginated previews preserve the non-commerce boundary", async () => {
-  const created = await mcp("create_sourcing_task", request());
+  const created = await mcp("create_sourcing_task", await confirmedRequest());
   const taskId = created.body.result.structuredContent.task.id;
   const task = (await mcp("get_sourcing_task", { task_id: taskId })).body.result.structuredContent.task;
   assert.deepEqual(task.status_history, ["QUEUED", "SOURCING", "GOVERNING", "RESULTS_READY"]);
@@ -57,12 +94,26 @@ test("task status and paginated previews preserve the non-commerce boundary", as
   assert.ok(results.length > 0 && results.length <= 3);
   for (const result of results) {
     assert.equal(result.purchasable, false);
+    assert.equal(result.match_status, "illustrative_only");
+    assert.equal(result.criteria_satisfied, false);
     assert.equal(result.product_url, null);
     assert.equal(result.add_to_cart_url, null);
   }
 });
 
 test("preview input requires destination, structured intent, stable key, and free plan", async () => {
-  assert.equal((await mcp("create_sourcing_task", request({ plan_id: "focused" }))).body.result.structuredContent.error, "DEMO_PREVIEW_ONLY");
-  assert.equal((await mcp("create_sourcing_task", request({ criteria: { category: "office" }, idempotency_key: "fixture-request:no-destination" }))).body.result.structuredContent.error, "SOURCING_DESTINATION_REQUIRED");
+  const proof = "search_demo_12345678901234567890";
+  assert.equal((await mcp("create_sourcing_task", request({ plan_id: "focused", search_id: proof, confirmed: true }))).body.result.structuredContent.error, "DEMO_PREVIEW_ONLY");
+  assert.equal((await mcp("create_sourcing_task", request({ criteria: { category: "office" }, idempotency_key: "fixture-request:no-destination", search_id: proof, confirmed: true }))).body.result.structuredContent.error, "SOURCING_DESTINATION_REQUIRED");
+  assert.equal((await mcp("create_sourcing_task", request({ search_id: proof, confirmed: false }))).body.result.structuredContent.error, "USER_CONFIRMATION_REQUIRED");
+});
+
+test("sourcing rejects missing, mismatched, and reused catalog-miss proofs", async () => {
+  assert.equal((await mcp("create_sourcing_task", request())).body.result.structuredContent.error, "SEARCH_PROOF_REQUIRED");
+  const value = await confirmedRequest();
+  const mismatch = await mcp("create_sourcing_task", { ...value, criteria: { ...value.criteria, category: "Garden" } });
+  assert.equal(mismatch.body.result.structuredContent.error, "SEARCH_PROOF_MISMATCH");
+  assert.equal((await mcp("create_sourcing_task", value)).body.result.structuredContent.idempotent, false);
+  const reuse = await mcp("create_sourcing_task", { ...value, idempotency_key: "fixture-request:second-task:001" });
+  assert.equal(reuse.body.result.structuredContent.error, "SEARCH_PROOF_ALREADY_USED");
 });

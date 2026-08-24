@@ -36,11 +36,17 @@ test("all HTTP routes and MCP tools execute with outbound fetch disabled", async
     await mcp("tools/call", { name: "get_product", arguments: { slug: "modular-desk-organizer" } });
     await mcp("tools/call", { name: "get_quote", arguments: { public_id: "A1b2C3d4E5f6G7h8J9k0Lm", quantity: 1, ship_to: "US" } });
     await mcp("tools/call", { name: "get_agent_access", arguments: {} });
-    const created = await mcp("tools/call", { name: "create_sourcing_task", arguments: {
-      query: "walnut desk organizer", criteria: { category: "office", ship_to: "US" },
-      plan_id: "preview", idempotency_key: "fixture-request:no-egress:001",
+    const miss = await mcp("tools/call", { name: "product_search", arguments: {
+      query: "walnut desk organizer", criteria: { category: "office", materials: ["walnut"], ship_to: "US" }, operation: "confirm_search",
     } });
-    const taskId = (await created.json()).result.structuredContent.task.id;
+    const searchId = (await miss.json()).result.structuredContent.search_id;
+    const created = await mcp("tools/call", { name: "create_sourcing_task", arguments: {
+      query: "walnut desk organizer", criteria: { category: "office", materials: ["walnut"], ship_to: "US" },
+      search_id: searchId, confirmed: true, plan_id: "preview", idempotency_key: "fixture-request:no-egress:001",
+    } });
+    const createdBody = await created.json();
+    assert.ok(createdBody.result.structuredContent.task, JSON.stringify(createdBody.result.structuredContent));
+    const taskId = createdBody.result.structuredContent.task.id;
     await mcp("tools/call", { name: "get_sourcing_task", arguments: { task_id: taskId } });
     await mcp("tools/call", { name: "list_sourcing_results", arguments: { task_id: taskId } });
     assert.equal(calls, 0);

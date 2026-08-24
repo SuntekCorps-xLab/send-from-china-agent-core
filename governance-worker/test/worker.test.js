@@ -22,6 +22,18 @@ test("health exposes snapshot freshness without requiring a credential", async (
   assert.match(body.catalog_generated_at, /^\d{4}-/);
 });
 
+test("well-known metadata states authentication and unsupported transaction capabilities", async () => {
+  const response = await call("/.well-known/send-from-china.json");
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.mcp.discovery_auth_required, false);
+  assert.equal(body.mcp.tool_auth, "bearer_tenant_key");
+  assert.equal(body.registration.self_service, false);
+  assert.equal(body.capabilities.catalog_estimate, true);
+  assert.equal(body.capabilities.shipping_rates, false);
+  assert.equal(body.capabilities.order, false);
+});
+
 test("authorized catalog output uses only public snapshot fields", async () => {
   const response = await call("/api/catalog?limit=2", { headers: authorization(INTERNAL_KEY) });
   const body = await response.json();
@@ -68,6 +80,21 @@ test("chat remains deterministic and read-only", async () => {
   assert.equal(response.status, 200);
   assert.equal(body.mode, "deterministic_fixture");
   assert.equal(body.products[0].slug, "modular-desk-organizer");
+});
+
+test("chat applies browser-supplied structured criteria as hard filters", async () => {
+  const response = await call("/api/chat", {
+    method: "POST", headers: { ...authorization(ALPHA_KEY), "Content-Type": "application/json" },
+    body: JSON.stringify({
+      messages: [{ role: "user", content: "desk organizer" }],
+      criteria: { category: "Office", price_max: 15, ship_to: "US" },
+    }),
+  });
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.deepEqual(body.products, []);
+  assert.equal(body.dynamic_request_recommended, true);
+  assert.deepEqual(body.criteria_evaluation.informational, ["ship_to"]);
 });
 
 test("invalid and oversized JSON fail closed", async () => {

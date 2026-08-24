@@ -1,0 +1,8 @@
+interface:
+  display_name: "Send From China Catalog"
+  short_description: "Governed catalog discovery through Agent Core MCP"
+  brand_color: "#C64B1A"
+  default_prompt: "Use $send-from-china-catalog to search the governed catalog for my request."
+
+policy:
+  allow_implicit_invocation: true

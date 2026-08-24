@@ -47,13 +47,16 @@ Call `product_search` with a bounded, structured request:
 ```
 
 Only proceed when the server returns `status=no_match`,
-`search_scope_exhausted=true`, and `dynamic_request_recommended=true`. A client
-must not turn an incomplete search or its own judgment into a sourcing write.
+`search_scope_exhausted=true`, `dynamic_request_recommended=true`, and a
+non-empty `search_id`. The `search_id` is a short-lived, tenant-bound proof from
+`operation=confirm_search`. A client must not turn an incomplete search or its
+own judgment into a sourcing write.
 
 ## 4. Create one idempotent preview
 
-After user confirmation, call `create_sourcing_task` once with the same query
-and criteria, `plan_id=preview`, and a stable request key:
+After explicit user confirmation, call `create_sourcing_task` once with the
+same query and criteria, the returned `search_id`, `confirmed=true`,
+`plan_id=preview`, and a stable request key:
 
 ```json
 {
@@ -65,6 +68,8 @@ and criteria, `plan_id=preview`, and a stable request key:
     "price_max": 40,
     "ship_to": "US"
   },
+  "search_id": "search_demo_<terminal-search-id>",
+  "confirmed": true,
   "plan_id": "preview",
   "idempotency_key": "demo-request:walnut-organizer:001"
 }
@@ -72,7 +77,8 @@ and criteria, `plan_id=preview`, and a stable request key:
 
 Repeat the identical call to verify it returns the same `task.id` with
 `idempotent=true`. Reusing the key with changed input must fail with
-`IDEMPOTENCY_CONFLICT`.
+`IDEMPOTENCY_CONFLICT`. A search proof can create only one task; using a
+different idempotency key must not duplicate the confirmed request.
 
 ## 5. Read status and results
 
@@ -80,7 +86,9 @@ Call `get_sourcing_task` with the returned ID, then page through
 `list_sourcing_results`. The demo synchronously reports the lifecycle
 `QUEUED -> SOURCING -> GOVERNING -> RESULTS_READY` and returns up to three
 fixtures. Every result must remain `available=false`, `purchasable=false`, with
-no product or add-to-cart URL.
+no product or add-to-cart URL. `match_status=illustrative_only` and
+`criteria_satisfied=false` make clear that the fixture cards are UI test data,
+not candidates that satisfy the request.
 
 This immediate status history is a client-contract fixture, not proof of a real
 asynchronous sourcing workflow. Deployments and isolate changes clear all

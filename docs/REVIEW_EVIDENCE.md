@@ -6,7 +6,8 @@
 - Review date: 2026-08-24
 - Scope: published snapshot contract, positive product field policy,
   tenant-scoped HTTP and MCP gateway, anti-enumeration controls, non-binding
-  quote, fixture sourcing preview, file-only ETL, and local snapshot publisher
+  catalog estimate, confirmed fixture sourcing preview, file-only ETL, local
+  snapshot publisher, Agent Skill, key generator, and public smoke client
 - Excluded: source connectors, production catalogs, customer accounts,
   payments, orders, fulfillment, private connectors, and production credentials
 
@@ -35,9 +36,10 @@ The V1 verification run produced these results:
 
 - locked dependency installation completed with zero reported vulnerabilities;
 - Worker static checks passed for 18 JavaScript files;
-- 37 of 37 Worker tests passed;
+- 41 of 41 Worker tests and 2 of 2 tenant-key generator tests passed;
 - poison-field, atomic snapshot, tenant isolation, enumeration, quota,
-  non-binding quote, and no-egress tests passed;
+  strict structured-criteria, catalog-estimate, search-proof, single-use
+  confirmation, and no-egress tests passed;
 - MCP discovery remained available without a credential while every tool call
   failed closed without a tenant key;
 - Python compilation passed, 4 of 4 ETL tests passed, and 10 of 10 publisher
@@ -47,9 +49,15 @@ The V1 verification run produced these results:
   path, private integration, outbound Worker request, internal codename, Han
   character, or oversized-file finding;
 - Redocly validated `contracts/openapi.yaml` with no error or warning.
+- the example `send-from-china-catalog` Skill passed the Skill Creator
+  quick validator;
+- the external public-surface smoke client passed against a local Worker,
+  including public discovery, unauthenticated 401, authenticated search, and
+  MCP tool discovery.
 
-The sourcing preview remains synchronous and ephemeral. The quote is explicitly
-non-binding. These checks verify the Phase 2 public contract and boundaries;
+The sourcing preview remains synchronous, illustrative, and ephemeral. The
+catalog estimate is explicitly non-binding and excludes shipping and tax.
+These checks verify the public contract and boundaries;
 they do not claim a durable task, external provider call, purchasable sourcing
 result, or transaction.
 

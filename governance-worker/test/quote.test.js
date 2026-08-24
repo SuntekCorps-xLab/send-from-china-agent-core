@@ -21,9 +21,14 @@ test("quote returns a short-lived non-binding contract", async () => {
   const body = await response.json();
   assert.equal(response.status, 200);
   assert.match(body.quote_id, /^quote_/);
+  assert.equal(body.quote_kind, "catalog_estimate");
   assert.deepEqual(body.unit_price, { amount: 24.9, currency: "USD" });
   assert.equal(body.quantity, 2);
+  assert.equal(body.ship_to, "US");
   assert.equal(body.availability, "in_stock");
+  assert.equal(body.shipping_included, false);
+  assert.equal(body.tax_included, false);
+  assert.equal(body.destination_evaluated, false);
   assert.equal(body.binding, false);
   assert.ok(Date.parse(body.expires_at) > before);
 });

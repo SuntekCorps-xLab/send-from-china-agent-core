@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Send From China Agent Core API
   version: 1.0.0
-  description: Tenant-scoped, read-only catalog and non-binding quote gateway.
+  description: Tenant-scoped, read-only catalog and non-binding catalog-estimate gateway. It does not return carrier shipping rates.
   license:
     name: Apache-2.0
     identifier: Apache-2.0
@@ -19,6 +19,24 @@ tags:
   - name: Agent
     description: Deterministic conversation and MCP interfaces.
 paths:
+  /.well-known/send-from-china.json:
+    get:
+      tags: [System]
+      summary: Discover authentication and supported capabilities
+      operationId: getCapabilities
+      security: []
+      responses:
+        "200":
+          description: Static service capability metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Capabilities"
+        "403":
+          description: Browser origin is not allowed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
   /health:
     get:
       tags: [System]
@@ -111,7 +129,8 @@ paths:
   /api/quote:
     post:
       tags: [Quote]
-      summary: Create a short-lived non-binding quote
+      summary: Create a short-lived non-binding catalog estimate
+      description: The response excludes shipping and tax, does not evaluate the destination, and is not a carrier rate.
       operationId: createQuote
       security:
         - bearerAuth: []
@@ -168,6 +187,19 @@ paths:
                     properties:
                       role: { enum: [user, assistant] }
                       content: { type: string, maxLength: 300 }
+                criteria:
+                  type: object
+                  description: Structured hard filters. ship_to is preserved as informational context in this snapshot-only reference.
+                  additionalProperties: false
+                  properties:
+                    category: { type: string, maxLength: 100 }
+                    use_case: { type: string, maxLength: 160 }
+                    ship_to: { type: string, minLength: 2, maxLength: 2 }
+                    price_max: { type: [number, "null"], minimum: 0 }
+                    materials: { type: array, maxItems: 20, items: { type: string } }
+                    must_have: { type: array, maxItems: 20, items: { type: string } }
+                    exclude: { type: array, maxItems: 20, items: { type: string } }
+                    keywords: { type: array, maxItems: 20, items: { type: string } }
       responses:
         "200": { description: Deterministic response }
         "400": { $ref: "#/components/responses/BadRequest" }
@@ -289,15 +321,47 @@ components:
     Quote:
       type: object
       additionalProperties: false
-      required: [quote_id, public_id, unit_price, quantity, availability, expires_at, binding]
+      required: [quote_id, quote_kind, public_id, unit_price, quantity, ship_to, availability, shipping_included, tax_included, destination_evaluated, expires_at, binding]
       properties:
         quote_id: { type: string }
+        quote_kind: { const: catalog_estimate }
         public_id: { type: string, pattern: "^[A-Za-z0-9]{22}$" }
         unit_price: { $ref: "#/components/schemas/Money" }
         quantity: { type: integer, minimum: 1 }
+        ship_to: { type: string, pattern: "^[A-Z]{2}$" }
         availability: { enum: [in_stock, low, out_of_stock] }
+        shipping_included: { const: false }
+        tax_included: { const: false }
+        destination_evaluated: { const: false }
         expires_at: { type: string, format: date-time }
         binding: { const: false }
+    Capabilities:
+      type: object
+      additionalProperties: false
+      required: [schema_version, service, version, mode, mcp, registration, capabilities]
+      properties:
+        schema_version: { const: 1 }
+        service: { const: send-from-china-agent-core }
+        version: { type: string }
+        mode: { const: self_hosted_reference }
+        mcp:
+          type: object
+          additionalProperties: false
+          required: [path, discovery_auth_required, tool_auth]
+          properties:
+            path: { const: /mcp }
+            discovery_auth_required: { const: false }
+            tool_auth: { const: bearer_tenant_key }
+        registration:
+          type: object
+          additionalProperties: false
+          required: [self_service, key_provisioning]
+          properties:
+            self_service: { const: false }
+            key_provisioning: { const: deployment_operator }
+        capabilities:
+          type: object
+          additionalProperties: { type: boolean }
     Health:
       type: object
       required: [ok, mode, writes_enabled, catalog_generated_at, catalog_valid_until, catalog_stale, catalog_max_staleness_seconds, product_count]

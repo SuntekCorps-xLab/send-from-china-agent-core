@@ -6,6 +6,7 @@ import {
   getDemoAgentAccess,
   getDemoSourcingTask,
   listDemoSourcingResults,
+  recordDemoCatalogMiss,
 } from "./sourcing.js";
 import { consumeTenantQuota, resolveTenant, TenantError } from "./tenant.js";
 
@@ -44,7 +45,7 @@ const TOOLS = [
   },
   {
     name: "get_quote",
-    description: "Create a short-lived, non-binding quote from the current published snapshot.",
+    description: "Create a short-lived catalog estimate. Shipping and tax are not included; this is not a carrier rate.",
     inputSchema: { type: "object", properties: {
       public_id: { type: "string", pattern: "^[A-Za-z0-9]{22}$" }, quantity: { type: "integer", minimum: 1, maximum: 1000 },
       ship_to: { type: "string", minLength: 2, maxLength: 2 },
@@ -57,8 +58,10 @@ const TOOLS = [
     inputSchema: { type: "object", properties: {
       query: { type: "string", minLength: 3, maxLength: 300 },
       criteria: { type: "object", properties: CRITERIA_PROPERTIES, additionalProperties: false },
+      search_id: { type: "string", pattern: "^search_demo_[A-Za-z0-9-]{20,}$" },
+      confirmed: { type: "boolean", const: true },
       plan_id: { type: "string", enum: ["preview"] }, idempotency_key: { type: "string", minLength: 12, maxLength: 128 },
-    }, required: ["query", "criteria", "plan_id", "idempotency_key"], additionalProperties: false },
+    }, required: ["query", "criteria", "search_id", "confirmed", "plan_id", "idempotency_key"], additionalProperties: false },
   },
   { name: "get_sourcing_task", description: "Read one tenant-owned fixture sourcing task.", inputSchema: { type: "object", properties: { task_id: { type: "string", minLength: 1, maxLength: 180 } }, required: ["task_id"], additionalProperties: false } },
   { name: "list_sourcing_results", description: "Page through up to three non-purchasable fixture preview results.", inputSchema: { type: "object", properties: { task_id: { type: "string", minLength: 1, maxLength: 180 }, cursor: { type: "string" }, limit: { type: "integer", minimum: 1, maximum: 100, default: 50 } }, required: ["task_id"], additionalProperties: false } },
@@ -82,7 +85,7 @@ export async function handleMcp(payload, options = {}) {
     return { status: 200, body: result(payload.id, {
       protocolVersion: "2025-06-18", capabilities: { tools: {} },
       serverInfo: { name: "send-from-china-agent-core", version: "1.0.0" },
-      instructions: "Discover tools without a credential. Tool calls require a tenant key. Catalog and quote operations are read-only and quotes are non-binding.",
+      instructions: "Discover tools without a credential. Tool calls require a tenant key. get_quote returns a catalog estimate, not a shipping rate. Sourcing is an illustrative, non-purchasable preview after a confirmed terminal catalog miss.",
     }) };
   }
   if (payload.method === "tools/list") return { status: 200, body: result(payload.id, { tools: TOOLS }) };
@@ -110,16 +113,26 @@ export async function handleMcp(payload, options = {}) {
       if (!Number.isInteger(limit) || limit < 1 || limit > tenant.max_page_size) {
         return { status: 400, body: failure(payload.id, -32602, "Invalid params") };
       }
-      const search = searchCatalog(args.query, { limit, cursor: args.cursor || "" }, tenant);
+      const search = searchCatalog(args.query, { limit, cursor: args.cursor || "", criteria: name === "product_search" ? args.criteria || {} : {} }, tenant);
       if (search.error) return { status: 400, body: failure(payload.id, -32602, search.error) };
       if (name === "search_catalog") return { status: 200, body: result(payload.id, toolResult(search)) };
       const terminal = !search.next_cursor;
+      const dynamicRequestRecommended = search.total === 0 && terminal;
+      const operation = args.operation || "search";
+      const searchId = recordDemoCatalogMiss({
+        query: args.query,
+        criteria: search.criteria,
+        operation,
+        exhaustive: terminal,
+        dynamic_request_recommended: dynamicRequestRecommended,
+      }, tenant);
       return { status: 200, body: result(payload.id, toolResult({
-        search_id: `search_${tenant.tenant_id}_${String(args.query).length}_${search.total}`,
-        status: search.total ? "catalog_match" : (terminal ? "no_match" : "searching"), operation: args.operation || "search",
-        criteria: args.criteria || {}, products: search.items, count: search.items.length,
+        search_id: searchId,
+        status: search.total ? "catalog_match" : (terminal ? "no_match" : "searching"), operation,
+        criteria: search.criteria, criteria_evaluation: search.criteria_evaluation,
+        products: search.items, count: search.items.length,
         has_more: Boolean(search.next_cursor), next_cursor: search.next_cursor, exhaustive: terminal,
-        search_scope_exhausted: terminal, dynamic_request_recommended: search.total === 0 && terminal,
+        search_scope_exhausted: terminal, dynamic_request_recommended: dynamicRequestRecommended,
         truncated: search.truncated,
       })) };
     }

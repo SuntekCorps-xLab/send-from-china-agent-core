@@ -8,6 +8,16 @@ No unreleased changes.
 
 ## 1.0.0 - 2026-08-24
 
+- Enforced structured product-search criteria as hard filters and reported
+  which criteria are enforced versus informational.
+- Added short-lived tenant-bound catalog-miss proofs and explicit confirmation
+  requirements before the illustrative sourcing preview can be created.
+- Marked all preview results as illustrative and prevented one search proof
+  from creating multiple tasks.
+- Clarified that `get_quote` is a catalog estimate that excludes shipping and
+  tax and does not evaluate the destination.
+- Added public capability discovery, an example Agent Skill, tenant-key
+  generation, and a public-surface smoke test.
 - Declared the first stable public HTTP, MCP, snapshot, and publisher contract.
 - Synchronized the package, MCP discovery, OpenAPI, documentation, and release
   evidence versions.

@@ -41,7 +41,7 @@ surface. An application, shopping assistant, or automation can:
 
 - search a catalog without receiving unrestricted enumeration access;
 - read tenant-visible product facts through a positive field allowlist;
-- request a short-lived, non-binding quote;
+- request a short-lived, non-binding catalog estimate that explicitly excludes shipping and tax;
 - inspect its own scopes and explicit non-transactional permissions;
 - run an idempotent fixture sourcing preview after a catalog miss.
 
@@ -112,7 +112,7 @@ curl http://localhost:8787/api/products/modular-desk-organizer \
   -H "Authorization: Bearer ${TENANT_KEY}"
 ```
 
-Create a non-binding quote:
+Create a non-binding catalog estimate (not a carrier shipping rate):
 
 ```bash
 curl http://localhost:8787/api/quote \
@@ -126,14 +126,23 @@ Expected quote shape:
 ```json
 {
   "quote_id": "quote_<random-id>",
+  "quote_kind": "catalog_estimate",
   "public_id": "A1b2C3d4E5f6G7h8J9k0Lm",
   "unit_price": {"amount": 24.9, "currency": "USD"},
   "quantity": 2,
+  "ship_to": "US",
   "availability": "in_stock",
+  "shipping_included": false,
+  "tax_included": false,
+  "destination_evaluated": false,
   "expires_at": "<ISO-8601 timestamp>",
   "binding": false
 }
 ```
+
+The country code is preserved as request context only. This reference runtime
+does not connect to a carrier, calculate landed cost, or validate a delivery
+destination.
 
 ## Connect an MCP client
 
@@ -162,7 +171,7 @@ Available tools:
 | `product_search` | Criteria-first bounded search with terminal status |
 | `search_catalog` | Tenant-scoped catalog search |
 | `get_product` | Product detail by public slug |
-| `get_quote` | Short-lived, non-binding quote |
+| `get_quote` | Short-lived catalog estimate; no shipping or tax |
 | `get_agent_access` | Tenant scope and permissions |
 | `create_sourcing_task` | Idempotent fixture preview |
 | `get_sourcing_task` | Preview task status |
@@ -170,6 +179,14 @@ Available tools:
 
 There are no cart, checkout, order, payment, refund, product-write, or publish
 tools in this repository.
+
+### Optional Agent Skill
+
+The repository includes an installable example under
+[`skills/send-from-china-catalog`](skills/send-from-china-catalog). It teaches a
+compatible coding agent the catalog-first flow, catalog-estimate boundary, and
+confirmed sourcing-preview discipline. The skill does not contain an endpoint
+or tenant key; configure the MCP server separately.
 
 ## Publish your own catalog
 
@@ -227,6 +244,17 @@ deployment platform's secret store:
 TENANT_KEYS={"<random-key>":{"tenant_id":"tenant_alpha","max_page_size":5,"daily_quota":100}}
 ```
 
+Generate a new local key and ready-to-copy JSON value without adding a
+dependency:
+
+```bash
+npm run tenant:key -- tenant_alpha
+```
+
+The command prints a secret once. Move it to `.dev.vars` or a secret manager and
+never commit the output. There is no self-service registration endpoint in this
+reference server; a deployment operator provisions and revokes tenant keys.
+
 The tenant identifier selects the matching scope in the published snapshot.
 Optional deployment fields are `product_ids`, `price_tier`,
 `allow_full_enumeration`, `max_page_size`, and `daily_quota`.
@@ -240,11 +268,12 @@ replaced by durable storage for multi-isolate production use.
 
 | Method | Path | Credential | Purpose |
 | --- | --- | --- | --- |
+| `GET` | `/.well-known/send-from-china.json` | No | Authentication and capability discovery |
 | `GET` | `/health` | No | Snapshot freshness and gateway state |
 | `GET` | `/api/catalog` | Yes | Full listing only for explicitly allowed tenants |
 | `GET` | `/api/search?q=...` | Yes | Bounded tenant-scoped search |
 | `GET` | `/api/products/:slug` | Yes | One tenant-visible product |
-| `POST` | `/api/quote` | Yes | Short-lived non-binding quote |
+| `POST` | `/api/quote` | Yes | Short-lived catalog estimate; excludes shipping and tax |
 | `POST` | `/api/chat` | Yes | Deterministic search conversation example |
 | `POST` | `/mcp` | Mixed | Public discovery; authenticated tool calls |
 
@@ -272,6 +301,17 @@ cd ..
 node scripts/scan-public.mjs .
 ```
 
+After starting the Worker, exercise only its public HTTP and MCP surface:
+
+```bash
+export TENANT_KEY="<your-local-key>"
+npm run smoke
+```
+
+Use `npm run smoke -- --url https://your-worker.example` for a deployed
+environment. The smoke test confirms public discovery, authenticated search,
+and fail-closed unauthenticated access without reading deployment internals.
+
 See [Security model](docs/SECURITY_MODEL.md) for the exact test files behind
 each claim.
 
@@ -292,7 +332,8 @@ scripts/               Repository safety scanner
 Version `1.0.0` is the first stable public contract for the guarded catalog
 gateway and local snapshot publisher. It is usable for local integration,
 contract tests, and adapting a user-owned catalog. It is not a hosted
-marketplace and cannot complete a purchase.
+marketplace, carrier-rate service, or purchasing system and cannot complete a
+purchase.
 
 Before adding a write-capable system, independently design durable identity,
 authorization, idempotency, audit logging, retention, deletion, pricing,

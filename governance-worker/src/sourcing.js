@@ -4,6 +4,8 @@ import { resolveTenant, TenantError } from "./tenant.js";
 const TASK_STATES = Object.freeze(["QUEUED", "SOURCING", "GOVERNING", "RESULTS_READY"]);
 const TASKS = new Map();
 const IDEMPOTENCY = new Map();
+const SEARCH_PROOFS = new Map();
+const SEARCH_PROOF_TTL_MS = 15 * 60 * 1000;
 
 export class DemoSourcingError extends Error {
   constructor(code, message) {
@@ -43,14 +45,14 @@ function authenticatedAgent(authorization, env = {}) {
 
 function cleanList(value) {
   if (!Array.isArray(value)) return [];
-  return [...new Set(value.map((item) => cleanText(item, 80)).filter(Boolean))].slice(0, 20);
+  return [...new Set(value.map((item) => cleanText(item, 80).toLowerCase()).filter(Boolean))].slice(0, 20);
 }
 
 function normalizeCriteria(value = {}) {
-  const priceMax = Number(value.price_max);
+  const priceMax = value.price_max === undefined || value.price_max === null ? null : Number(value.price_max);
   return {
-    category: cleanText(value.category, 100),
-    use_case: cleanText(value.use_case, 160),
+    category: cleanText(value.category, 100).toLowerCase(),
+    use_case: cleanText(value.use_case, 160).toLowerCase(),
     ship_to: cleanText(value.ship_to, 2).toUpperCase(),
     price_max: Number.isFinite(priceMax) && priceMax >= 0 ? priceMax : null,
     materials: cleanList(value.materials),
@@ -63,6 +65,7 @@ function normalizeCriteria(value = {}) {
 function normalizeCreateRequest(value = {}) {
   const query = cleanText(value.query, 300);
   const idempotencyKey = cleanText(value.idempotency_key, 128);
+  const searchId = cleanText(value.search_id, 180);
   const criteria = normalizeCriteria(value.criteria);
   if (query.length < 3) throw new DemoSourcingError("INVALID_QUERY", "A specific product request is required.");
   if (value.plan_id !== "preview") {
@@ -70,6 +73,12 @@ function normalizeCreateRequest(value = {}) {
   }
   if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{11,127}$/.test(idempotencyKey)) {
     throw new DemoSourcingError("INVALID_IDEMPOTENCY_KEY", "Use a stable idempotency key between 12 and 128 characters.");
+  }
+  if (!/^search_demo_[A-Za-z0-9-]{20,}$/.test(searchId)) {
+    throw new DemoSourcingError("SEARCH_PROOF_REQUIRED", "Use the search_id from a terminal confirm_search response.");
+  }
+  if (value.confirmed !== true) {
+    throw new DemoSourcingError("USER_CONFIRMATION_REQUIRED", "Set confirmed=true only after explicit user confirmation.");
   }
   if (!/^[A-Z]{2}$/.test(criteria.ship_to)) {
     throw new DemoSourcingError("SOURCING_DESTINATION_REQUIRED", "criteria.ship_to must be an ISO alpha-2 destination.");
@@ -84,7 +93,7 @@ function normalizeCreateRequest(value = {}) {
   if (!hasStructuredIntent) {
     throw new DemoSourcingError("SOURCING_INTENT_REQUIRED", "Provide at least one structured product criterion.");
   }
-  return { query, criteria, plan_id: "preview", idempotency_key: idempotencyKey };
+  return { query, criteria, search_id: searchId, confirmed: true, plan_id: "preview", idempotency_key: idempotencyKey };
 }
 
 function publicTask(task) {
@@ -94,6 +103,8 @@ function publicTask(task) {
     status_history: [...task.status_history],
     query: task.query,
     criteria: { ...task.criteria },
+    search_id: task.search_id,
+    confirmed: task.confirmed,
     plan_id: task.plan_id,
     human_result_limit: 3,
     result_count: task.results.length,
@@ -101,6 +112,7 @@ function publicTask(task) {
     billable: false,
     durable: false,
     mode: "synthetic_demo",
+    illustrative_only: true,
     created_at: task.created_at,
     updated_at: task.updated_at,
   };
@@ -127,12 +139,51 @@ function syntheticResults(query, criteria, tenant) {
     why: `Synthetic reviewed fixture for ${criteria.ship_to}; verify all commercial facts in a real deployment.`,
     source: product.source,
     governance_status: "REVIEWED_PREVIEW",
+    match_status: "illustrative_only",
+    criteria_satisfied: false,
     availability: "demo_only",
     available: false,
     purchasable: false,
     product_url: null,
     add_to_cart_url: null,
   }));
+}
+
+function proofAgentId(tenant) {
+  return `tenant-agent-${stableHash(tenant.tenant_id)}`;
+}
+
+function cleanupSearchProofs(now = Date.now()) {
+  for (const [id, proof] of SEARCH_PROOFS) {
+    if (proof.expires_at_ms <= now) SEARCH_PROOFS.delete(id);
+  }
+}
+
+export function recordDemoCatalogMiss({ query, criteria, operation, exhaustive, dynamic_request_recommended }, tenant) {
+  if (operation !== "confirm_search" || exhaustive !== true || dynamic_request_recommended !== true) return null;
+  cleanupSearchProofs();
+  const id = `search_demo_${crypto.randomUUID()}`;
+  SEARCH_PROOFS.set(id, {
+    id,
+    agent_id: proofAgentId(tenant),
+    query: cleanText(query, 300),
+    criteria: normalizeCriteria(criteria),
+    expires_at_ms: Date.now() + SEARCH_PROOF_TTL_MS,
+    task_id: null,
+  });
+  return id;
+}
+
+function requireSearchProof(request, agent) {
+  cleanupSearchProofs();
+  const proof = SEARCH_PROOFS.get(request.search_id);
+  if (!proof || proof.agent_id !== agent.id) {
+    throw new DemoSourcingError("SEARCH_PROOF_NOT_FOUND", "The catalog miss proof is missing, expired, or belongs to another tenant.");
+  }
+  if (proof.query !== request.query || JSON.stringify(proof.criteria) !== JSON.stringify(request.criteria)) {
+    throw new DemoSourcingError("SEARCH_PROOF_MISMATCH", "The sourcing request must reuse the confirmed search query and criteria exactly.");
+  }
+  return proof;
 }
 
 function taskForAgent(taskId, agent) {
@@ -186,6 +237,11 @@ export function createDemoSourcingTask(value, { authorization, env = {} }) {
     return { task: publicTask(existing), idempotent: true };
   }
 
+  const proof = requireSearchProof(request, agent);
+  if (proof.task_id) {
+    throw new DemoSourcingError("SEARCH_PROOF_ALREADY_USED", "This confirmed catalog miss already created a preview task.");
+  }
+
   const now = new Date().toISOString();
   if (dailyPreviewUsage(agent.id, now) >= 3) {
     throw new DemoSourcingError("FREE_PREVIEW_DAILY_LIMIT", "The local synthetic preview quota is exhausted for this UTC day.");
@@ -203,6 +259,7 @@ export function createDemoSourcingTask(value, { authorization, env = {} }) {
   };
   TASKS.set(task.id, task);
   IDEMPOTENCY.set(idempotencyScope, task.id);
+  proof.task_id = task.id;
   return { task: publicTask(task), idempotent: false };
 }
 
@@ -240,10 +297,12 @@ export function listDemoSourcingResults(taskId, { cursor = "", limit = 50 } = {}
     next_cursor: nextOffset < task.results.length ? btoa(String(nextOffset)).replace(/=+$/g, "") : null,
     exhaustive: nextOffset >= task.results.length,
     mode: "synthetic_demo",
+    illustrative_only: true,
   };
 }
 
 export function resetDemoSourcingState() {
   TASKS.clear();
   IDEMPOTENCY.clear();
+  SEARCH_PROOFS.clear();
 }

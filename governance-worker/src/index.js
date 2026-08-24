@@ -37,6 +37,27 @@ async function route(request, env, id, corsHeaders) {
       product_count: meta.product_count,
     }, 200, id, corsHeaders);
   }
+  if (request.method === "GET" && url.pathname === "/.well-known/send-from-china.json") {
+    return jsonResponse({
+      schema_version: 1,
+      service: "send-from-china-agent-core",
+      version: "1.0.0",
+      mode: "self_hosted_reference",
+      mcp: { path: "/mcp", discovery_auth_required: false, tool_auth: "bearer_tenant_key" },
+      registration: { self_service: false, key_provisioning: "deployment_operator" },
+      capabilities: {
+        catalog_search: true,
+        product_detail: true,
+        catalog_estimate: true,
+        shipping_rates: false,
+        illustrative_sourcing_preview: true,
+        cart: false,
+        checkout: false,
+        order: false,
+        payment: false,
+      },
+    }, 200, id, corsHeaders);
+  }
   if (request.method === "POST" && url.pathname === "/mcp") {
     const parsed = await readJson(request);
     if (parsed.error) return errorResponse(parsed.error, parsed.error === "PAYLOAD_TOO_LARGE" ? 413 : 400, id, corsHeaders);
@@ -78,10 +99,16 @@ async function route(request, env, id, corsHeaders) {
     if (parsed.error) return errorResponse(parsed.error, parsed.error === "PAYLOAD_TOO_LARGE" ? 413 : 400, id, corsHeaders);
     const query = lastUserQuery(parsed.value?.messages);
     if (!query) return errorResponse("INVALID_MESSAGES", 400, id, corsHeaders);
-    const matches = searchCatalog(query, { limit: Math.min(3, tenant.max_page_size) }, tenant);
+    const criteria = parsed.value?.criteria && typeof parsed.value.criteria === "object" && !Array.isArray(parsed.value.criteria)
+      ? parsed.value.criteria
+      : {};
+    const matches = searchCatalog(query, { limit: Math.min(3, tenant.max_page_size), criteria }, tenant);
     return jsonResponse({
       reply: matches.total ? "I found tenant-visible catalog matches. Refine the request to narrow the results." : "No published catalog match was found. Refine the request or use the explicit preview workflow.",
       products: matches.items,
+      criteria: matches.criteria,
+      criteria_evaluation: matches.criteria_evaluation,
+      dynamic_request_recommended: matches.total === 0 && !matches.next_cursor,
       next_actions: ["Refine the product", "Set a budget", "Change the use case"],
       mode: "deterministic_fixture",
     }, 200, id, corsHeaders);
