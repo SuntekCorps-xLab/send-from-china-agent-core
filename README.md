@@ -2,16 +2,37 @@
 
 # Send From China Agent Core
 
-**A self-hosted, tenant-scoped catalog gateway for commerce agents.**
+### Publish once. Expose only what each tenant is allowed to see.
 
-[![CI](https://github.com/Peter-Fu-Collab/send-from-china-agent-core/actions/workflows/ci.yml/badge.svg)](https://github.com/Peter-Fu-Collab/send-from-china-agent-core/actions/workflows/ci.yml)
+A self-hosted catalog gateway that gives commerce agents a guarded HTTP and MCP
+surface—without connecting the runtime to your private systems.
+
+[![CI](https://github.com/SuntekCorps-xLab/send-from-china-agent-core/actions/workflows/ci.yml/badge.svg)](https://github.com/SuntekCorps-xLab/send-from-china-agent-core/actions/workflows/ci.yml)
 [![Node.js 22](https://img.shields.io/badge/Node.js-22-142b2f)](governance-worker/package.json)
 [![MCP](https://img.shields.io/badge/MCP-2025--06--18-c64b1a)](contracts/openapi.yaml)
+[![Release candidate](https://img.shields.io/badge/release-0.4.0--rc.1-e85d16)](CHANGELOG.md)
+[![Runtime egress](https://img.shields.io/badge/runtime%20egress-none-87927a)](docs/SECURITY_MODEL.md)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-6b7c70)](LICENSE)
 
-<img src="docs/images/governed-commerce-hero.png" alt="A published product snapshot passing through governance controls to HTTP and MCP clients" width="100%">
+<br>
+
+<img src="docs/images/governed-commerce-hero-v2.png" alt="A published catalog snapshot passing through tenant, field, and policy controls before reaching HTTP and MCP clients" width="100%">
+
+<p>
+  <a href="#60-second-local-run"><strong>Quickstart</strong></a> ·
+  <a href="#connect-an-mcp-client"><strong>MCP setup</strong></a> ·
+  <a href="#publish-your-own-catalog"><strong>Publisher</strong></a> ·
+  <a href="docs/SECURITY_MODEL.md"><strong>Security model</strong></a> ·
+  <a href="docs/ARCHITECTURE.md"><strong>Architecture</strong></a>
+</p>
 
 </div>
+
+> [!IMPORTANT]
+> Agent Core is a security-focused reference gateway, not a hosted marketplace.
+> It deliberately has no customer, payment, order, checkout, supplier, or
+> product-write connection. The included sourcing lifecycle is a synthetic,
+> non-purchasable fixture for client integration tests.
 
 ## What you can build with it
 
@@ -29,12 +50,20 @@ customer account, payment provider, or order system. It makes no outbound
 runtime network request. The included local publisher turns your JSON or JSONL
 catalog into a validated build-time snapshot without sending it anywhere.
 
-## Five-minute local run
+<table>
+  <tr>
+    <td width="33%" valign="top"><strong>🔐 Guarded by default</strong><br>Tenant keys, bounded search, quotas, generic errors, and fail-closed configuration.</td>
+    <td width="33%" valign="top"><strong>🧱 Positive data policy</strong><br>Every product response is rebuilt from an explicit public-field allowlist.</td>
+    <td width="33%" valign="top"><strong>↔️ One policy, two protocols</strong><br>HTTP and MCP calls share the same snapshot, tenant scope, and non-transactional boundary.</td>
+  </tr>
+</table>
+
+## 60-second local run
 
 Requirements: Node.js 22+ and npm.
 
 ```bash
-git clone https://github.com/Peter-Fu-Collab/send-from-china-agent-core.git
+git clone https://github.com/SuntekCorps-xLab/send-from-china-agent-core.git
 cd send-from-china-agent-core/governance-worker
 npm ci
 cp .dev.vars.example .dev.vars

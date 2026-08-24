@@ -2,6 +2,14 @@
 
 All notable changes to the public reference implementation are documented here.
 
+## Unreleased
+
+- Refreshed the GitHub presentation with a new governed-catalog hero, concise
+  quick navigation, and an earlier reference-runtime boundary.
+- Added a pinned CodeQL workflow that activates when the repository is public.
+- Added a public-release settings checklist and GitHub Actions Dependabot
+  coverage.
+
 ## 0.4.0-rc.1 - 2026-08-23
 
 - Added a standard-library Python publisher for user-owned JSON and JSONL
