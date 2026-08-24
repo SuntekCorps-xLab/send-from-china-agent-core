@@ -76,6 +76,7 @@ jobs:
       - name: Scan public repository
         run: |
           mkdir -p artifacts
+          node scripts/check-doc-links.mjs 2>&1 | tee artifacts/documentation-links.log
           node scripts/scan-public.mjs . 2>&1 | tee artifacts/public-safety-scan.log
       - name: Upload safety evidence
         if: always()

@@ -81,7 +81,7 @@ export async function handleMcp(payload, options = {}) {
   if (payload.method === "initialize") {
     return { status: 200, body: result(payload.id, {
       protocolVersion: "2025-06-18", capabilities: { tools: {} },
-      serverInfo: { name: "send-from-china-agent-core", version: "0.3.0-rc.1" },
+      serverInfo: { name: "send-from-china-agent-core", version: "1.0.0" },
       instructions: "Discover tools without a credential. Tool calls require a tenant key. Catalog and quote operations are read-only and quotes are non-binding.",
     }) };
   }

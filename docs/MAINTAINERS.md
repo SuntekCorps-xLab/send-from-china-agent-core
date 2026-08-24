@@ -7,8 +7,9 @@ before enabling public contributions. That group is responsible for code
 review, release approval, vulnerability triage, and keeping the declared public
 scope separate from private production systems.
 
-Until named GitHub accounts or teams are configured, the repository must remain
-in release-candidate status and external pull requests must not be merged.
+Before public contributions are enabled, configure a named GitHub maintainer
+team and the branch rules in `PUBLIC_RELEASE_CHECKLIST.md`. Until then, external
+pull requests may be reviewed but must not be merged.
 
 ## Review Rules
 
@@ -22,6 +23,6 @@ in release-candidate status and external pull requests must not be merged.
 
 ## Release Duties
 
-The release owner records the candidate commit, dependency lockfile, test
+The release owner records the release commit, dependency lockfile, test
 results, safety-scan result, and release notes. Production deployment of a
 downstream commerce system is outside this repository's scope.

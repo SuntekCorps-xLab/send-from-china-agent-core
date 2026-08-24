@@ -1,9 +1,9 @@
-# Release Candidate Verification Evidence
+# V1 Release Verification Evidence
 
 ## Scope
 
-- Candidate: `0.4.0-rc.1`
-- Review date: 2026-08-23
+- Release: `1.0.0`
+- Review date: 2026-08-24
 - Scope: published snapshot contract, positive product field policy,
   tenant-scoped HTTP and MCP gateway, anti-enumeration controls, non-binding
   quote, fixture sourcing preview, file-only ETL, and local snapshot publisher
@@ -31,7 +31,7 @@ npx --yes @redocly/cli lint contracts/openapi.yaml
 
 ## Recorded local results
 
-The 2026-08-23 candidate run produced these results:
+The V1 verification run produced these results:
 
 - locked dependency installation completed with zero reported vulnerabilities;
 - Worker static checks passed for 18 JavaScript files;
@@ -54,4 +54,4 @@ they do not claim a durable task, external provider call, purchasable sourcing
 result, or transaction.
 
 The destination GitHub repository must run `.github/workflows/ci.yml` on the
-exact candidate commit before a release tag is created.
+exact release commit before the `v1.0.0` tag is created.

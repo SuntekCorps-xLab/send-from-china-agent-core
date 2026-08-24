@@ -10,7 +10,7 @@ surface—without connecting the runtime to your private systems.
 [![CI](https://github.com/SuntekCorps-xLab/send-from-china-agent-core/actions/workflows/ci.yml/badge.svg)](https://github.com/SuntekCorps-xLab/send-from-china-agent-core/actions/workflows/ci.yml)
 [![Node.js 22](https://img.shields.io/badge/Node.js-22-142b2f)](governance-worker/package.json)
 [![MCP](https://img.shields.io/badge/MCP-2025--06--18-c64b1a)](contracts/openapi.yaml)
-[![Release candidate](https://img.shields.io/badge/release-0.4.0--rc.1-e85d16)](CHANGELOG.md)
+[![Release](https://img.shields.io/badge/release-v1.0.0-e85d16)](CHANGELOG.md)
 [![Runtime egress](https://img.shields.io/badge/runtime%20egress-none-87927a)](docs/SECURITY_MODEL.md)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-6b7c70)](LICENSE)
 
@@ -64,10 +64,12 @@ Requirements: Node.js 22+ and npm.
 
 ```bash
 git clone https://github.com/SuntekCorps-xLab/send-from-china-agent-core.git
-cd send-from-china-agent-core/governance-worker
+cd send-from-china-agent-core
+npm ci
+npm run verify
+cd governance-worker
 npm ci
 cp .dev.vars.example .dev.vars
-npm run verify
 npm run dev
 ```
 
@@ -287,10 +289,10 @@ scripts/               Repository safety scanner
 
 ## Project boundary
 
-Version `0.4.0-rc.1` adds a Phase 2 local publishing path to the reference
-gateway. It is usable for local integration, contract tests, and adapting a
-user-owned catalog. It is not a hosted marketplace and cannot complete a
-purchase.
+Version `1.0.0` is the first stable public contract for the guarded catalog
+gateway and local snapshot publisher. It is usable for local integration,
+contract tests, and adapting a user-owned catalog. It is not a hosted
+marketplace and cannot complete a purchase.
 
 Before adding a write-capable system, independently design durable identity,
 authorization, idempotency, audit logging, retention, deletion, pricing,

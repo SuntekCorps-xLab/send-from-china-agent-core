@@ -52,5 +52,6 @@ system requires a new capacity test and threat review.
 ## Compatibility and Data Changes
 
 There are no database migrations in this release. API response shapes follow
-the release-candidate version and should be treated as unstable until `1.0.0`.
+the in-memory reference implementation and should be replaced before a
+multi-isolate production deployment.
 An incompatible API change requires release notes and a version update.

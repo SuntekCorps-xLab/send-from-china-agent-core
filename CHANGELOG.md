@@ -4,11 +4,18 @@ All notable changes to the public reference implementation are documented here.
 
 ## Unreleased
 
-- Refreshed the GitHub presentation with a new governed-catalog hero, concise
-  quick navigation, and an earlier reference-runtime boundary.
-- Added a pinned CodeQL workflow that activates when the repository is public.
-- Added a public-release settings checklist and GitHub Actions Dependabot
-  coverage.
+No unreleased changes.
+
+## 1.0.0 - 2026-08-24
+
+- Declared the first stable public HTTP, MCP, snapshot, and publisher contract.
+- Synchronized the package, MCP discovery, OpenAPI, documentation, and release
+  evidence versions.
+- Added a cross-platform root `npm run verify` command covering Worker tests,
+  Python pipelines, sample publication, snapshot validation, documentation
+  links, and the public safety scan.
+- Refreshed the GitHub presentation, pinned CodeQL workflow, repository settings
+  checklist, and Dependabot coverage for public release.
 
 ## 0.4.0-rc.1 - 2026-08-23
 

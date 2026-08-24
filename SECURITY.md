@@ -22,12 +22,12 @@ latest commit is not sufficient because Git history and build logs may retain it
 
 ## Dependency assurance
 
-Private release candidates use locked installs, `npm audit`, Dependabot alerts,
-and automated security updates. GitHub dependency review runs on pull requests
+Releases use locked installs, `npm audit`, Dependabot alerts, and automated
+security updates. GitHub dependency review runs on pull requests
 once the repository is public; GitHub does not provide that API to a private
 repository without Advanced Security.
 
 ## Supported Versions
 
-Until the first stable release, security fixes target the newest release
-candidate only. Production deployments remain the deployer's responsibility.
+Security fixes target the latest `1.x` release. Production deployments remain
+the deployer's responsibility.
