@@ -4,7 +4,10 @@ All notable changes to the public reference implementation are documented here.
 
 ## Unreleased
 
-No unreleased changes.
+- Added a dependency-free JavaScript SDK for capability discovery, catalog
+  search, governed sourcing polling, paginated results, and allowlisted
+  customer purchase handoffs.
+- Added a hosted-platform quickstart and a read-only integration example.
 
 ## 1.0.0 - 2026-08-24
 

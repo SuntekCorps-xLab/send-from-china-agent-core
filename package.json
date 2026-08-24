@@ -9,6 +9,7 @@
   "scripts": {
     "check:links": "node scripts/check-doc-links.mjs",
     "scan": "node scripts/scan-public.mjs .",
+    "sdk:test": "node --test sdk/test/client.test.js",
     "smoke": "node scripts/smoke-public.mjs",
     "tenant:key": "node scripts/generate-tenant-key.mjs",
     "test": "node scripts/verify.mjs",

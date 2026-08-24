@@ -34,6 +34,12 @@ surface—without connecting the runtime to your private systems.
 > product-write connection. The included sourcing lifecycle is a synthetic,
 > non-purchasable fixture for client integration tests.
 
+To connect an external application to this contract or to a compatible hosted
+deployment, use the dependency-free [JavaScript SDK](sdk/README.md) and follow
+the [Hosted Platform quickstart](docs/HOSTED_PLATFORM_QUICKSTART.md). The SDK
+keeps catalog discovery, dynamic sourcing, and merchant purchase handoff
+separate, and never handles payment credentials.
+
 ## What you can build with it
 
 Agent Core turns a pre-published product snapshot into a guarded HTTP and MCP
