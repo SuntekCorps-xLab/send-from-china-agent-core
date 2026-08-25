@@ -8,6 +8,8 @@ All notable changes to the public reference implementation are documented here.
   search, governed sourcing polling, paginated results, and allowlisted
   customer purchase handoffs.
 - Added a hosted-platform quickstart and a read-only integration example.
+- Prevented accidental SDK publication, rejected credential-bearing or
+  stateful service URLs, and cleaned up polling abort listeners.
 
 ## 1.0.0 - 2026-08-24
 

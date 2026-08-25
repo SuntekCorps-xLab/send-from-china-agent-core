@@ -25,6 +25,9 @@ function normalizedBase(value) {
   if (url.protocol !== "https:" && !(local && url.protocol === "http:")) {
     throw new TypeError("baseUrl must use HTTPS (HTTP is allowed only for localhost)");
   }
+  if (url.username || url.password || url.search || url.hash) {
+    throw new TypeError("baseUrl must not contain credentials, a query, or a fragment");
+  }
   return url.href.replace(/\/+$/, "");
 }
 
@@ -44,11 +47,16 @@ function safeCode(value, fallback) {
 function wait(ms, signal) {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) return reject(signal.reason || new DOMException("Aborted", "AbortError"));
-    const timer = setTimeout(resolve, ms);
-    signal?.addEventListener("abort", () => {
+    const onAbort = () => {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
       reject(signal.reason || new DOMException("Aborted", "AbortError"));
-    }, { once: true });
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
   });
 }
 
@@ -63,7 +71,7 @@ export function resolvePurchaseHandoff(product, options = {}) {
   for (const [kind, value] of candidates) {
     try {
       const url = new URL(String(value || ""));
-      if (url.protocol !== "https:" || !origins.has(url.origin)) continue;
+      if (url.protocol !== "https:" || url.username || url.password || !origins.has(url.origin)) continue;
       return Object.freeze({ kind, url: url.href, requires_user: true });
     } catch {
       // An absent or malformed candidate is not a purchase destination.

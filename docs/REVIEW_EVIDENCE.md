@@ -61,5 +61,13 @@ These checks verify the public contract and boundaries;
 they do not claim a durable task, external provider call, purchasable sourcing
 result, or transaction.
 
+## Unreleased SDK verification
+
+On 2026-08-25, `npm run verify` passed on the current tree, including 41 Worker
+tests, 9 JavaScript SDK tests, 2 tenant-key generator tests, 4 ETL tests, 10
+publisher tests, snapshot validation, documentation links, and the public
+safety scan. This local result covers the unreleased SDK changes; it does not
+claim that the current tree has been deployed or reviewed by GitHub Actions.
+
 The destination GitHub repository must run `.github/workflows/ci.yml` on the
 exact release commit before the `v1.0.0` tag is created.

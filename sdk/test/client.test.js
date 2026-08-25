@@ -101,9 +101,46 @@ test("allows only explicit customer-facing commerce origins", () => {
   assert.equal(resolvePurchaseHandoff({ product_url: "http://shop.example/products/item" }, {
     commerceOrigins: ["https://shop.example"],
   }), null);
+  assert.equal(resolvePurchaseHandoff({ product_url: "https://user:pass@shop.example/products/item" }, {
+    commerceOrigins: ["https://shop.example"],
+  }), null);
 });
 
 test("rejects insecure non-local service URLs", () => {
   assert.throws(() => createSendFromChinaClient({ baseUrl: "http://agent.example.test" }), /HTTPS/);
   assert.doesNotThrow(() => createSendFromChinaClient({ baseUrl: "http://127.0.0.1:8787" }));
+});
+
+test("rejects service URLs with embedded request state or credentials", () => {
+  assert.throws(() => createSendFromChinaClient({ baseUrl: "https://user:pass@agent.example.test" }), /credentials/);
+  assert.throws(() => createSendFromChinaClient({ baseUrl: "https://agent.example.test?tenant=one" }), /query/);
+  assert.throws(() => createSendFromChinaClient({ baseUrl: "https://agent.example.test#tools" }), /fragment/);
+});
+
+test("removes polling abort listeners after a successful wait", async () => {
+  const listeners = new Set();
+  const signal = {
+    aborted: false,
+    reason: undefined,
+    addEventListener(name, listener) {
+      assert.equal(name, "abort");
+      listeners.add(listener);
+    },
+    removeEventListener(name, listener) {
+      assert.equal(name, "abort");
+      listeners.delete(listener);
+    },
+  };
+  const states = ["QUEUED", "RESULTS_READY"];
+  const client = createSendFromChinaClient({
+    baseUrl: "https://agent.example.test", token: "tenant_test_token",
+    fetch: async (_url, init) => toolResult(JSON.parse(init.body).id, {
+      task: { id: "task_1", status: states.shift() },
+    }),
+  });
+  const task = await client.waitForSourcingTask("task_1", {
+    signal, pollIntervalMs: 1, timeoutMs: 2_000,
+  });
+  assert.equal(task.status, "RESULTS_READY");
+  assert.equal(listeners.size, 0);
 });
