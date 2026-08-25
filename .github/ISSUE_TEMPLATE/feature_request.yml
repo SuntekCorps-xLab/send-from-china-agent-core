@@ -1,0 +1,44 @@
+name: Feature request
+description: Propose a bounded improvement to the public reference implementation.
+title: "feature: "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Explain the developer problem first. This repository does not accept
+        private provider code, production data, or hidden write capabilities.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Developer problem
+      description: What cannot be built or tested with the current public surface?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed public behavior
+      description: Include the HTTP, MCP, SDK, documentation, or example change you expect.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - HTTP or MCP contract
+        - JavaScript SDK
+        - Catalog publisher
+        - Sourcing preview fixture
+        - Documentation or example
+        - Developer tooling
+    validations:
+      required: true
+  - type: checkboxes
+    id: boundary
+    attributes:
+      label: Public boundary
+      options:
+        - label: The proposal can be demonstrated with synthetic data and no private credential or provider connection.
+          required: true

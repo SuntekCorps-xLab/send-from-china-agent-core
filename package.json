@@ -8,7 +8,9 @@
   },
   "scripts": {
     "check:links": "node scripts/check-doc-links.mjs",
+    "dev": "node scripts/prepare-local.mjs && npm --prefix governance-worker run dev",
     "scan": "node scripts/scan-public.mjs .",
+    "setup": "node scripts/prepare-local.mjs && npm --prefix governance-worker ci",
     "sdk:test": "node --test sdk/test/client.test.js",
     "smoke": "node scripts/smoke-public.mjs",
     "tenant:key": "node scripts/generate-tenant-key.mjs",

@@ -23,7 +23,8 @@ surface—without connecting the runtime to your private systems.
   <a href="#connect-an-mcp-client"><strong>MCP setup</strong></a> ·
   <a href="#publish-your-own-catalog"><strong>Publisher</strong></a> ·
   <a href="docs/SECURITY_MODEL.md"><strong>Security model</strong></a> ·
-  <a href="docs/ARCHITECTURE.md"><strong>Architecture</strong></a>
+  <a href="docs/ARCHITECTURE.md"><strong>Architecture</strong></a> ·
+  <a href="ROADMAP.md"><strong>Roadmap</strong></a>
 </p>
 
 </div>
@@ -72,20 +73,14 @@ Requirements: Node.js 22+ and npm.
 git clone https://github.com/SuntekCorps-xLab/send-from-china-agent-core.git
 cd send-from-china-agent-core
 npm ci
+npm run setup
 npm run verify
-cd governance-worker
-npm ci
-cp .dev.vars.example .dev.vars
 npm run dev
 ```
 
-On Windows PowerShell, replace the copy command with:
-
-```powershell
-Copy-Item .dev.vars.example .dev.vars
-```
-
-The checked-in key is an obvious local test value. Replace it before sharing a
+`npm run setup` installs the locked Worker dependency and creates
+`governance-worker/.dev.vars` only when the file does not already exist. The
+checked-in key is an obvious local test value. Replace it before sharing a
 development deployment. In another terminal, set the same value locally:
 
 ```bash
@@ -349,4 +344,6 @@ inventory, tax, shipping, returns, and incident response.
 
 Licensed under Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 Report vulnerabilities privately through [SECURITY.md](SECURITY.md). Use the
-issue templates for reproducible bugs and setup questions.
+issue templates for reproducible bugs, setup questions, and feature proposals;
+see [Support](SUPPORT.md) and the [public roadmap](ROADMAP.md) before opening an
+issue.

@@ -13,6 +13,11 @@ Open an issue before changing an API shape, security boundary, or the declared
 public scope. Provider-specific code must remain behind explicit configuration
 and must fail closed when configuration is absent.
 
+Start with a `good first issue` or `help wanted` item when available. Those
+issues have a maintainer-approved boundary and acceptance checks. For a new
+idea, use the feature-request form and relate it to `ROADMAP.md` before writing
+an implementation.
+
 ## Required Checks
 
 Run the same checks as CI from the repository root:
