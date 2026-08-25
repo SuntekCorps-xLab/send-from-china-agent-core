@@ -23,7 +23,7 @@
       @keyframes pointer{0%,56%{opacity:0;transform:translate(55px,50px)}60%{opacity:1;transform:translate(0,0)}64%{opacity:1;transform:translate(0,0) scale(.82)}68%,100%{opacity:0;transform:translate(0,0)}}
       @keyframes ring{0%{opacity:.65;transform:scale(.65)}90%,100%{opacity:0;transform:scale(1.7)}}
       @keyframes step1{0%,50%{opacity:.28}57%,100%{opacity:1}}@keyframes step2{0%,58%{opacity:.28}65%,100%{opacity:1}}@keyframes step3{0%,66%{opacity:.28}73%,100%{opacity:1}}@keyframes step4{0%,74%{opacity:.28}81%,100%{opacity:1}}
-      @keyframes dash{to{stroke-dashoffset:-28}}@keyframes candidate{0%,75%{opacity:0;transform:translateY(18px) scale(.96)}83%,94%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0}}
+      @keyframes dash{to{stroke-dashoffset:-28}}@keyframes candidate{0%,56%{opacity:.36;transform:translateY(10px) scale(.985)}68%,75%{opacity:.52;transform:translateY(5px) scale(.99)}83%,94%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:.36;transform:translateY(10px) scale(.985)}}
       @keyframes spark{0%,100%{transform:scale(.82) rotate(0);opacity:.65}50%{transform:scale(1.14) rotate(12deg);opacity:1}}
       @media (prefers-reduced-motion:reduce){.search-page,.source-page,.search-active,.source-active,.tab-marker,.typed,.caret,.result-card,.trace,.pointer,.ring,.step,.dash,.candidate,.spark{animation:none!important}.search-page,.search-active{opacity:0}.source-page,.source-active,.step,.candidate{opacity:1}.source-page{transform:none}.pointer{display:none}.tab-marker{transform:translateX(178px);width:186px}}
     </style>
@@ -65,8 +65,8 @@
       <rect x="92" y="312" width="574" height="175" rx="24" fill="#f6f2e9" stroke="#d4dcd5"/><text x="120" y="347" class="eyebrow muted">CONFIRMED BRIEF</text><text x="120" y="382" class="strong ink">Custom recycled travel organizer</text>
       <rect x="120" y="406" width="126" height="35" rx="17.5" fill="#fff"/><text x="143" y="429" class="small ink">Budget $40</text><rect x="258" y="406" width="98" height="35" rx="17.5" fill="#fff"/><text x="280" y="429" class="small ink">Ship US</text><rect x="368" y="406" width="157" height="35" rx="17.5" fill="#fff"/><text x="390" y="429" class="small ink">Recycled textile</text>
       <rect x="120" y="449" width="230" height="24" rx="12" fill="#e5ebe4"/><circle cx="137" cy="461" r="6" fill="#77a36c"/><text x="151" y="466" class="small ink">Terminal catalog miss verified</text>
-      <rect x="458" y="426" width="177" height="44" rx="22" fill="#e85d22"/><text x="489" y="454" class="small white">Confirm preview</text>
-      <g class="pointer"><circle cx="624" cy="462" r="22" fill="#f58a50" opacity=".25" class="ring"/><path d="M612 446l22 18-12 3 7 15-7 3-7-15-9 8z" fill="#173f40" stroke="#fff" stroke-width="2"/></g>
+      <rect x="430" y="445" width="205" height="42" rx="21" fill="#e85d22"/><text x="468" y="472" class="small white">Confirm preview</text>
+      <g class="pointer"><circle cx="624" cy="479" r="22" fill="#f58a50" opacity=".25" class="ring"/><path d="M612 463l22 18-12 3 7 15-7 3-7-15-9 8z" fill="#173f40" stroke="#fff" stroke-width="2"/></g>
 
       <rect x="92" y="509" width="574" height="172" rx="24" fill="#10383b"/>
       <text x="120" y="544" class="eyebrow" fill="#ff9a58">SOURCING TASK</text><text x="120" y="573" class="small" fill="#afc5bf">Illustrative preview · one confirmed task</text>
