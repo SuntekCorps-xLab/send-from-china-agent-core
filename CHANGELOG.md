@@ -10,8 +10,8 @@ All notable changes to the public reference implementation are documented here.
 - Added a hosted-platform quickstart and a read-only integration example.
 - Prevented accidental SDK publication, rejected credential-bearing or
   stateful service URLs, and cleaned up polling abort listeners.
-- Replaced the static repository hero with a lightweight animated walkthrough
-  of the governed catalog-to-client flow.
+- Replaced the static repository hero with a lightweight two-page animation of
+  governed catalog search and explicitly confirmed sourcing preview behavior.
 
 ## 1.0.0 - 2026-08-24
 

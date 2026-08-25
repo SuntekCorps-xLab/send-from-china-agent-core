@@ -1,84 +1,88 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 820" role="img" aria-labelledby="title desc">
-  <title id="title">Agent Core governed catalog animation</title>
-  <desc id="desc">Catalog records move through tenant, field policy, and no-egress controls before reaching browser and MCP clients.</desc>
+  <title id="title">Interactive Agent Core catalog and sourcing walkthrough</title>
+  <desc id="desc">The interface switches from governed catalog search to an explicitly confirmed illustrative dynamic sourcing preview.</desc>
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#f8f4eb"/>
-      <stop offset="0.55" stop-color="#edf1e9"/>
-      <stop offset="1" stop-color="#f5e9dc"/>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#f8f3e9"/><stop offset=".55" stop-color="#edf1e9"/><stop offset="1" stop-color="#f2dfcf"/>
     </linearGradient>
-    <linearGradient id="core" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#173f40"/>
-      <stop offset="1" stop-color="#09292e"/>
-    </linearGradient>
-    <linearGradient id="orange" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#ffb06a"/>
-      <stop offset="1" stop-color="#e55319"/>
-    </linearGradient>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%">
-      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#173f40" flood-opacity=".16"/>
-    </filter>
-    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
-      <feGaussianBlur stdDeviation="8" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
+    <linearGradient id="nav" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#092c31"/><stop offset="1" stop-color="#174244"/></linearGradient>
+    <linearGradient id="orange" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ff9f5b"/><stop offset="1" stop-color="#e55319"/></linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="20" stdDeviation="22" flood-color="#123638" flood-opacity=".17"/></filter>
+    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
     <style>
-      .sans{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}.serif{font-family:Georgia,"Times New Roman",serif}
-      .eyebrow{font-size:13px;font-weight:800;letter-spacing:2.2px}.label{font-size:17px;font-weight:750}.small{font-size:13px;font-weight:650}.muted{fill:#647575}.ink{fill:#0d2c31}.white{fill:#fff}
-      .dash{stroke-dasharray:7 9;animation:dash 1.5s linear infinite}.orbit{transform-origin:800px 400px;animation:spin 18s linear infinite}
-      .card{transform-box:fill-box;transform-origin:center;animation:card 8s ease-in-out infinite}.c2{animation-delay:.6s}.c3{animation-delay:1.2s}.c4{animation-delay:1.8s}.c5{animation-delay:2.4s}.c6{animation-delay:3s}
-      .gate{animation:gate 8s ease-in-out infinite}.g2{animation-delay:.7s}.g3{animation-delay:1.4s}
-      .packet-in{transform-box:fill-box;animation:packetIn 4s cubic-bezier(.55,.05,.25,1) infinite}.packet-out{transform-box:fill-box;animation:packetOut 4s 1.8s cubic-bezier(.55,.05,.25,1) infinite}
-      .pulse{transform-box:fill-box;transform-origin:center;animation:pulse 2.4s ease-out infinite}.status{animation:status 4s ease-in-out infinite}
-      @keyframes dash{to{stroke-dashoffset:-32}}@keyframes spin{to{transform:rotate(360deg)}}
-      @keyframes card{0%,55%,100%{transform:translateY(0)}10%{transform:translateY(-7px)}20%{transform:translateY(0)}}
-      @keyframes gate{0%,18%,100%{opacity:.45}28%,62%{opacity:1}72%{opacity:.45}}
-      @keyframes packetIn{0%,8%{opacity:0;transform:translateX(0)}16%{opacity:1}42%{opacity:1;transform:translateX(150px)}48%,100%{opacity:0;transform:translateX(150px)}}
-      @keyframes packetOut{0%,8%{opacity:0;transform:translateX(0)}16%{opacity:1}42%{opacity:1;transform:translateX(155px)}48%,100%{opacity:0;transform:translateX(155px)}}
-      @keyframes pulse{0%{transform:scale(.7);opacity:.7}70%,100%{transform:scale(1.65);opacity:0}}
-      @keyframes status{0%,20%,100%{opacity:.3}35%,72%{opacity:1}}
-      @media (prefers-reduced-motion:reduce){.dash,.orbit,.card,.gate,.packet-in,.packet-out,.pulse,.status{animation:none!important}}
+      .sans{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}.serif{font-family:Georgia,"Times New Roman",serif}.ink{fill:#0b3034}.muted{fill:#6a7975}.white{fill:#fff}.orange{fill:#cf4d17}.green{fill:#598257}.eyebrow{font-size:13px;font-weight:800;letter-spacing:2px}.small{font-size:13px;font-weight:600}.label{font-size:16px;font-weight:750}.strong{font-size:19px;font-weight:800}
+      .search-page{animation:searchPage 14s cubic-bezier(.65,0,.2,1) infinite}.source-page{animation:sourcePage 14s cubic-bezier(.65,0,.2,1) infinite}.search-active{animation:searchActive 14s ease infinite}.source-active{animation:sourceActive 14s ease infinite}.tab-marker{animation:tabMarker 14s cubic-bezier(.65,0,.2,1) infinite}
+      .typed{animation:typed 14s steps(32,end) infinite}.caret{animation:caret .8s step-end infinite}.result-card{transform-box:fill-box;transform-origin:center;animation:resultCard 14s cubic-bezier(.2,.8,.2,1) infinite;animation-fill-mode:both}.r2{animation-delay:.18s}.r3{animation-delay:.36s}.trace{animation:trace 14s ease infinite;animation-fill-mode:both}.t2{animation-delay:.28s}.t3{animation-delay:.56s}
+      .pointer{transform-box:fill-box;animation:pointer 14s cubic-bezier(.4,0,.2,1) infinite}.ring{transform-box:fill-box;transform-origin:center;animation:ring 1.8s ease-out infinite}.step{animation:step1 14s ease infinite}.s2{animation-name:step2}.s3{animation-name:step3}.s4{animation-name:step4}.dash{stroke-dasharray:6 8;animation:dash 1.4s linear infinite}.candidate{transform-box:fill-box;transform-origin:center;animation:candidate 14s cubic-bezier(.2,.8,.2,1) infinite}.ca2{animation-delay:.22s}.spark{transform-box:fill-box;transform-origin:center;animation:spark 2.6s ease-in-out infinite}
+      @keyframes searchPage{0%,39%{opacity:1;transform:translateX(0)}46%,93%{opacity:0;transform:translateX(-40px)}100%{opacity:1;transform:translateX(0)}}
+      @keyframes sourcePage{0%,42%{opacity:0;transform:translateX(45px)}50%,92%{opacity:1;transform:translateX(0)}100%{opacity:0;transform:translateX(45px)}}
+      @keyframes searchActive{0%,40%{opacity:1}47%,93%{opacity:0}100%{opacity:1}}@keyframes sourceActive{0%,42%{opacity:0}50%,92%{opacity:1}100%{opacity:0}}@keyframes tabMarker{0%,40%{transform:translateX(0);width:160px}50%,92%{transform:translateX(178px);width:186px}100%{transform:translateX(0);width:160px}}
+      @keyframes typed{0%,4%{clip-path:inset(0 100% 0 0)}21%,100%{clip-path:inset(0 0 0 0)}}@keyframes caret{50%{opacity:0}}
+      @keyframes resultCard{0%,18%{opacity:0;transform:translateY(18px) scale(.96)}27%,43%{opacity:1;transform:translateY(0) scale(1)}48%,100%{opacity:0}}
+      @keyframes trace{0%,12%{opacity:.22}22%,43%{opacity:1}48%,100%{opacity:.22}}
+      @keyframes pointer{0%,56%{opacity:0;transform:translate(55px,50px)}60%{opacity:1;transform:translate(0,0)}64%{opacity:1;transform:translate(0,0) scale(.82)}68%,100%{opacity:0;transform:translate(0,0)}}
+      @keyframes ring{0%{opacity:.65;transform:scale(.65)}90%,100%{opacity:0;transform:scale(1.7)}}
+      @keyframes step1{0%,50%{opacity:.28}57%,100%{opacity:1}}@keyframes step2{0%,58%{opacity:.28}65%,100%{opacity:1}}@keyframes step3{0%,66%{opacity:.28}73%,100%{opacity:1}}@keyframes step4{0%,74%{opacity:.28}81%,100%{opacity:1}}
+      @keyframes dash{to{stroke-dashoffset:-28}}@keyframes candidate{0%,75%{opacity:0;transform:translateY(18px) scale(.96)}83%,94%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0}}
+      @keyframes spark{0%,100%{transform:scale(.82) rotate(0);opacity:.65}50%{transform:scale(1.14) rotate(12deg);opacity:1}}
+      @media (prefers-reduced-motion:reduce){.search-page,.source-page,.search-active,.source-active,.tab-marker,.typed,.caret,.result-card,.trace,.pointer,.ring,.step,.dash,.candidate,.spark{animation:none!important}.search-page,.search-active{opacity:0}.source-page,.source-active,.step,.candidate{opacity:1}.source-page{transform:none}.pointer{display:none}.tab-marker{transform:translateX(178px);width:186px}}
     </style>
   </defs>
-  <rect width="1600" height="820" rx="40" fill="url(#bg)"/>
-  <circle cx="1390" cy="95" r="170" fill="#dfe9dc" opacity=".75"/><circle cx="145" cy="760" r="190" fill="#f2c6a5" opacity=".35"/>
-  <g filter="url(#shadow)">
-    <rect x="55" y="54" width="1490" height="712" rx="32" fill="#fffdf9" stroke="#cbd6cf"/>
-    <path d="M55 116H1545" stroke="#d7dfda"/>
-    <circle cx="91" cy="85" r="7" fill="#e55319"/><circle cx="116" cy="85" r="7" fill="#e9bb6f"/><circle cx="141" cy="85" r="7" fill="#829b83"/>
-    <rect x="623" y="73" width="354" height="25" rx="12.5" fill="#edf0ec"/><circle cx="646" cy="85.5" r="5" fill="#7b8b86"/>
-    <text x="671" y="91" class="sans small muted">send-from-china / governed runtime</text>
-  </g>
+
+  <rect width="1600" height="820" rx="40" fill="url(#background)"/><circle cx="130" cy="700" r="190" fill="#efbe9b" opacity=".35"/><circle cx="1470" cy="105" r="190" fill="#cadbc7" opacity=".55"/>
+  <g filter="url(#shadow)"><rect x="56" y="50" width="1488" height="718" rx="32" fill="#fffdf9"/><rect x="56" y="50" width="1488" height="76" rx="32" fill="url(#nav)"/><path d="M56 95v31h1488V95" fill="url(#nav)"/></g>
 
   <g class="sans">
-    <text x="94" y="157" class="eyebrow" fill="#c64916">PUBLISHED SNAPSHOT</text><text x="94" y="191" class="serif ink" font-size="29">Tenant-visible catalog</text>
-    <rect x="92" y="214" width="398" height="486" rx="24" fill="#f4f1e9" stroke="#d9ddd5"/>
-    <g class="card"><rect x="116" y="240" width="164" height="128" rx="17" fill="#fff" stroke="#d5dcd6"/><rect x="130" y="254" width="136" height="66" rx="12" fill="#dfe6db"/><path d="M170 305l18-35 15 23 12-17 25 29z" fill="#6f896f"/><rect x="132" y="333" width="82" height="8" rx="4" fill="#173f40"/><rect x="132" y="349" width="112" height="6" rx="3" fill="#c4ccc5"/></g>
-    <g class="card c2"><rect x="300" y="240" width="164" height="128" rx="17" fill="#fff" stroke="#d5dcd6"/><rect x="314" y="254" width="136" height="66" rx="12" fill="#f2ded0"/><path d="M356 309h51l-6-37h-39z" fill="#de622b"/><path d="M369 273c0-18 25-18 25 0" fill="none" stroke="#9c3d18" stroke-width="5"/><rect x="316" y="333" width="96" height="8" rx="4" fill="#173f40"/><rect x="316" y="349" width="118" height="6" rx="3" fill="#c4ccc5"/></g>
-    <g class="card c3"><rect x="116" y="388" width="164" height="128" rx="17" fill="#fff" stroke="#d5dcd6"/><rect x="130" y="402" width="136" height="66" rx="12" fill="#e8e2d8"/><path d="M165 447h72v16h-72zm10-28h52v30h-52z" fill="#96785e"/><rect x="132" y="481" width="72" height="8" rx="4" fill="#173f40"/><rect x="132" y="497" width="112" height="6" rx="3" fill="#c4ccc5"/></g>
-    <g class="card c4"><rect x="300" y="388" width="164" height="128" rx="17" fill="#fff" stroke="#d5dcd6"/><rect x="314" y="402" width="136" height="66" rx="12" fill="#dce7e4"/><circle cx="382" cy="435" r="27" fill="#244c50"/><path d="M367 435h30M382 420v30" stroke="#9ac2ad" stroke-width="4"/><rect x="316" y="481" width="88" height="8" rx="4" fill="#173f40"/><rect x="316" y="497" width="118" height="6" rx="3" fill="#c4ccc5"/></g>
-    <g class="card c5"><rect x="116" y="536" width="164" height="128" rx="17" fill="#fff" stroke="#d5dcd6"/><rect x="130" y="550" width="136" height="66" rx="12" fill="#efe3d5"/><path d="M174 568h47v37h-47z" fill="#d48d57"/><path d="M184 568c0-14 27-14 27 0" fill="none" stroke="#8f5a35" stroke-width="4"/><rect x="132" y="629" width="102" height="8" rx="4" fill="#173f40"/><rect x="132" y="645" width="112" height="6" rx="3" fill="#c4ccc5"/></g>
-    <g class="card c6"><rect x="300" y="536" width="164" height="128" rx="17" fill="#fff" stroke="#d5dcd6"/><rect x="314" y="550" width="136" height="66" rx="12" fill="#e1e7d8"/><path d="M380 605c-31-21-25-42 3-35 16-20 37-4 23 17-5 8-15 14-26 18z" fill="#79946d"/><rect x="316" y="629" width="78" height="8" rx="4" fill="#173f40"/><rect x="316" y="645" width="118" height="6" rx="3" fill="#c4ccc5"/></g>
+    <circle cx="100" cy="88" r="22" fill="#fff"/><path d="M100 70l5 13 13 5-13 5-5 13-5-13-13-5 13-5z" fill="#e85d22" class="spark"/>
+    <text x="137" y="95" class="label white">SEND FROM CHINA</text><rect x="319" y="70" width="112" height="36" rx="18" fill="#294f50"/><circle cx="340" cy="88" r="6" fill="#8fc080"/><text x="354" y="93" class="small white">Agent Core</text>
+    <text x="1260" y="94" class="small white">Read-only runtime</text><rect x="1393" y="70" width="116" height="36" rx="18" fill="#fff" opacity=".12"/><text x="1414" y="94" class="small white">v1.0.0</text>
 
-    <path d="M492 456H625" stroke="#d06531" stroke-width="3" class="dash"/><circle cx="502" cy="456" r="9" fill="#f36f2c" class="packet-in" filter="url(#glow)"/>
-    <rect x="560" y="145" width="486" height="555" rx="28" fill="url(#core)"/>
-    <text x="594" y="183" class="eyebrow" fill="#ffb06a">AGENT CORE</text><text x="594" y="219" class="serif white" font-size="32">Governed by construction</text>
-    <circle cx="802" cy="394" r="125" fill="none" stroke="#527174" stroke-width="2" stroke-dasharray="5 10" class="orbit"/>
-    <circle cx="802" cy="394" r="91" fill="#12383b" stroke="#7ca697" stroke-width="2"/>
-    <path d="M802 329l57 32v66l-57 32-57-32v-66z" fill="#0c2d31" stroke="#ef7b3f" stroke-width="3"/>
-    <path d="M771 405l19 19 43-55" fill="none" stroke="#ffd7a8" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-    <circle cx="802" cy="394" r="101" fill="none" stroke="#ef7b3f" stroke-width="2" class="pulse"/>
-    <g class="gate"><rect x="592" y="537" width="127" height="48" rx="24" fill="#244b4b" stroke="#6d9990"/><circle cx="614" cy="561" r="7" fill="#9cc28d"/><text x="630" y="567" class="small white">Field policy</text></g>
-    <g class="gate g2"><rect x="732" y="537" width="133" height="48" rx="24" fill="#244b4b" stroke="#6d9990"/><circle cx="754" cy="561" r="7" fill="#9cc28d"/><text x="770" y="567" class="small white">Tenant scope</text></g>
-    <g class="gate g3"><rect x="878" y="537" width="132" height="48" rx="24" fill="#244b4b" stroke="#6d9990"/><circle cx="900" cy="561" r="7" fill="#9cc28d"/><text x="916" y="567" class="small white">No egress</text></g>
-    <rect x="594" y="614" width="416" height="52" rx="14" fill="#0b292d" stroke="#3d6261"/><circle cx="620" cy="640" r="8" fill="#91bf82"/><text x="642" y="646" class="small white status">PUBLIC FIELDS VERIFIED · READY TO SERVE</text>
+    <rect x="89" y="145" width="1430" height="56" rx="18" fill="#f3f2ec" stroke="#d7ded8"/>
+    <rect x="109" y="155" width="160" height="36" rx="12" fill="#fff" class="search-active"/><rect x="287" y="155" width="186" height="36" rx="12" fill="#fff" class="source-active"/>
+    <text x="137" y="179" class="label ink">Catalog Search</text><text x="316" y="179" class="label ink">Dynamic Sourcing</text><rect x="109" y="195" width="160" height="3" rx="1.5" fill="#e85d22" class="tab-marker"/>
+    <rect x="1187" y="156" width="306" height="34" rx="17" fill="#e5ece5"/><circle cx="1208" cy="173" r="6" fill="#75a269"/><text x="1222" y="178" class="small ink">Tenant scoped · no browser credential</text>
 
-    <path d="M1046 456H1192" stroke="#d06531" stroke-width="3" class="dash"/><circle cx="1054" cy="456" r="9" fill="#f36f2c" class="packet-out" filter="url(#glow)"/>
-    <text x="1106" y="157" class="eyebrow" fill="#c64916">EXTERNAL INTERFACES</text><text x="1106" y="191" class="serif ink" font-size="29">One safe contract</text>
-    <rect x="1104" y="214" width="395" height="142" rx="22" fill="#fff" stroke="#d6ded8"/><rect x="1127" y="239" width="92" height="92" rx="20" fill="#173f40"/><path d="M1151 285h44m-22-22v44" stroke="#b9dfcc" stroke-width="5" stroke-linecap="round"/><text x="1244" y="269" class="eyebrow" fill="#7b8b86">BROWSER SAFE</text><text x="1244" y="299" class="label ink">HTTP catalog API</text><text x="1244" y="325" class="small muted">Bounded · read-only · tenant-scoped</text>
-    <rect x="1104" y="374" width="395" height="142" rx="22" fill="#fff" stroke="#d6ded8"/><rect x="1127" y="399" width="92" height="92" rx="20" fill="#e85d22"/><path d="M1154 425h38v40h-38zm8-9v18m22-18v18" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/><text x="1244" y="429" class="eyebrow" fill="#7b8b86">AGENT NATIVE</text><text x="1244" y="459" class="label ink">MCP tools</text><text x="1244" y="485" class="small muted">Discovery public · calls authenticated</text>
-    <rect x="1104" y="534" width="395" height="166" rx="22" fill="#ecf1eb" stroke="#ced9d0"/><text x="1130" y="569" class="eyebrow" fill="#567268">CAPABILITY TRUTH</text>
-    <g class="small"><rect x="1130" y="591" width="126" height="36" rx="18" fill="#fff"/><circle cx="1150" cy="609" r="6" fill="#70a35f"/><text x="1164" y="614" class="ink">Catalog search</text><rect x="1270" y="591" width="105" height="36" rx="18" fill="#fff"/><circle cx="1290" cy="609" r="6" fill="#70a35f"/><text x="1304" y="614" class="ink">Estimate</text><rect x="1389" y="591" width="86" height="36" rx="18" fill="#fff"/><circle cx="1409" cy="609" r="6" fill="#c6c9c5"/><text x="1423" y="614" class="muted">Cart</text></g>
-    <text x="1130" y="665" class="small muted">No supplier exposure · no payment · no hidden writes</text>
+    <g class="search-page">
+      <text x="92" y="246" class="eyebrow orange">01 · GOVERNED DISCOVERY</text><text x="92" y="286" class="serif ink" font-size="37">Search the published catalog first.</text>
+      <rect x="92" y="310" width="892" height="62" rx="22" fill="#f5f3ed" stroke="#cbd6cf"/><circle cx="124" cy="341" r="11" fill="none" stroke="#244c4e" stroke-width="3"/><path d="M132 349l11 11" stroke="#244c4e" stroke-width="3" stroke-linecap="round"/>
+      <g class="typed"><text x="162" y="348" class="label ink">compact desk organizer under $40</text></g><rect x="465" y="328" width="2" height="26" fill="#e85d22" class="caret"/><rect x="878" y="320" width="92" height="42" rx="21" fill="#173f40"/><text x="902" y="347" class="small white">Search</text>
+      <g class="result-card"><rect x="92" y="401" width="276" height="280" rx="22" fill="#f6f2e9" stroke="#d5ddd7"/><rect x="108" y="417" width="244" height="142" rx="16" fill="#e0e6dd"/><path d="M169 525h122v24H169zm18-74h86v78h-86z" fill="#8e765e"/><circle cx="230" cy="478" r="17" fill="#bdc9b7"/><text x="113" y="592" class="eyebrow green">CATALOG MATCH</text><text x="113" y="618" class="label ink">Modular desk organizer</text><text x="113" y="645" class="small muted">$29 · available band</text><rect x="113" y="657" width="152" height="8" rx="4" fill="#8dae80"/></g>
+      <g class="result-card r2"><rect x="390" y="401" width="276" height="280" rx="22" fill="#f6f2e9" stroke="#d5ddd7"/><rect x="406" y="417" width="244" height="142" rx="16" fill="#efdfd2"/><path d="M467 531h122v18H467zm15-78h92v82h-92z" fill="#d5632b"/><path d="M501 470c0-27 54-27 54 0" fill="none" stroke="#9e401c" stroke-width="7"/><text x="411" y="592" class="eyebrow green">CATALOG MATCH</text><text x="411" y="618" class="label ink">Portable storage caddy</text><text x="411" y="645" class="small muted">$34 · available band</text><rect x="411" y="657" width="133" height="8" rx="4" fill="#8dae80"/></g>
+      <g class="result-card r3"><rect x="688" y="401" width="296" height="280" rx="22" fill="#f6f2e9" stroke="#d5ddd7"/><rect x="704" y="417" width="264" height="142" rx="16" fill="#dfe9e5"/><path d="M772 526h128v23H772zm24-75h80v79h-80z" fill="#31595b"/><circle cx="836" cy="479" r="16" fill="#9bb6aa"/><text x="709" y="592" class="eyebrow green">CATALOG MATCH</text><text x="709" y="618" class="label ink">Stackable accessory tray</text><text x="709" y="645" class="small muted">$24 · low band</text><rect x="709" y="657" width="118" height="8" rx="4" fill="#8dae80"/></g>
+
+      <rect x="1022" y="226" width="466" height="455" rx="24" fill="#10383b"/>
+      <text x="1052" y="266" class="eyebrow" fill="#ff9a58">DECISION TRACE</text><text x="1052" y="302" class="serif white" font-size="29">Why these results?</text>
+      <g class="trace"><circle cx="1071" cy="350" r="15" fill="#84b277"/><path d="M1064 350l5 5 9-11" fill="none" stroke="#fff" stroke-width="3"/><text x="1102" y="346" class="label white">Query parsed</text><text x="1102" y="368" class="small" fill="#a9c1bb">bounded terms · max 300 chars</text></g>
+      <path d="M1071 370v47" stroke="#557577" stroke-width="2" class="dash"/>
+      <g class="trace t2"><circle cx="1071" cy="433" r="15" fill="#84b277"/><path d="M1064 433l5 5 9-11" fill="none" stroke="#fff" stroke-width="3"/><text x="1102" y="429" class="label white">Criteria enforced</text><text x="1102" y="451" class="small" fill="#a9c1bb">price_max · tenant scope</text></g>
+      <path d="M1071 453v47" stroke="#557577" stroke-width="2" class="dash"/>
+      <g class="trace t3"><circle cx="1071" cy="516" r="15" fill="#84b277"/><path d="M1064 516l5 5 9-11" fill="none" stroke="#fff" stroke-width="3"/><text x="1102" y="512" class="label white">Public fields only</text><text x="1102" y="534" class="small" fill="#a9c1bb">no supplier or source records</text></g>
+      <rect x="1052" y="575" width="406" height="72" rx="17" fill="#092d31" stroke="#426466"/><circle cx="1080" cy="611" r="8" fill="#8fbd80"/><text x="1100" y="606" class="eyebrow" fill="#9db8b2">SEARCH COMPLETE</text><text x="1100" y="628" class="small white">3 tenant-visible catalog matches</text>
+    </g>
+
+    <g class="source-page">
+      <text x="92" y="246" class="eyebrow orange">02 · EXPLICIT EXPANSION</text><text x="92" y="286" class="serif ink" font-size="37">Search beyond the catalog.</text>
+      <rect x="92" y="312" width="574" height="175" rx="24" fill="#f6f2e9" stroke="#d4dcd5"/><text x="120" y="347" class="eyebrow muted">CONFIRMED BRIEF</text><text x="120" y="382" class="strong ink">Custom recycled travel organizer</text>
+      <rect x="120" y="406" width="126" height="35" rx="17.5" fill="#fff"/><text x="143" y="429" class="small ink">Budget $40</text><rect x="258" y="406" width="98" height="35" rx="17.5" fill="#fff"/><text x="280" y="429" class="small ink">Ship US</text><rect x="368" y="406" width="157" height="35" rx="17.5" fill="#fff"/><text x="390" y="429" class="small ink">Recycled textile</text>
+      <rect x="120" y="449" width="230" height="24" rx="12" fill="#e5ebe4"/><circle cx="137" cy="461" r="6" fill="#77a36c"/><text x="151" y="466" class="small ink">Terminal catalog miss verified</text>
+      <rect x="458" y="426" width="177" height="44" rx="22" fill="#e85d22"/><text x="489" y="454" class="small white">Confirm preview</text>
+      <g class="pointer"><circle cx="624" cy="462" r="22" fill="#f58a50" opacity=".25" class="ring"/><path d="M612 446l22 18-12 3 7 15-7 3-7-15-9 8z" fill="#173f40" stroke="#fff" stroke-width="2"/></g>
+
+      <rect x="92" y="509" width="574" height="172" rx="24" fill="#10383b"/>
+      <text x="120" y="544" class="eyebrow" fill="#ff9a58">SOURCING TASK</text><text x="120" y="573" class="small" fill="#afc5bf">Illustrative preview · one confirmed task</text>
+      <path d="M155 622H594" stroke="#4e7070" stroke-width="3" class="dash"/>
+      <g class="step"><circle cx="155" cy="622" r="18" fill="#82b176"/><text x="131" y="659" class="small white">Proof</text></g>
+      <g class="step s2"><circle cx="300" cy="622" r="18" fill="#82b176"/><text x="269" y="659" class="small white">QUEUED</text></g>
+      <g class="step s3"><circle cx="447" cy="622" r="18" fill="#f08a4e" filter="url(#glow)"/><text x="409" y="659" class="small white">SOURCING</text></g>
+      <g class="step s4"><circle cx="594" cy="622" r="18" fill="#82b176"/><path d="M586 622l6 6 11-13" fill="none" stroke="#fff" stroke-width="3"/><text x="543" y="659" class="small white">RESULTS READY</text></g>
+
+      <rect x="700" y="226" width="788" height="455" rx="24" fill="#edf1ea" stroke="#d0dad1"/>
+      <text x="730" y="266" class="eyebrow green">ILLUSTRATIVE RESULTS</text><text x="730" y="302" class="serif ink" font-size="29">Prepared matches for review</text><rect x="1264" y="250" width="194" height="34" rx="17" fill="#fff"/><circle cx="1285" cy="267" r="6" fill="#c7cbc6"/><text x="1299" y="272" class="small muted">Not purchase-ready</text>
+      <g class="candidate"><rect x="730" y="331" width="350" height="287" rx="21" fill="#fff" stroke="#d2dbd4"/><rect x="748" y="349" width="314" height="136" rx="15" fill="#dfE7df"/><path d="M814 452h182v20H814zm25-63h132v67H839z" fill="#7d916f"/><path d="M865 407c0-22 76-22 76 0" fill="none" stroke="#526a50" stroke-width="7"/><text x="752" y="515" class="eyebrow orange">PREVIEW CANDIDATE</text><text x="752" y="543" class="label ink">Recycled modular pouch</text><text x="752" y="569" class="small muted">Indicative item price · $26</text><rect x="752" y="585" width="190" height="23" rx="11.5" fill="#f1e6dc"/><text x="770" y="601" class="small orange">NO PURCHASE URL</text></g>
+      <g class="candidate ca2"><rect x="1100" y="331" width="358" height="287" rx="21" fill="#fff" stroke="#d2dbd4"/><rect x="1118" y="349" width="322" height="136" rx="15" fill="#e7dfd4"/><path d="M1184 454h190v18h-190zm31-69h128v73h-128z" fill="#b07c56"/><circle cx="1279" cy="421" r="18" fill="#d8b28d"/><text x="1122" y="515" class="eyebrow orange">PREVIEW CANDIDATE</text><text x="1122" y="543" class="label ink">Fold-flat travel organizer</text><text x="1122" y="569" class="small muted">Indicative item price · $31</text><rect x="1122" y="585" width="190" height="23" rx="11.5" fill="#f1e6dc"/><text x="1140" y="601" class="small orange">NO PURCHASE URL</text></g>
+      <rect x="730" y="635" width="728" height="29" rx="14.5" fill="#dde6dc"/><circle cx="750" cy="649.5" r="6" fill="#6e9d64"/><text x="765" y="654" class="small ink">No external provider call in the self-hosted reference · no cart, checkout, order or payment write</text>
+    </g>
+
+    <rect x="90" y="716" width="1428" height="32" rx="16" fill="#f0eee8"/><text x="112" y="738" class="small muted">CAPABILITIES</text><circle cx="235" cy="732" r="6" fill="#75a269"/><text x="248" y="738" class="small ink">Catalog search</text><circle cx="376" cy="732" r="6" fill="#e7864d"/><text x="389" y="738" class="small ink">Confirmed sourcing preview</text><circle cx="591" cy="732" r="6" fill="#c6cac5"/><text x="604" y="738" class="small muted">Shipping rates not included</text><text x="1308" y="738" class="small muted">HTTP + MCP</text>
   </g>
 </svg>
