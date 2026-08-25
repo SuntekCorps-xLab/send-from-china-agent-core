@@ -16,7 +16,7 @@ surface—without connecting the runtime to your private systems.
 
 <br>
 
-<img src="docs/images/governed-commerce-hero-v2.png" alt="A published catalog snapshot passing through tenant, field, and policy controls before reaching HTTP and MCP clients" width="100%">
+<img src="docs/images/agent-core-live.svg" alt="Animated walkthrough of a published catalog passing through tenant, field-policy, and no-egress controls before reaching HTTP and MCP clients" width="100%">
 
 <p>
   <a href="#60-second-local-run"><strong>Quickstart</strong></a> ·

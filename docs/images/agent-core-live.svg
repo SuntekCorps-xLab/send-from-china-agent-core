@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 820" role="img" aria-labelledby="title desc">
+  <title id="title">Agent Core governed catalog animation</title>
+  <desc id="desc">Catalog records move through tenant, field policy, and no-egress controls before reaching browser and MCP clients.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f8f4eb"/>
+      <stop offset="0.55" stop-color="#edf1e9"/>
+      <stop offset="1" stop-color="#f5e9dc"/>
+    </linearGradient>
+    <linearGradient id="core" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#173f40"/>
+      <stop offset="1" stop-color="#09292e"/>
+    </linearGradient>
+    <linearGradient id="orange" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffb06a"/>
+      <stop offset="1" stop-color="#e55319"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#173f40" flood-opacity=".16"/>
+    </filter>
+    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <style>
+      .sans{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}.serif{font-family:Georgia,"Times New Roman",serif}
+      .eyebrow{font-size:13px;font-weight:800;letter-spacing:2.2px}.label{font-size:17px;font-weight:750}.small{font-size:13px;font-weight:650}.muted{fill:#647575}.ink{fill:#0d2c31}.white{fill:#fff}
+      .dash{stroke-dasharray:7 9;animation:dash 1.5s linear infinite}.orbit{transform-origin:800px 400px;animation:spin 18s linear infinite}
+      .card{transform-box:fill-box;transform-origin:center;animation:card 8s ease-in-out infinite}.c2{animation-delay:.6s}.c3{animation-delay:1.2s}.c4{animation-delay:1.8s}.c5{animation-delay:2.4s}.c6{animation-delay:3s}
+      .gate{animation:gate 8s ease-in-out infinite}.g2{animation-delay:.7s}.g3{animation-delay:1.4s}
+      .packet-in{transform-box:fill-box;animation:packetIn 4s cubic-bezier(.55,.05,.25,1) infinite}.packet-out{transform-box:fill-box;animation:packetOut 4s 1.8s cubic-bezier(.55,.05,.25,1) infinite}
+      .pulse{transform-box:fill-box;transform-origin:center;animation:pulse 2.4s ease-out infinite}.status{animation:status 4s ease-in-out infinite}
+      @keyframes dash{to{stroke-dashoffset:-32}}@keyframes spin{to{transform:rotate(360deg)}}
+      @keyframes card{0%,55%,100%{transform:translateY(0)}10%{transform:translateY(-7px)}20%{transform:translateY(0)}}
+      @keyframes gate{0%,18%,100%{opacity:.45}28%,62%{opacity:1}72%{opacity:.45}}
+      @keyframes packetIn{0%,8%{opacity:0;transform:translateX(0)}16%{opacity:1}42%{opacity:1;transform:translateX(150px)}48%,100%{opacity:0;transform:translateX(150px)}}
+      @keyframes packetOut{0%,8%{opacity:0;transform:translateX(0)}16%{opacity:1}42%{opacity:1;transform:translateX(155px)}48%,100%{opacity:0;transform:translateX(155px)}}
+      @keyframes pulse{0%{transform:scale(.7);opacity:.7}70%,100%{transform:scale(1.65);opacity:0}}
+      @keyframes status{0%,20%,100%{opacity:.3}35%,72%{opacity:1}}
+      @media (prefers-reduced-motion:reduce){.dash,.orbit,.card,.gate,.packet-in,.packet-out,.pulse,.status{animation:none!important}}
+    </style>
+  </defs>
+  <rect width="1600" height="820" rx="40" fill="url(#bg)"/>
+  <circle cx="1390" cy="95" r="170" fill="#dfe9dc" opacity=".75"/><circle cx="145" cy="760" r="190" fill="#f2c6a5" opacity=".35"/>
+  <g filter="url(#shadow)">
+    <rect x="55" y="54" width="1490" height="712" rx="32" fill="#fffdf9" stroke="#cbd6cf"/>
+    <path d="M55 116H1545" stroke="#d7dfda"/>
+    <circle cx="91" cy="85" r="7" fill="#e55319"/><circle cx="116" cy="85" r="7" fill="#e9bb6f"/><circle cx="141" cy="85" r="7" fill="#829b83"/>
+    <rect x="623" y="73" width="354" height="25" rx="12.5" fill="#edf0ec"/><circle cx="646" cy="85.5" r="5" fill="#7b8b86"/>
+    <text x="671" y="91" class="sans small muted">send-from-china / governed runtime</text>
+  </g>
+
+  <g class="sans">
+    <text x="94" y="157" class="eyebrow" fill="#c64916">PUBLISHED SNAPSHOT</text><text x="94" y="191" class="serif ink" font-size="29">Tenant-visible catalog</text>
+    <rect x="92" y="214" width="398" height="486" rx="24" fill="#f4f1e9" stroke="#d9ddd5"/>
+    <g class="card"><rect x="116" y="240" width="164" height="128" rx="17" fill="#fff" stroke="#d5dcd6"/><rect x="130" y="254" width="136" height="66" rx="12" fill="#dfe6db"/><path d="M170 305l18-35 15 23 12-17 25 29z" fill="#6f896f"/><rect x="132" y="333" width="82" height="8" rx="4" fill="#173f40"/><rect x="132" y="349" width="112" height="6" rx="3" fill="#c4ccc5"/></g>
+    <g class="card c2"><rect x="300" y="240" width="164" height="128" rx="17" fill="#fff" stroke="#d5dcd6"/><rect x="314" y="254" width="136" height="66" rx="12" fill="#f2ded0"/><path d="M356 309h51l-6-37h-39z" fill="#de622b"/><path d="M369 273c0-18 25-18 25 0" fill="none" stroke="#9c3d18" stroke-width="5"/><rect x="316" y="333" width="96" height="8" rx="4" fill="#173f40"/><rect x="316" y="349" width="118" height="6" rx="3" fill="#c4ccc5"/></g>
+    <g class="card c3"><rect x="116" y="388" width="164" height="128" rx="17" fill="#fff" stroke="#d5dcd6"/><rect x="130" y="402" width="136" height="66" rx="12" fill="#e8e2d8"/><path d="M165 447h72v16h-72zm10-28h52v30h-52z" fill="#96785e"/><rect x="132" y="481" width="72" height="8" rx="4" fill="#173f40"/><rect x="132" y="497" width="112" height="6" rx="3" fill="#c4ccc5"/></g>
+    <g class="card c4"><rect x="300" y="388" width="164" height="128" rx="17" fill="#fff" stroke="#d5dcd6"/><rect x="314" y="402" width="136" height="66" rx="12" fill="#dce7e4"/><circle cx="382" cy="435" r="27" fill="#244c50"/><path d="M367 435h30M382 420v30" stroke="#9ac2ad" stroke-width="4"/><rect x="316" y="481" width="88" height="8" rx="4" fill="#173f40"/><rect x="316" y="497" width="118" height="6" rx="3" fill="#c4ccc5"/></g>
+    <g class="card c5"><rect x="116" y="536" width="164" height="128" rx="17" fill="#fff" stroke="#d5dcd6"/><rect x="130" y="550" width="136" height="66" rx="12" fill="#efe3d5"/><path d="M174 568h47v37h-47z" fill="#d48d57"/><path d="M184 568c0-14 27-14 27 0" fill="none" stroke="#8f5a35" stroke-width="4"/><rect x="132" y="629" width="102" height="8" rx="4" fill="#173f40"/><rect x="132" y="645" width="112" height="6" rx="3" fill="#c4ccc5"/></g>
+    <g class="card c6"><rect x="300" y="536" width="164" height="128" rx="17" fill="#fff" stroke="#d5dcd6"/><rect x="314" y="550" width="136" height="66" rx="12" fill="#e1e7d8"/><path d="M380 605c-31-21-25-42 3-35 16-20 37-4 23 17-5 8-15 14-26 18z" fill="#79946d"/><rect x="316" y="629" width="78" height="8" rx="4" fill="#173f40"/><rect x="316" y="645" width="118" height="6" rx="3" fill="#c4ccc5"/></g>
+
+    <path d="M492 456H625" stroke="#d06531" stroke-width="3" class="dash"/><circle cx="502" cy="456" r="9" fill="#f36f2c" class="packet-in" filter="url(#glow)"/>
+    <rect x="560" y="145" width="486" height="555" rx="28" fill="url(#core)"/>
+    <text x="594" y="183" class="eyebrow" fill="#ffb06a">AGENT CORE</text><text x="594" y="219" class="serif white" font-size="32">Governed by construction</text>
+    <circle cx="802" cy="394" r="125" fill="none" stroke="#527174" stroke-width="2" stroke-dasharray="5 10" class="orbit"/>
+    <circle cx="802" cy="394" r="91" fill="#12383b" stroke="#7ca697" stroke-width="2"/>
+    <path d="M802 329l57 32v66l-57 32-57-32v-66z" fill="#0c2d31" stroke="#ef7b3f" stroke-width="3"/>
+    <path d="M771 405l19 19 43-55" fill="none" stroke="#ffd7a8" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="802" cy="394" r="101" fill="none" stroke="#ef7b3f" stroke-width="2" class="pulse"/>
+    <g class="gate"><rect x="592" y="537" width="127" height="48" rx="24" fill="#244b4b" stroke="#6d9990"/><circle cx="614" cy="561" r="7" fill="#9cc28d"/><text x="630" y="567" class="small white">Field policy</text></g>
+    <g class="gate g2"><rect x="732" y="537" width="133" height="48" rx="24" fill="#244b4b" stroke="#6d9990"/><circle cx="754" cy="561" r="7" fill="#9cc28d"/><text x="770" y="567" class="small white">Tenant scope</text></g>
+    <g class="gate g3"><rect x="878" y="537" width="132" height="48" rx="24" fill="#244b4b" stroke="#6d9990"/><circle cx="900" cy="561" r="7" fill="#9cc28d"/><text x="916" y="567" class="small white">No egress</text></g>
+    <rect x="594" y="614" width="416" height="52" rx="14" fill="#0b292d" stroke="#3d6261"/><circle cx="620" cy="640" r="8" fill="#91bf82"/><text x="642" y="646" class="small white status">PUBLIC FIELDS VERIFIED · READY TO SERVE</text>
+
+    <path d="M1046 456H1192" stroke="#d06531" stroke-width="3" class="dash"/><circle cx="1054" cy="456" r="9" fill="#f36f2c" class="packet-out" filter="url(#glow)"/>
+    <text x="1106" y="157" class="eyebrow" fill="#c64916">EXTERNAL INTERFACES</text><text x="1106" y="191" class="serif ink" font-size="29">One safe contract</text>
+    <rect x="1104" y="214" width="395" height="142" rx="22" fill="#fff" stroke="#d6ded8"/><rect x="1127" y="239" width="92" height="92" rx="20" fill="#173f40"/><path d="M1151 285h44m-22-22v44" stroke="#b9dfcc" stroke-width="5" stroke-linecap="round"/><text x="1244" y="269" class="eyebrow" fill="#7b8b86">BROWSER SAFE</text><text x="1244" y="299" class="label ink">HTTP catalog API</text><text x="1244" y="325" class="small muted">Bounded · read-only · tenant-scoped</text>
+    <rect x="1104" y="374" width="395" height="142" rx="22" fill="#fff" stroke="#d6ded8"/><rect x="1127" y="399" width="92" height="92" rx="20" fill="#e85d22"/><path d="M1154 425h38v40h-38zm8-9v18m22-18v18" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/><text x="1244" y="429" class="eyebrow" fill="#7b8b86">AGENT NATIVE</text><text x="1244" y="459" class="label ink">MCP tools</text><text x="1244" y="485" class="small muted">Discovery public · calls authenticated</text>
+    <rect x="1104" y="534" width="395" height="166" rx="22" fill="#ecf1eb" stroke="#ced9d0"/><text x="1130" y="569" class="eyebrow" fill="#567268">CAPABILITY TRUTH</text>
+    <g class="small"><rect x="1130" y="591" width="126" height="36" rx="18" fill="#fff"/><circle cx="1150" cy="609" r="6" fill="#70a35f"/><text x="1164" y="614" class="ink">Catalog search</text><rect x="1270" y="591" width="105" height="36" rx="18" fill="#fff"/><circle cx="1290" cy="609" r="6" fill="#70a35f"/><text x="1304" y="614" class="ink">Estimate</text><rect x="1389" y="591" width="86" height="36" rx="18" fill="#fff"/><circle cx="1409" cy="609" r="6" fill="#c6c9c5"/><text x="1423" y="614" class="muted">Cart</text></g>
+    <text x="1130" y="665" class="small muted">No supplier exposure · no payment · no hidden writes</text>
+  </g>
+</svg>
