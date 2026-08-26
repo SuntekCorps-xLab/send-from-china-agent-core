@@ -65,6 +65,15 @@ catalog into a validated build-time snapshot without sending it anywhere.
   </tr>
 </table>
 
+## From private input to a public snapshot
+
+Publishing is a local build step, not a runtime sync. User-selected catalog input
+and the identifier key stay on the publisher side; only a validated snapshot of
+allowed public fields crosses into the Worker. Source identifiers, unknown
+fields, and the key never enter the snapshot or publisher report.
+
+<img src="docs/images/agent-core-publish-boundary-live.svg" alt="Animated publishing boundary showing local catalog input and identifier key passing through allowlisting, opaque identifiers, and atomic validation before a public snapshot reaches Agent Core" width="100%">
+
 ## 60-second local run
 
 Requirements: Node.js 22+ and npm.
@@ -180,6 +189,16 @@ Available tools:
 
 There are no cart, checkout, order, payment, refund, product-write, or publish
 tools in this repository.
+
+### One guarded runtime, two protocols
+
+HTTP and MCP can discover the service anonymously, but every product request or
+`tools/call` crosses the same deployment-held credential check, tenant scope,
+quota, published snapshot, and positive response policy. This reference does not
+issue keys or provide a self-service OAuth or registration flow; deployment
+operators configure tenant credentials outside the repository.
+
+<img src="docs/images/agent-core-runtime-boundary-live.svg" alt="Animated Agent Core runtime showing HTTP and MCP clients sharing authentication, tenant scope, a published snapshot, and a positive public-field policy" width="100%">
 
 ### Optional Agent Skill
 
