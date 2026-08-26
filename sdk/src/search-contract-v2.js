@@ -3,6 +3,10 @@ export const SEARCH_CONTRACT_VERSION = "2.0";
 const CONDITION_SOURCES = new Set(["explicit", "inferred", "default"]);
 const CONDITION_SCOPES = new Set(["product", "session", "transaction"]);
 const CONDITION_HARDNESS = new Set(["hard", "soft", "informational"]);
+const PRICE_HARD_CONSTRAINTS = new Set(["price_min", "price_max"]);
+const TEXT_HARD_CONSTRAINTS = new Set(["material", "color", "must_have", "exclude"]);
+const PRODUCT_HARD_CONSTRAINTS = new Set([...PRICE_HARD_CONSTRAINTS, ...TEXT_HARD_CONSTRAINTS]);
+const TRANSACTION_CONDITIONS = new Set(["ship_to", "quantity", "delivery_days_max"]);
 const WIRE_REQUEST_FIELDS = new Set([
   "contract_version", "product_identity", "hard_constraints", "soft_context",
   "transaction_context", "limit", "cursor",
@@ -36,6 +40,9 @@ function hasExactFields(value, fields) {
 function assertWireCondition(value, group) {
   if (!hasExactFields(value, CONDITION_FIELDS) || Object.keys(value).length !== CONDITION_FIELDS.size) {
     invalid(`${group} conditions must contain only name, value, source, scope, and hardness`);
+  }
+  if (typeof value.name !== "string" || !/^[a-z][a-z0-9_]{0,63}$/.test(value.name)) {
+    invalid(`${group} condition names must use lower_snake_case strings`);
   }
   cleanCondition(value);
 }
@@ -84,6 +91,40 @@ function cleanConditions(value, defaults = {}) {
   return value.map((item) => cleanCondition(item, defaults));
 }
 
+function assertTextCriterionValue(value, name) {
+  const items = Array.isArray(value) ? value : [value];
+  if (!items.length || items.length > 20
+    || items.some((item) => typeof item !== "string" || !item.trim() || item.length > 80)) {
+    invalid(`${name} must be a non-empty string or an array of 1 to 20 strings of at most 80 characters`);
+  }
+}
+
+function assertHardConstraintValue(condition) {
+  if (!PRODUCT_HARD_CONSTRAINTS.has(condition.name)) {
+    invalid("hard_constraints supports only price_min, price_max, material, color, must_have, and exclude");
+  }
+  if (PRICE_HARD_CONSTRAINTS.has(condition.name)) {
+    if (typeof condition.value !== "number" || !Number.isFinite(condition.value) || condition.value < 0) {
+      invalid(`${condition.name} must be a non-negative finite number`);
+    }
+  } else if (TEXT_HARD_CONSTRAINTS.has(condition.name)) {
+    assertTextCriterionValue(condition.value, condition.name);
+  }
+}
+
+function assertTransactionConditionValue(condition) {
+  if (!TRANSACTION_CONDITIONS.has(condition.name)) {
+    invalid("transaction_context supports only ship_to, quantity, and delivery_days_max");
+  }
+  if (condition.name === "ship_to") {
+    if (typeof condition.value !== "string" || condition.value.trim().length < 2 || condition.value.length > 100) {
+      invalid("ship_to must be a string of 2 to 100 characters");
+    }
+  } else if (!Number.isInteger(condition.value) || condition.value < 1) {
+    invalid(`${condition.name} must be a positive integer`);
+  }
+}
+
 function normalizedIntent(request) {
   return Object.freeze({
     product_identity: request.product_identity,
@@ -104,8 +145,12 @@ export function normalizeSearchContractV2Request(value = {}) {
   const explicitHard = [];
   const demotedContext = [];
   for (const condition of cleanConditions(value.hard_constraints, { scope: "product", hardness: "hard" })) {
-    if (condition.source === "explicit") explicitHard.push(condition);
-    else demotedContext.push(Object.freeze({ ...condition, scope: "session", hardness: "soft" }));
+    if (condition.source === "explicit") {
+      assertHardConstraintValue(condition);
+      explicitHard.push(condition);
+    } else {
+      demotedContext.push(Object.freeze({ ...condition, scope: "session", hardness: "soft" }));
+    }
   }
   const softContext = [
     ...demotedContext,
@@ -115,6 +160,7 @@ export function normalizeSearchContractV2Request(value = {}) {
     })),
   ];
   const transactionContext = cleanConditions(value.transaction_context, { scope: "transaction" }).map((condition) => {
+    assertTransactionConditionValue(condition);
     const hardness = condition.source === "explicit" && condition.hardness === "hard" ? "hard" : "informational";
     return Object.freeze({ ...condition, scope: "transaction", hardness });
   });
@@ -173,6 +219,14 @@ export function parseSearchContractV2Request(value) {
     || !new Set(["hard", "informational"]).has(condition.hardness)
     || (condition.hardness === "hard" && condition.source !== "explicit"))) {
     invalid("transaction_context is not normalized");
+  }
+  for (const condition of value.hard_constraints) assertHardConstraintValue(condition);
+  for (const condition of value.transaction_context) assertTransactionConditionValue(condition);
+  if (!Number.isInteger(value.limit) || value.limit < 1 || value.limit > 50) {
+    invalid("limit must be an integer from 1 to 50");
+  }
+  if (value.cursor !== undefined && value.cursor !== null && typeof value.cursor !== "string") {
+    invalid("cursor must be a string or null");
   }
   return normalizeSearchContractV2Request(value);
 }

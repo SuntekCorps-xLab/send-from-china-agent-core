@@ -151,9 +151,9 @@
       "required": ["product_identity", "hard_constraints", "soft_context", "transaction_context"],
       "properties": {
         "product_identity": { "$ref": "./search-v2-request.schema.json#/properties/product_identity" },
-        "hard_constraints": { "type": "array", "items": { "$ref": "#/$defs/condition" } },
-        "soft_context": { "type": "array", "items": { "$ref": "#/$defs/condition" } },
-        "transaction_context": { "type": "array", "items": { "$ref": "#/$defs/condition" } }
+        "hard_constraints": { "$ref": "./search-v2-request.schema.json#/properties/hard_constraints" },
+        "soft_context": { "$ref": "./search-v2-request.schema.json#/properties/soft_context" },
+        "transaction_context": { "$ref": "./search-v2-request.schema.json#/properties/transaction_context" }
       }
     },
     "relaxation": {

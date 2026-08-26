@@ -71,6 +71,31 @@ const product = responseSchema.$defs.product;
 const pagination = responseSchema.properties.pagination;
 const searchScope = responseSchema.properties.search_scope;
 const compatibility = responseSchema.properties.compatibility;
+const hardConstraintClauses = requestSchema.properties.hard_constraints.items.allOf;
+const hardConstraintNames = hardConstraintClauses.find((clause) => (
+  Array.isArray(clause.properties?.name?.enum)
+))?.properties?.name?.enum || [];
+const priceHardConstraintNames = hardConstraintClauses.find((clause) => (
+  clause.then?.properties?.value?.type === "number"
+))?.if?.properties?.name?.enum || [];
+const textHardConstraintNames = hardConstraintClauses.find((clause) => (
+  clause.then?.properties?.value?.$ref === "#/$defs/textCriterionValue"
+))?.if?.properties?.name?.enum || [];
+const transactionNames = requestSchema.properties.transaction_context.items.allOf.find((clause) => (
+  Array.isArray(clause.properties?.name?.enum)
+))?.properties?.name?.enum || [];
+const unknownTransactionNames = transactionNames.filter((name) => (
+  !["ship_to", "quantity", "delivery_days_max"].includes(name)
+));
+const canonicalHardConstraintNames = ["price_min", "price_max", "material", "color", "must_have", "exclude"];
+const unknownHardConstraintNames = hardConstraintNames.filter((name) => !canonicalHardConstraintNames.includes(name));
+if (hardConstraintNames.length !== canonicalHardConstraintNames.length || unknownHardConstraintNames.length
+  || canonicalHardConstraintNames.some((name) => !hardConstraintNames.includes(name))
+  || !priceHardConstraintNames.length || !textHardConstraintNames.length || unknownTransactionNames.length
+  || !transactionNames.includes("ship_to") || !transactionNames.includes("quantity")
+  || !transactionNames.includes("delivery_days_max")) {
+  throw new Error("Search v2 field-specific request constraints are incomplete");
+}
 
 const output = `// Generated from contracts/search-v2-*.schema.json. Do not edit by hand.
 // request-schema-sha256: ${digest(requestText)}
@@ -94,10 +119,25 @@ export interface SearchProductIdentityCondition extends SearchCondition {
 }
 
 export interface SearchExplicitHardConstraint extends SearchCondition {
+  name: ${union(hardConstraintNames)};
   source: "explicit";
   scope: "product";
   hardness: "hard";
 }
+
+export interface SearchPriceHardConstraint extends SearchExplicitHardConstraint {
+  name: ${union(priceHardConstraintNames)};
+  value: number;
+}
+
+export interface SearchTextHardConstraint extends SearchExplicitHardConstraint {
+  name: ${union(textHardConstraintNames)};
+  value: ${schemaType(requestSchema.$defs.textCriterionValue)};
+}
+
+export type SearchWireHardConstraint =
+  | SearchPriceHardConstraint
+  | SearchTextHardConstraint;
 
 export interface SearchSoftContextCondition extends SearchCondition {
   scope: "product" | "session";
@@ -115,9 +155,32 @@ export interface SearchInformationalTransactionCondition extends SearchCondition
   hardness: "informational";
 }
 
+export interface SearchShipToTransactionCondition extends SearchCondition {
+  name: "ship_to";
+  value: string;
+  scope: "transaction";
+}
+
+export interface SearchQuantityTransactionCondition extends SearchCondition {
+  name: "quantity";
+  value: number;
+  scope: "transaction";
+}
+
+export interface SearchDeliveryDaysTransactionCondition extends SearchCondition {
+  name: "delivery_days_max";
+  value: number;
+  scope: "transaction";
+}
+
+export type SearchTransactionValueCondition =
+  | SearchShipToTransactionCondition
+  | SearchQuantityTransactionCondition
+  | SearchDeliveryDaysTransactionCondition;
+
 export type SearchTransactionCondition =
-  | SearchHardTransactionCondition
-  | SearchInformationalTransactionCondition;
+  SearchTransactionValueCondition
+  & (SearchHardTransactionCondition | SearchInformationalTransactionCondition);
 
 // Ergonomic SDK input. normalizeSearchContractV2Request() turns this shape into
 // the exact SearchContractV2WireRequest accepted by POST /api/search/v2.
@@ -134,7 +197,7 @@ export interface SearchContractV2Request {
 export interface SearchContractV2WireRequest {
   contract_version: ${JSON.stringify(version)};
   product_identity: SearchProductIdentityCondition;
-  hard_constraints: SearchExplicitHardConstraint[];
+  hard_constraints: SearchWireHardConstraint[];
   soft_context: SearchSoftContextCondition[];
   transaction_context: SearchTransactionCondition[];
   limit: number;
@@ -164,7 +227,7 @@ ${renderInterface("SearchCompatibility", compatibility)}
 
 export interface SearchNormalizedIntent {
   product_identity: SearchProductIdentityCondition;
-  hard_constraints: SearchExplicitHardConstraint[];
+  hard_constraints: SearchWireHardConstraint[];
   soft_context: SearchSoftContextCondition[];
   transaction_context: SearchTransactionCondition[];
 }

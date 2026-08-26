@@ -1,6 +1,6 @@
 // Generated from contracts/search-v2-*.schema.json. Do not edit by hand.
-// request-schema-sha256: d4aa3f5ae0e9a598b220d7427ba79904c156c5f5de8a7ad546beb9182888179c
-// response-schema-sha256: dd8189b6f3294c3b499f9ccb1de12a3e283d5de2eaecb2ac2e65e0c054c440a6
+// request-schema-sha256: 069f1eb612575bc7ec42ccb8a675a21181d8075e5cf76bf90ed75330fd4b2d6b
+// response-schema-sha256: 95925f6b261052d886104607b2f37826039cf3d744c50208757a4cf8eea4becc
 export type SearchConditionSource = "explicit" | "inferred" | "default";
 export type SearchConditionScope = "product" | "session" | "transaction";
 export type SearchConditionHardness = "hard" | "soft" | "informational";
@@ -22,10 +22,25 @@ export interface SearchProductIdentityCondition extends SearchCondition {
 }
 
 export interface SearchExplicitHardConstraint extends SearchCondition {
+  name: "price_min" | "price_max" | "material" | "color" | "must_have" | "exclude";
   source: "explicit";
   scope: "product";
   hardness: "hard";
 }
+
+export interface SearchPriceHardConstraint extends SearchExplicitHardConstraint {
+  name: "price_min" | "price_max";
+  value: number;
+}
+
+export interface SearchTextHardConstraint extends SearchExplicitHardConstraint {
+  name: "material" | "color" | "must_have" | "exclude";
+  value: string | Array<string>;
+}
+
+export type SearchWireHardConstraint =
+  | SearchPriceHardConstraint
+  | SearchTextHardConstraint;
 
 export interface SearchSoftContextCondition extends SearchCondition {
   scope: "product" | "session";
@@ -43,9 +58,32 @@ export interface SearchInformationalTransactionCondition extends SearchCondition
   hardness: "informational";
 }
 
+export interface SearchShipToTransactionCondition extends SearchCondition {
+  name: "ship_to";
+  value: string;
+  scope: "transaction";
+}
+
+export interface SearchQuantityTransactionCondition extends SearchCondition {
+  name: "quantity";
+  value: number;
+  scope: "transaction";
+}
+
+export interface SearchDeliveryDaysTransactionCondition extends SearchCondition {
+  name: "delivery_days_max";
+  value: number;
+  scope: "transaction";
+}
+
+export type SearchTransactionValueCondition =
+  | SearchShipToTransactionCondition
+  | SearchQuantityTransactionCondition
+  | SearchDeliveryDaysTransactionCondition;
+
 export type SearchTransactionCondition =
-  | SearchHardTransactionCondition
-  | SearchInformationalTransactionCondition;
+  SearchTransactionValueCondition
+  & (SearchHardTransactionCondition | SearchInformationalTransactionCondition);
 
 // Ergonomic SDK input. normalizeSearchContractV2Request() turns this shape into
 // the exact SearchContractV2WireRequest accepted by POST /api/search/v2.
@@ -62,7 +100,7 @@ export interface SearchContractV2Request {
 export interface SearchContractV2WireRequest {
   contract_version: "2.0";
   product_identity: SearchProductIdentityCondition;
-  hard_constraints: SearchExplicitHardConstraint[];
+  hard_constraints: SearchWireHardConstraint[];
   soft_context: SearchSoftContextCondition[];
   transaction_context: SearchTransactionCondition[];
   limit: number;
@@ -132,7 +170,7 @@ export interface SearchCompatibility {
 
 export interface SearchNormalizedIntent {
   product_identity: SearchProductIdentityCondition;
-  hard_constraints: SearchExplicitHardConstraint[];
+  hard_constraints: SearchWireHardConstraint[];
   soft_context: SearchSoftContextCondition[];
   transaction_context: SearchTransactionCondition[];
 }

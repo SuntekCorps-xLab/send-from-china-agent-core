@@ -27,17 +27,183 @@ function toolResult(id, value) {
   return response({ jsonrpc: "2.0", id, result: { structuredContent: value, isError: false } });
 }
 
+function pointerValue(document, pointer) {
+  return pointer.split("/").slice(1).reduce((value, part) => (
+    value?.[part.replace(/~1/g, "/").replace(/~0/g, "~")]
+  ), document);
+}
+
+function schemaMatches(schema, value, root, documents) {
+  if (schema.$ref) {
+    const [documentName, fragment = ""] = schema.$ref.split("#");
+    const referencedRoot = documentName ? documents.get(documentName) : root;
+    if (!referencedRoot) throw new Error(`Unknown schema reference: ${schema.$ref}`);
+    return schemaMatches(fragment ? pointerValue(referencedRoot, fragment) : referencedRoot, value, referencedRoot, documents);
+  }
+  if (schema.allOf && !schema.allOf.every((item) => schemaMatches(item, value, root, documents))) return false;
+  if (schema.oneOf && schema.oneOf.filter((item) => schemaMatches(item, value, root, documents)).length !== 1) return false;
+  if (schema.not && schemaMatches(schema.not, value, root, documents)) return false;
+  if (Object.hasOwn(schema, "const") && !Object.is(value, schema.const)) return false;
+  if (schema.enum && !schema.enum.some((item) => Object.is(value, item))) return false;
+  if (Array.isArray(schema.type)
+    && !schema.type.some((type) => schemaMatches({ ...schema, type }, value, root, documents))) return false;
+  if (schema.type === "array") {
+    if (!Array.isArray(value) || (schema.minItems !== undefined && value.length < schema.minItems)
+      || (schema.maxItems !== undefined && value.length > schema.maxItems)) return false;
+    if (schema.uniqueItems && new Set(value.map((item) => JSON.stringify(item))).size !== value.length) return false;
+    if (schema.items && !value.every((item) => schemaMatches(schema.items, item, root, documents))) return false;
+  } else if (schema.type === "object") {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  } else if (schema.type === "string") {
+    if (typeof value !== "string" || (schema.minLength !== undefined && value.length < schema.minLength)
+      || (schema.maxLength !== undefined && value.length > schema.maxLength)
+      || (schema.pattern && !new RegExp(schema.pattern, "u").test(value))) return false;
+  } else if (schema.type === "integer" && (!Number.isInteger(value)
+    || (schema.minimum !== undefined && value < schema.minimum)
+    || (schema.maximum !== undefined && value > schema.maximum))) return false;
+  else if (schema.type === "number" && (typeof value !== "number" || !Number.isFinite(value)
+    || (schema.minimum !== undefined && value < schema.minimum)
+    || (schema.maximum !== undefined && value > schema.maximum))) return false;
+  else if (schema.type === "boolean" && typeof value !== "boolean") return false;
+  else if (schema.type === "null" && value !== null) return false;
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    if (schema.required && !schema.required.every((name) => Object.hasOwn(value, name))) return false;
+    if (schema.additionalProperties === false
+      && Object.keys(value).some((name) => !Object.hasOwn(schema.properties || {}, name))) return false;
+    for (const [name, property] of Object.entries(schema.properties || {})) {
+      if (Object.hasOwn(value, name) && !schemaMatches(property, value[name], root, documents)) return false;
+    }
+  }
+  if (schema.if && schemaMatches(schema.if, value, root, documents)
+    && schema.then && !schemaMatches(schema.then, value, root, documents)) return false;
+  return true;
+}
+
 test("publishes strict v2 request and response schemas", async () => {
   const requestSchema = JSON.parse(await readFile(new URL("../../contracts/search-v2-request.schema.json", import.meta.url)));
   const responseSchema = JSON.parse(await readFile(new URL("../../contracts/search-v2-response.schema.json", import.meta.url)));
   assert.equal(requestSchema.properties.contract_version.const, "2.0");
   assert.deepEqual(requestSchema.properties.hard_constraints.items.allOf[1].properties.source, { const: "explicit" });
+  const transactionName = requestSchema.properties.transaction_context.items.allOf[1].properties.name;
+  assert.deepEqual(transactionName.enum, ["ship_to", "quantity", "delivery_days_max"]);
+  const hardClauses = requestSchema.properties.hard_constraints.items.allOf;
+  assert.deepEqual(hardClauses[2].if.properties.name.enum, ["price_min", "price_max"]);
+  assert.equal(hardClauses[2].then.properties.value.type, "number");
+  assert.deepEqual(hardClauses[1].properties.name.enum,
+    ["price_min", "price_max", "material", "color", "must_have", "exclude"]);
+  assert.deepEqual(hardClauses[3].if.properties.name.enum, ["material", "color", "must_have", "exclude"]);
+  assert.equal(hardClauses[3].then.properties.value.$ref, "#/$defs/textCriterionValue");
   assert.deepEqual(responseSchema.properties.status.enum, ["results", "needs_clarification", "no_match", "degraded"]);
   assert.ok(responseSchema.required.includes("trace_id"));
   assert.ok(responseSchema.required.includes("search_scope"));
+  assert.equal(responseSchema.$defs.normalizedIntent.properties.hard_constraints.$ref,
+    "./search-v2-request.schema.json#/properties/hard_constraints");
+  assert.equal(responseSchema.$defs.normalizedIntent.properties.soft_context.$ref,
+    "./search-v2-request.schema.json#/properties/soft_context");
+  assert.equal(responseSchema.$defs.normalizedIntent.properties.transaction_context.$ref,
+    "./search-v2-request.schema.json#/properties/transaction_context");
   const noMatchScope = responseSchema.allOf[0].then.properties.search_scope.properties;
   assert.deepEqual(noMatchScope.scan_limit_reached, { const: false });
   assert.equal("source" in responseSchema.$defs.product.properties, false);
+});
+
+test("request schema enforces field-specific hard and transaction values", async () => {
+  const requestSchema = JSON.parse(await readFile(new URL("../../contracts/search-v2-request.schema.json", import.meta.url)));
+  const documents = new Map();
+  const hard = (name, value) => ({ name, value, source: "explicit", scope: "product", hardness: "hard" });
+  const transaction = (name, value) => ({
+    name, value, source: "explicit", scope: "transaction", hardness: "hard",
+  });
+  const valid = {
+    ...baseRequest,
+    hard_constraints: [
+      hard("price_min", 0), hard("price_max", 30), hard("material", "steel"),
+      hard("color", ["navy", "white"]), hard("must_have", "dishwasher safe"),
+      hard("exclude", ["refurbished"]),
+    ],
+    transaction_context: [
+      transaction("ship_to", "US"), transaction("quantity", 2), transaction("delivery_days_max", 7),
+    ],
+  };
+  assert.equal(schemaMatches(requestSchema, valid, requestSchema, documents), true);
+  assert.deepEqual(parseSearchContractV2Request(valid), normalizeSearchContractV2Request(valid));
+
+  const invalidCases = [
+    ["numeric maximum price as text", { hard_constraints: [hard("price_max", "30")] }],
+    ["negative minimum price", { hard_constraints: [hard("price_min", -1)] }],
+    ["numeric material", { hard_constraints: [hard("material", 304)] }],
+    ["mixed color list", { hard_constraints: [hard("color", ["navy", 5])] }],
+    ["empty exclusion", { hard_constraints: [hard("exclude", "   ")] }],
+    ["too many exclusions", { hard_constraints: [hard("exclude", Array.from({ length: 21 }, (_, index) => `item-${index}`))] }],
+    ["unknown hard constraint", { hard_constraints: [hard("size", "large")] }],
+    ["unknown transaction name", { transaction_context: [transaction("postal_code", "22202")] }],
+    ["blank destination", { transaction_context: [transaction("ship_to", "   ")] }],
+    ["one-character destination", { transaction_context: [transaction("ship_to", "U")] }],
+    ["quantity as text", { transaction_context: [transaction("quantity", "2")] }],
+    ["zero quantity", { transaction_context: [transaction("quantity", 0)] }],
+    ["fractional quantity", { transaction_context: [transaction("quantity", 1.5)] }],
+    ["delivery days as text", { transaction_context: [transaction("delivery_days_max", "3")] }],
+    ["zero delivery days", { transaction_context: [transaction("delivery_days_max", 0)] }],
+  ];
+  for (const [label, changes] of invalidCases) {
+    const candidate = {
+      ...baseRequest,
+      hard_constraints: changes.hard_constraints || [],
+      transaction_context: changes.transaction_context || [],
+    };
+    assert.equal(schemaMatches(requestSchema, candidate, requestSchema, documents), false, label);
+    assert.throws(() => parseSearchContractV2Request(candidate), /Invalid Search Contract v2 request/, label);
+  }
+});
+
+test("response normalized intent preserves request group semantics", async () => {
+  const requestSchema = JSON.parse(await readFile(new URL("../../contracts/search-v2-request.schema.json", import.meta.url)));
+  const responseSchema = JSON.parse(await readFile(new URL("../../contracts/search-v2-response.schema.json", import.meta.url)));
+  const documents = new Map([["./search-v2-request.schema.json", requestSchema]]);
+  const valid = {
+    product_identity: baseRequest.product_identity,
+    hard_constraints: [{
+      name: "material", value: "steel", source: "explicit", scope: "product", hardness: "hard",
+    }],
+    soft_context: [{
+      name: "recipient", value: "friend", source: "inferred", scope: "session", hardness: "soft",
+    }],
+    transaction_context: [{
+      name: "ship_to", value: "US", source: "explicit", scope: "transaction", hardness: "hard",
+    }],
+  };
+  const normalizedIntent = responseSchema.$defs.normalizedIntent;
+  assert.equal(schemaMatches(normalizedIntent, valid, responseSchema, documents), true);
+
+  const invalidCases = [
+    {
+      label: "inferred hard constraint",
+      value: { ...valid, hard_constraints: [{
+        name: "material", value: "steel", source: "inferred", scope: "product", hardness: "hard",
+      }] },
+    },
+    {
+      label: "unknown hard constraint",
+      value: { ...valid, hard_constraints: [{
+        name: "size", value: "large", source: "explicit", scope: "product", hardness: "hard",
+      }] },
+    },
+    {
+      label: "hard soft context",
+      value: { ...valid, soft_context: [{
+        name: "recipient", value: "friend", source: "explicit", scope: "session", hardness: "hard",
+      }] },
+    },
+    {
+      label: "product-scoped transaction context",
+      value: { ...valid, transaction_context: [{
+        name: "ship_to", value: "US", source: "explicit", scope: "product", hardness: "hard",
+      }] },
+    },
+  ];
+  for (const invalidCase of invalidCases) {
+    assert.equal(schemaMatches(normalizedIntent, invalidCase.value, responseSchema, documents), false, invalidCase.label);
+  }
 });
 
 test("normalization demotes inferred filters and preserves explicit transaction context", () => {
@@ -64,6 +230,14 @@ test("normalization demotes inferred filters and preserves explicit transaction 
 test("wire parser rejects SDK shorthand and unknown request fields", () => {
   assert.throws(() => parseSearchContractV2Request({ product_identity: "desk" }), /missing contract_version|unknown field/);
   assert.throws(() => parseSearchContractV2Request({ ...baseRequest, unexpected: true }), /unknown field/);
+  assert.throws(() => parseSearchContractV2Request({ ...baseRequest, limit: "20" }), /limit/);
+  assert.throws(() => parseSearchContractV2Request({ ...baseRequest, cursor: 2 }), /cursor/);
+  assert.throws(() => parseSearchContractV2Request({
+    ...baseRequest,
+    hard_constraints: [{
+      name: "Price_Max", value: 30, source: "explicit", scope: "product", hardness: "hard",
+    }],
+  }), /lower_snake_case/);
   assert.throws(() => parseSearchContractV2Request({
     ...baseRequest,
     soft_context: [{
@@ -84,7 +258,7 @@ test("v1 adapter retrieves by product identity and maps only supported explicit 
     ...baseRequest,
     hard_constraints: [
       { name: "material", value: ["steel"], source: "explicit", scope: "product", hardness: "hard" },
-      { name: "size", value: "large", source: "explicit", scope: "product", hardness: "hard" },
+      { name: "color", value: "navy", source: "explicit", scope: "product", hardness: "hard" },
     ],
     soft_context: [
       { name: "recipient", value: "friend", source: "explicit", scope: "session", hardness: "soft" },
@@ -96,7 +270,7 @@ test("v1 adapter retrieves by product identity and maps only supported explicit 
   assert.equal(adapted.arguments.query, "water bottle");
   assert.deepEqual(adapted.arguments.criteria, { materials: ["steel"], ship_to: "US" });
   assert.equal(adapted.arguments.operation, "confirm_search");
-  assert.deepEqual(adapted.relaxations.map((item) => item.condition), ["size", "recipient"]);
+  assert.deepEqual(adapted.relaxations.map((item) => item.condition), ["color", "recipient"]);
 });
 
 test("v1 response becomes no_match only with a complete non-truncated search proof", () => {
