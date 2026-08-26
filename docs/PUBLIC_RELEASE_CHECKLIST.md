@@ -10,12 +10,14 @@ Record the completed settings and links in the release review.
 3. Enable secret scanning and push protection.
 4. Confirm the pinned CodeQL workflow runs successfully on the public commit.
 5. Create a `main` ruleset requiring pull requests, at least one approval, the
-   Worker, Python, safety, dependency-review, and CodeQL checks, and block force
-   pushes and branch deletion.
+   `search-contract`, `worker`, `python`, `safety`, `sbom`, dependency-review,
+   and CodeQL checks, and block force pushes and branch deletion.
 6. Confirm Dependabot alerts and security updates are enabled.
 7. Re-run the public safety scan and inspect the complete Git history for
    credentials or private data.
 8. From a clean external checkout, generate a fresh tenant key and repeat the
    README quickstart and public-surface smoke test.
-9. Create the `v1.0.0` release from the exact reviewed commit and link its CI
-   and security evidence.
+9. Download the `spdx-sbom-<commit SHA>` CI artifact and confirm it contains
+   valid SPDX 2.3 documents for Agent Core, the SDK, and Worker build tooling.
+10. Create the release from the exact reviewed commit and link its CI,
+    security, and SBOM evidence.

@@ -10,7 +10,7 @@ surface—without connecting the runtime to your private systems.
 [![CI](https://github.com/SuntekCorps-xLab/send-from-china-agent-core/actions/workflows/ci.yml/badge.svg)](https://github.com/SuntekCorps-xLab/send-from-china-agent-core/actions/workflows/ci.yml)
 [![Node.js 22](https://img.shields.io/badge/Node.js-22-142b2f)](governance-worker/package.json)
 [![MCP](https://img.shields.io/badge/MCP-2025--06--18-c64b1a)](contracts/openapi.yaml)
-[![Release](https://img.shields.io/badge/release-v1.0.0-e85d16)](CHANGELOG.md)
+[![Release](https://img.shields.io/badge/release-v1.1.0-e85d16)](CHANGELOG.md)
 [![Runtime egress](https://img.shields.io/badge/runtime%20egress-none-87927a)](docs/SECURITY_MODEL.md)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-6b7c70)](LICENSE)
 
@@ -40,6 +40,12 @@ deployment, use the dependency-free [JavaScript SDK](sdk/README.md) and follow
 the [Hosted Platform quickstart](docs/HOSTED_PLATFORM_QUICKSTART.md). The SDK
 keeps catalog discovery, dynamic sourcing, and merchant purchase handoff
 separate, and never handles payment credentials.
+
+External agents can use the versioned
+[Search Contract v2](docs/SEARCH_CONTRACT_V2.md) to keep product identity,
+explicit hard constraints, soft ranking context, and transaction context
+separate. The additive SDK 1.1 API includes an explicit compatibility adapter
+for the stable `product_search` v1 tool.
 
 ## What you can build with it
 
@@ -292,6 +298,7 @@ replaced by durable storage for multi-isolate production use.
 | `GET` | `/health` | No | Snapshot freshness and gateway state |
 | `GET` | `/api/catalog` | Yes | Full listing only for explicitly allowed tenants |
 | `GET` | `/api/search?q=...` | Yes | Bounded tenant-scoped search |
+| `POST` | `/api/search/v2` | Yes | Product-first Search Contract v2 |
 | `GET` | `/api/products/:slug` | Yes | One tenant-visible product |
 | `POST` | `/api/quote` | Yes | Short-lived catalog estimate; excludes shipping and tax |
 | `POST` | `/api/chat` | Yes | Deterministic search conversation example |
@@ -311,6 +318,10 @@ Three invariants are enforced in code and tests:
 Additional controls include constant-time credential comparison, tenant product
 isolation, page-size limits, anti-enumeration behavior, daily quotas, generic
 errors, restrictive response headers, and a repository safety scan.
+
+CI also runs the Search Contract SDK tests and generated-type staleness check,
+then uploads SPDX 2.3 SBOM documents for Agent Core, the dependency-free SDK,
+and the Worker's locked build and test dependency graph.
 
 Run the full verification suite:
 

@@ -1,7 +1,12 @@
 export const PUBLIC_PRODUCT_FIELDS = Object.freeze([
   "public_id", "slug", "title", "description", "category", "tags", "images",
-  "attributes", "price", "availability_band", "lead_time_days", "as_of", "source", "purchasable",
+  "attributes", "price", "availability_band", "lead_time_days", "as_of", "purchasable",
 ]);
+
+// `source` is accepted only in the deployment-side snapshot so older published
+// artifacts remain loadable. It is deliberately excluded from every product
+// response; provenance must never become a supplier or source-system channel.
+export const SNAPSHOT_PRODUCT_FIELDS = Object.freeze([...PUBLIC_PRODUCT_FIELDS, "source"]);
 
 const AVAILABILITY_BANDS = new Set(["in_stock", "low", "out_of_stock"]);
 const SLUG_PATTERN = /^[a-z0-9-]{1,100}$/;
@@ -50,12 +55,41 @@ function cleanAttributes(value) {
   const output = {};
   for (const [key, item] of entries) {
     if (!/^[A-Za-z0-9_.-]{1,80}$/.test(key)) throw new FieldPolicyError();
+    if (privateAttributeName(key) || containsPrivateAttribute(item)) continue;
     if (typeof item !== "string" && typeof item !== "number") continue;
     if (typeof item === "string" && item.length > 300) throw new FieldPolicyError();
     if (typeof item === "number" && !Number.isFinite(item)) throw new FieldPolicyError();
     output[key] = item;
   }
   return output;
+}
+
+const PRIVATE_ATTRIBUTE_NAMES = new Set([
+  "api_key", "competitor_price", "cost", "cost_price", "credential", "credentials",
+  "internal_id", "internal_product_id", "margin", "margin_rate", "platform_listing_id",
+  "private_id", "secret", "source", "source_id", "source_url", "supplier", "supplier_id",
+  "supplier_name", "supplier_url", "token", "vendor", "vendor_id", "warehouse_code",
+  "wholesale_price",
+]);
+
+function normalizedAttributeName(value) {
+  return String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+}
+
+function privateAttributeName(value) {
+  const name = normalizedAttributeName(value);
+  return PRIVATE_ATTRIBUTE_NAMES.has(name)
+    || /^(?:api_key|credential|internal|margin|private|secret|supplier|token|vendor|warehouse)(?:_|$)/.test(name)
+    || /^(?:cost|wholesale)(?:_|$)/.test(name)
+    || /^source_(?:id|url|record|reference)$/.test(name);
+}
+
+function containsPrivateAttribute(value, seen = new Set()) {
+  if (!value || typeof value !== "object") return false;
+  if (seen.has(value)) return true;
+  seen.add(value);
+  if (Array.isArray(value)) return value.some((item) => containsPrivateAttribute(item, seen));
+  return Object.entries(value).some(([key, item]) => privateAttributeName(key) || containsPrivateAttribute(item, seen));
 }
 
 function cleanPrice(value) {
@@ -85,10 +119,10 @@ export function toPublicProduct(internalProduct, context = {}) {
     if (!SLUG_PATTERN.test(slug)) throw new FieldPolicyError();
     output.slug = slug;
   }
-  for (const field of ["description", "category", "source"]) {
-    const value = optionalString(internalProduct[field]);
-    if (value !== undefined) output[field] = value;
-  }
+  const description = optionalString(internalProduct.description, 5000);
+  if (description !== undefined) output.description = description;
+  const category = optionalString(internalProduct.category, 200);
+  if (category !== undefined) output.category = category;
   const tags = cleanTags(internalProduct.tags);
   if (tags !== undefined) output.tags = tags;
   const images = cleanImages(internalProduct.images);

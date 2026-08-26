@@ -8,6 +8,12 @@ Start an authenticated workflow with `get_agent_access`. Stop if the required sc
 
 ## Catalog workflow
 
+New clients should model intent with
+[`Search Contract v2`](../../../docs/SEARCH_CONTRACT_V2.md). Keep the product
+identity responsible for recall, allow only explicit buyer requirements in
+hard constraints, and use recipient, room, occasion, and hobby as soft context.
+The SDK's compatibility adapter preserves the v1 tool shown below.
+
 Call `product_search` with:
 
 ```json

@@ -1,0 +1,228 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/contracts/search-v2-response.schema.json",
+  "title": "Search Contract v2 Response",
+  "description": "A versioned product-search response with truthful terminal states and explicit retrieval scope.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "trace_id",
+    "status",
+    "normalized_intent",
+    "relaxations",
+    "missing_criteria",
+    "results",
+    "pagination",
+    "search_scope"
+  ],
+  "properties": {
+    "contract_version": { "const": "2.0" },
+    "trace_id": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "status": { "enum": ["results", "needs_clarification", "no_match", "degraded"] },
+    "normalized_intent": { "$ref": "#/$defs/normalizedIntent" },
+    "relaxations": {
+      "type": "array",
+      "maxItems": 100,
+      "items": { "$ref": "#/$defs/relaxation" }
+    },
+    "missing_criteria": {
+      "type": "array",
+      "maxItems": 50,
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" }
+    },
+    "results": {
+      "type": "array",
+      "maxItems": 50,
+      "items": { "$ref": "#/$defs/product" }
+    },
+    "pagination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["limit", "cursor", "next_cursor", "has_more"],
+      "properties": {
+        "limit": { "type": "integer", "minimum": 1, "maximum": 50 },
+        "cursor": { "type": ["string", "null"], "maxLength": 1000 },
+        "next_cursor": { "type": ["string", "null"], "maxLength": 1000 },
+        "has_more": { "type": "boolean" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "has_more": { "const": true } }, "required": ["has_more"] },
+          "then": { "properties": { "next_cursor": { "type": "string", "minLength": 1 } } }
+        },
+        {
+          "if": { "properties": { "has_more": { "const": false } }, "required": ["has_more"] },
+          "then": { "properties": { "next_cursor": { "type": "null" } } }
+        }
+      ]
+    },
+    "search_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "plan_complete",
+        "scope_exhausted",
+        "global_catalog_exhaustive",
+        "scan_limit_reached",
+        "degraded",
+        "degraded_reason"
+      ],
+      "properties": {
+        "plan_complete": { "type": "boolean" },
+        "scope_exhausted": { "type": "boolean" },
+        "global_catalog_exhaustive": { "type": "boolean" },
+        "scan_limit_reached": { "type": "boolean" },
+        "degraded": { "type": "boolean" },
+        "degraded_reason": { "type": ["string", "null"], "maxLength": 200 }
+      }
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["adapter", "legacy_status"],
+      "properties": {
+        "adapter": { "const": "product_search_v1" },
+        "legacy_status": { "type": "string", "maxLength": 100 }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "no_match" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "results": { "maxItems": 0 },
+          "pagination": {
+            "properties": {
+              "next_cursor": { "type": "null" },
+              "has_more": { "const": false }
+            }
+          },
+          "search_scope": {
+            "properties": {
+              "plan_complete": { "const": true },
+              "scope_exhausted": { "const": true },
+              "scan_limit_reached": { "const": false },
+              "degraded": { "const": false }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "status": { "const": "degraded" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "search_scope": {
+            "required": ["degraded_reason"],
+            "properties": {
+              "degraded": { "const": true },
+              "degraded_reason": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "status": { "enum": ["results", "needs_clarification", "no_match"] } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "search_scope": {
+            "properties": {
+              "degraded": { "const": false },
+              "degraded_reason": { "type": "null" }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "condition": {
+      "$ref": "./search-v2-request.schema.json#/$defs/condition"
+    },
+    "normalizedIntent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["product_identity", "hard_constraints", "soft_context", "transaction_context"],
+      "properties": {
+        "product_identity": { "$ref": "./search-v2-request.schema.json#/properties/product_identity" },
+        "hard_constraints": { "type": "array", "items": { "$ref": "#/$defs/condition" } },
+        "soft_context": { "type": "array", "items": { "$ref": "#/$defs/condition" } },
+        "transaction_context": { "type": "array", "items": { "$ref": "#/$defs/condition" } }
+      }
+    },
+    "relaxation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["condition", "reason"],
+      "properties": {
+        "condition": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+        "from": {},
+        "to": {},
+        "reason": { "type": "string", "minLength": 1, "maxLength": 300 }
+      }
+    },
+    "product": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title"],
+      "properties": {
+        "public_id": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "slug": { "type": "string", "pattern": "^[a-z0-9-]{1,100}$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 300, "pattern": "\\S" },
+        "description": { "type": "string", "maxLength": 5000 },
+        "category": { "type": "string", "maxLength": 200 },
+        "tags": {
+          "type": "array",
+          "maxItems": 50,
+          "items": { "type": "string", "maxLength": 100 }
+        },
+        "images": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["url"],
+            "properties": {
+              "url": { "type": "string", "format": "uri", "pattern": "^https://", "maxLength": 2048 },
+              "alt": { "type": "string", "maxLength": 300 }
+            }
+          }
+        },
+        "attributes": {
+          "type": "object",
+          "maxProperties": 50,
+          "propertyNames": { "pattern": "^[A-Za-z0-9_.-]{1,80}$" },
+          "additionalProperties": {
+            "oneOf": [
+              { "type": "string", "maxLength": 300 },
+              { "type": "number" }
+            ]
+          }
+        },
+        "price": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["amount", "currency"],
+          "properties": {
+            "amount": { "type": "number", "minimum": 0 },
+            "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+            "tier": { "type": "string", "maxLength": 80 }
+          }
+        },
+        "availability_band": { "type": "string" },
+        "lead_time_days": { "type": "integer", "minimum": 0 },
+        "as_of": { "type": "string", "format": "date-time" },
+        "purchasable": { "type": "boolean" },
+        "product_url": { "type": "string", "format": "uri" },
+        "add_to_cart_url": { "type": "string", "format": "uri" }
+      }
+    }
+  }
+}

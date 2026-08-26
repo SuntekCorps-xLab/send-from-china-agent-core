@@ -96,7 +96,8 @@ the open repository.
 - A missing or short identifier key stops the build.
 - Product identifiers are stable keyed derivations with no reversible source
   relationship.
-- Unknown product input fields are counted and discarded.
+- Unknown product fields and source, supplier, cost, credential, or private
+  scalar attributes are counted and discarded.
 - Invalid URLs, nested attributes, duplicate products, invalid availability,
   and unknown tenant product references stop the entire build.
 - Output uses a temporary file and atomic replacement.

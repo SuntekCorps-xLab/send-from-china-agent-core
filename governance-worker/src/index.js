@@ -4,6 +4,11 @@ import { handleMcp } from "./mcp.js";
 import { createQuote, QuoteError } from "./quote.js";
 import { getSnapshotMeta } from "./snapshot.js";
 import { consumeTenantQuota, resolveTenant, TenantError } from "./tenant.js";
+import {
+  adaptSearchContractV1ResponseToV2,
+  adaptSearchContractV2RequestToV1,
+  parseSearchContractV2Request,
+} from "../../sdk/src/search-contract-v2.js";
 
 function lastUserQuery(messages) {
   if (!Array.isArray(messages) || messages.length < 1 || messages.length > 20) return null;
@@ -41,12 +46,13 @@ async function route(request, env, id, corsHeaders) {
     return jsonResponse({
       schema_version: 1,
       service: "send-from-china-agent-core",
-      version: "1.0.0",
+      version: "1.1.0",
       mode: "self_hosted_reference",
       mcp: { path: "/mcp", discovery_auth_required: false, tool_auth: "bearer_tenant_key" },
       registration: { self_service: false, key_provisioning: "deployment_operator" },
       capabilities: {
         catalog_search: true,
+        search_contract_v2: true,
         product_detail: true,
         catalog_estimate: true,
         shipping_rates: false,
@@ -82,6 +88,48 @@ async function route(request, env, id, corsHeaders) {
     const result = searchCatalog(query, { limit, cursor: url.searchParams.get("cursor") || "" }, tenant);
     if (result.error) return errorResponse(result.error, 400, id, corsHeaders);
     return jsonResponse({ ...result, mode: "published_snapshot" }, 200, id, corsHeaders);
+  }
+  if (request.method === "POST" && url.pathname === "/api/search/v2") {
+    const parsed = await readJson(request);
+    if (parsed.error) return errorResponse(parsed.error, parsed.error === "PAYLOAD_TOO_LARGE" ? 413 : 400, id, corsHeaders);
+    let adapted;
+    try { adapted = adaptSearchContractV2RequestToV1(parseSearchContractV2Request(parsed.value)); }
+    catch (error) {
+      if (error instanceof TypeError) return errorResponse("INVALID_SEARCH_CONTRACT", 400, id, corsHeaders);
+      throw error;
+    }
+    const effectiveLimit = Math.min(adapted.request.limit, tenant.max_page_size);
+    const effectiveRequest = effectiveLimit === adapted.request.limit
+      ? adapted.request
+      : { ...adapted.request, limit: effectiveLimit };
+    const relaxations = [...adapted.relaxations];
+    if (effectiveLimit !== adapted.request.limit) {
+      relaxations.push({
+        condition: "limit", from: adapted.request.limit, to: effectiveLimit,
+        reason: "The authenticated tenant page-size policy reduced this page limit.",
+      });
+    }
+    const search = searchCatalog(adapted.arguments.query, {
+      limit: effectiveLimit,
+      cursor: adapted.arguments.cursor || "",
+      criteria: adapted.arguments.criteria,
+    }, tenant);
+    if (search.error) return errorResponse(search.error, 400, id, corsHeaders);
+    const terminal = !search.next_cursor;
+    const legacy = {
+      status: search.total ? "catalog_match" : (terminal ? "no_match" : "searching"),
+      products: search.items,
+      next_cursor: search.next_cursor,
+      has_more: Boolean(search.next_cursor),
+      exhaustive: terminal,
+      search_scope_exhausted: terminal,
+      global_catalog_exhaustive: tenant.allowed_product_ids === null && terminal && search.truncated !== true,
+      scan_limit_reached: search.truncated === true,
+      truncated: search.truncated,
+    };
+    return jsonResponse(adaptSearchContractV1ResponseToV2(legacy, {
+      request: effectiveRequest, relaxations, traceId: id,
+    }), 200, id, corsHeaders);
   }
   if (request.method === "GET" && url.pathname.startsWith("/api/products/")) {
     const slug = decodeURIComponent(url.pathname.slice("/api/products/".length));

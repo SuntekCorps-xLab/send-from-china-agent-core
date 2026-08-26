@@ -4,6 +4,20 @@ const TERMINAL_TASK_STATES = new Set([
   "RESULTS_READY", "COMPLETED", "FAILED", "NO_MATCH", "CANCELED", "CANCELLED",
 ]);
 
+export {
+  SEARCH_CONTRACT_VERSION,
+  adaptSearchContractV1ResponseToV2,
+  adaptSearchContractV2RequestToV1,
+  createSearchContractV1Adapter,
+  normalizeSearchContractV2Request,
+  parseSearchContractV2Request,
+} from "./search-contract-v2.js";
+
+import {
+  adaptSearchContractV1ResponseToV2,
+  adaptSearchContractV2RequestToV1,
+} from "./search-contract-v2.js";
+
 export class SendFromChinaError extends Error {
   constructor(message, options = {}) {
     super(message, options.cause ? { cause: options.cause } : undefined);
@@ -167,6 +181,21 @@ export function createSendFromChinaClient(options = {}) {
     },
     getAgentAccess: (args = {}, options = {}) => callTool("get_agent_access", args, options),
     productSearch: (args, options = {}) => callTool("product_search", args, options),
+    async searchContractV2(searchRequest, options = {}) {
+      const normalized = adaptSearchContractV2RequestToV1(searchRequest).request;
+      return request("/api/search/v2", {
+        method: "POST", signal: options.signal, body: JSON.stringify(normalized),
+      });
+    },
+    async searchContractV2ViaV1(searchRequest, options = {}) {
+      const adapted = adaptSearchContractV2RequestToV1(searchRequest, { operation: options.operation });
+      const legacy = await callTool("product_search", adapted.arguments, options);
+      return adaptSearchContractV1ResponseToV2(legacy, {
+        request: adapted.request,
+        relaxations: adapted.relaxations,
+        traceId: legacy.trace_id || legacy.search_id || `sdk-compat-${Date.now()}-${++requestSequence}`,
+      });
+    },
     searchCatalog: (args, options = {}) => callTool("search_catalog", args, options),
     getProduct: (args, options = {}) => callTool("get_product", args, options),
     getQuote: (args, options = {}) => callTool("get_quote", args, options),

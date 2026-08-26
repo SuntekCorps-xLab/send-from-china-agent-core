@@ -23,10 +23,11 @@ function run(command, args, options = {}) {
   if (result.status !== 0) process.exit(result.status || 1);
 }
 
-const temporary = await mkdtemp(join(tmpdir(), "agent-core-v1-"));
+const temporary = await mkdtemp(join(tmpdir(), "agent-core-"));
 try {
   run(npm, [...npmArgs, "--prefix", "governance-worker", "run", "verify"]);
-  run(process.execPath, ["--test", "sdk/test/client.test.js"]);
+  run(process.execPath, ["--test", "sdk/test/client.test.js", "sdk/test/search-contract-v2.test.js"]);
+  run(process.execPath, ["scripts/generate-search-v2-types.mjs"]);
   run(process.execPath, ["--test", "scripts/generate-tenant-key.test.mjs"]);
   run(python, ["-m", "unittest", "discover", "-s", "etl-pipeline/tests", "-p", "test_*.py", "-v"]);
   run(python, ["-m", "unittest", "discover", "-s", "publisher/tests", "-p", "test_*.py", "-v"]);
@@ -41,7 +42,7 @@ try {
   run(process.execPath, ["scripts/validate-snapshot.mjs", snapshot]);
   run(process.execPath, ["scripts/check-doc-links.mjs"]);
   run(process.execPath, ["scripts/scan-public.mjs", "."]);
-  console.log("\nPASS: Agent Core V1 verification");
+  console.log("\nPASS: Agent Core verification");
 } finally {
   await rm(temporary, { recursive: true, force: true });
 }

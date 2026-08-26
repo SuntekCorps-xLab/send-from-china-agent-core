@@ -22,11 +22,19 @@ test("positive policy drops poison fields without echoing their names", () => {
   };
   const output = toPublicProduct(base({
     ...poison,
-    attributes: { material: "wood", nested: { supplier_name: "hidden" } },
+    source: "private-source-record",
+    attributes: {
+      material: "wood",
+      supplier_url: "https://supplier.invalid/item",
+      cost_price: 1,
+      api_key: "hidden",
+      nested: { supplier_name: "hidden" },
+    },
   }));
   const rendered = JSON.stringify(output);
   for (const name of Object.keys(poison)) assert.doesNotMatch(rendered, new RegExp(name));
   assert.deepEqual(output.attributes, { material: "wood" });
+  assert.equal("source" in output, false);
   assert.notEqual(output, poison);
 });
 

@@ -9,6 +9,30 @@ permissions:
   contents: read
 
 jobs:
+  search-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install locked root dependencies
+        run: npm ci
+      - name: Test Search Contract SDK
+        run: |
+          mkdir -p artifacts
+          npm run sdk:test 2>&1 | tee artifacts/sdk-search-contract-tests.log
+      - name: Check generated Search Contract types
+        run: npm run types:check 2>&1 | tee artifacts/search-contract-types.log
+      - name: Upload Search Contract evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: search-contract-verification
+          path: artifacts/
+
   worker:
     runs-on: ubuntu-latest
     steps:
@@ -98,3 +122,27 @@ jobs:
       - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           fail-on-severity: high
+
+  sbom:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+      - name: Generate SPDX 2.3 SBOMs
+        run: |
+          mkdir -p artifacts/sbom
+          npm sbom --package-lock-only --sbom-format=spdx --sbom-type=application > artifacts/sbom/agent-core.spdx.json
+          npm --prefix governance-worker sbom --package-lock-only --sbom-format=spdx --sbom-type=application > artifacts/sbom/governance-worker.spdx.json
+          npm --prefix sdk sbom --sbom-format=spdx --sbom-type=library > artifacts/sbom/agent-sdk.spdx.json
+      - name: Validate SPDX artifacts
+        run: |
+          node -e "const fs=require('node:fs'); for (const file of fs.readdirSync('artifacts/sbom')) { const document=JSON.parse(fs.readFileSync('artifacts/sbom/'+file,'utf8')); if (document.spdxVersion !== 'SPDX-2.3' || document.SPDXID !== 'SPDXRef-DOCUMENT' || !Array.isArray(document.packages) || document.packages.length === 0) throw new Error('Invalid SPDX document: '+file); }"
+      - name: Upload SPDX SBOMs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: spdx-sbom-${{ github.sha }}
+          path: artifacts/sbom/*.spdx.json
+          if-no-files-found: error
+          retention-days: 90

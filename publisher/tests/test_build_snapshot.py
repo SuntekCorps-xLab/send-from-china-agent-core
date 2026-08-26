@@ -73,6 +73,20 @@ class PublisherTest(unittest.TestCase):
         self.assertNotIn("must not leave", encoded)
         self.assertEqual(report["discarded_input_field_count"], 1)
 
+    def test_sensitive_scalar_attributes_never_enter_snapshot_or_report(self):
+        payload = self.payload()
+        payload["products"][0]["attributes"].update({
+            "supplier_url": "https://supplier.invalid/item",
+            "Cost Price": "1.25",
+            "api-key": "not-a-real-key",
+            "source_id": "local-row-42",
+        })
+        snapshot, report = build_snapshot(payload, KEY, GENERATED_AT)
+        encoded = json.dumps({"snapshot": snapshot, "report": report})
+        for forbidden in ["supplier.invalid", "Cost Price", "api-key", "local-row-42"]:
+            self.assertNotIn(forbidden, encoded)
+        self.assertEqual(report["discarded_input_field_count"], 4)
+
     def test_tenant_source_references_become_public_ids(self):
         snapshot, _ = build_snapshot(self.payload(), KEY, GENERATED_AT)
         product_id = snapshot["products"][0]["public_id"]

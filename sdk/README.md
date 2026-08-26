@@ -21,6 +21,36 @@ const search = await client.productSearch({
 });
 ```
 
+For new agent integrations, prefer the versioned product-first contract:
+
+```js
+const search = await client.searchContractV2({
+  contract_version: "2.0",
+  product_identity: "compact foldable laptop desk",
+  hard_constraints: [],
+  soft_context: [{
+    name: "room", value: "small apartment", source: "explicit",
+    scope: "session", hardness: "soft",
+  }],
+  transaction_context: [{
+    name: "ship_to", value: "US", source: "explicit",
+    scope: "transaction", hardness: "hard",
+  }],
+  limit: 20,
+});
+```
+
+`searchContractV2()` calls the authenticated `POST /api/search/v2` endpoint.
+It accepts the ergonomic `SearchContractV2Request` shape shown above and sends
+the complete normalized `SearchContractV2WireRequest` required by the strict
+HTTP contract. Direct HTTP callers must send every required intent group and
+must not send shorthand or unknown fields.
+For a deployment that exposes only the stable `product_search` v1 tool, use
+`searchContractV2ViaV1()` or the direct adapter exports. Unsupported v2
+conditions appear in `relaxations`; they are never silently promoted to hard filters. See the
+[Search Contract v2 integration guide](../docs/SEARCH_CONTRACT_V2.md) for the
+schemas, status semantics, direct adapter exports, and versioning policy.
+
 The client deliberately does not include cart, checkout, order, or payment
 methods. A hosted deployment may return a customer-facing product, cart, or
 checkout URL. Pass the exact storefront origins you trust and use
@@ -38,5 +68,5 @@ cd sdk
 npm test
 ```
 
-The package has no runtime dependencies and supports Node.js 22+ and modern
+The package has no runtime dependencies, includes TypeScript declarations, and supports Node.js 22+ and modern
 Worker runtimes with `fetch`, `URL`, `Headers`, and `AbortController`.

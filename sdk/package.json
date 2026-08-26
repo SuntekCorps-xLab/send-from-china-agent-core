@@ -1,12 +1,13 @@
 {
   "name": "@send-from-china/agent-sdk",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Dependency-free JavaScript client for Send From China Agent Core and compatible hosted deployments.",
   "type": "module",
   "license": "Apache-2.0",
   "engines": { "node": ">=22" },
-  "exports": { ".": "./src/index.js" },
+  "types": "./src/index.d.ts",
+  "exports": { ".": { "types": "./src/index.d.ts", "default": "./src/index.js" } },
   "files": ["src", "README.md", "LICENSE"],
-  "scripts": { "test": "node --test test/client.test.js" }
+  "scripts": { "test": "node --test test/client.test.js test/search-contract-v2.test.js" }
 }

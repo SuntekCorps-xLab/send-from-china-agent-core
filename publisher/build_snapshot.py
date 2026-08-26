@@ -23,6 +23,13 @@ PRODUCT_INPUT_FIELDS = {
     "lead_time_days", "purchasable",
 }
 AVAILABILITY_BANDS = {"in_stock", "low", "out_of_stock"}
+PRIVATE_ATTRIBUTE_NAMES = {
+    "api_key", "competitor_price", "cost", "cost_price", "credential", "credentials",
+    "internal_id", "internal_product_id", "margin", "margin_rate", "platform_listing_id",
+    "private_id", "secret", "source", "source_id", "source_url", "supplier", "supplier_id",
+    "supplier_name", "supplier_url", "token", "vendor", "vendor_id", "warehouse_code",
+    "wholesale_price",
+}
 
 
 class PublisherError(ValueError):
@@ -123,22 +130,38 @@ def _tags(value):
     return output
 
 
+def _private_attribute_name(value):
+    name = re.sub(r"[^a-z0-9]+", "_", str(value or "").strip().lower()).strip("_")
+    return (
+        name in PRIVATE_ATTRIBUTE_NAMES
+        or re.match(r"^(api_key|credential|internal|margin|private|secret|supplier|token|vendor|warehouse)(_|$)", name)
+        or re.match(r"^(cost|wholesale)(_|$)", name)
+        or re.match(r"^source_(id|url|record|reference)$", name)
+    )
+
+
 def _attributes(value):
     if value is None:
-        return {}
+        return {}, 0
     if not isinstance(value, dict) or len(value) > 50:
         raise PublisherError("INVALID_ATTRIBUTES")
     output = {}
+    discarded = 0
     for key, item in value.items():
-        name = _text(key, 100, required=True)
+        name = _text(key, 80, required=True)
+        if _private_attribute_name(name):
+            discarded += 1
+            continue
+        if not re.fullmatch(r"[A-Za-z0-9_.-]{1,80}", name):
+            raise PublisherError("INVALID_ATTRIBUTES")
         if isinstance(item, bool) or not isinstance(item, (str, int, float)):
             raise PublisherError("INVALID_ATTRIBUTES")
         if isinstance(item, str):
-            item = _text(item, 500)
+            item = _text(item, 300)
         if isinstance(item, float) and not (float("-inf") < item < float("inf")):
             raise PublisherError("INVALID_ATTRIBUTES")
         output[name] = item
-    return output
+    return output, discarded
 
 
 def _price(value):
@@ -162,7 +185,7 @@ def _price(value):
     if not re.fullmatch(r"[A-Z]{3}", currency):
         raise PublisherError("INVALID_PRICE")
     output = {"amount": round(numeric_amount, 2), "currency": currency}
-    tier = _text(value.get("tier"), 100)
+    tier = _text(value.get("tier"), 80)
     if tier:
         output["tier"] = tier
     return output
@@ -199,7 +222,7 @@ def normalize_product(value, key, generated_at):
     images = _images(value.get("images"))
     if images:
         product["images"] = images
-    attributes = _attributes(value.get("attributes"))
+    attributes, discarded_attributes = _attributes(value.get("attributes"))
     if attributes:
         product["attributes"] = attributes
     price = _price(value.get("price"))
@@ -207,7 +230,7 @@ def normalize_product(value, key, generated_at):
         product["price"] = price
     lead_time = value.get("lead_time_days")
     if lead_time is not None:
-        if isinstance(lead_time, bool) or not isinstance(lead_time, int) or lead_time < 0:
+        if isinstance(lead_time, bool) or not isinstance(lead_time, int) or not 0 <= lead_time <= 3650:
             raise PublisherError("INVALID_LEAD_TIME")
         product["lead_time_days"] = lead_time
     purchasable = value.get("purchasable")
@@ -217,7 +240,7 @@ def normalize_product(value, key, generated_at):
         purchasable if purchasable is not None
         else availability != "out_of_stock" and price is not None
     )
-    return source_id, product, len(set(value) - PRODUCT_INPUT_FIELDS)
+    return source_id, product, len(set(value) - PRODUCT_INPUT_FIELDS) + discarded_attributes
 
 
 def _tenant_scopes(value, id_by_source):

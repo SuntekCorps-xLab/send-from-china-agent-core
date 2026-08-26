@@ -1,7 +1,7 @@
-import { PUBLIC_PRODUCT_FIELDS, toPublicProduct } from "./field-policy.js";
+import { SNAPSHOT_PRODUCT_FIELDS, toPublicProduct } from "./field-policy.js";
 
 const TOP_LEVEL_FIELDS = new Set(["schema_version", "generated_at", "valid_until", "products", "tenant_scopes"]);
-const PRODUCT_FIELDS = new Set(PUBLIC_PRODUCT_FIELDS);
+const PRODUCT_FIELDS = new Set(SNAPSHOT_PRODUCT_FIELDS);
 let activeSnapshot = null;
 
 export class SnapshotError extends Error {

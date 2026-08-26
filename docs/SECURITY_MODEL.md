@@ -32,7 +32,9 @@ system credentials.
 ## Controls
 
 - Constant-time credential comparison.
-- Positive product field allowlist with atomic snapshot rejection.
+- Positive product field allowlist with atomic snapshot rejection and
+  recursive removal of nested source, supplier, cost, credential, and private
+  attribute metadata.
 - Opaque public identifiers derived with a user-owned key that is never written
   to an artifact.
 - Local source identifiers are removed before both snapshot and report output.
@@ -43,7 +45,8 @@ system credentials.
 - `no-store`, `nosniff`, frame denial, and restrictive content security policy.
 - Non-binding quotes that expire after 15 minutes and reject stale snapshots.
 - No cart, checkout, order, payment, refund, product-write, or publication tool.
-- Lockfile, pinned CI actions, dependency audit, and repository safety scan.
+- Lockfile, pinned CI actions, dependency audit, repository safety scan, and
+  CI-generated SPDX 2.3 SBOM artifacts.
 
 ## Reference limitations
 

@@ -32,7 +32,14 @@ durable sourcing and governed customer product URLs.
 
 ## 3. Search the published catalog first
 
-Call `productSearch()` with the buyer's actual constraints. A missing budget is
+New integrations should call `searchContractV2()` so product identity, hard
+constraints, soft context, and transaction context stay separate. Existing
+integrations may continue to call `productSearch()` through the stable v1 API.
+`searchContractV2()` uses the authenticated v2 endpoint. The SDK's explicit
+`searchContractV2ViaV1()` adapter supports a v1-only deployment without
+changing Worker search behavior. See [Search Contract v2](SEARCH_CONTRACT_V2.md).
+
+Call the search method with the buyer's actual constraints. A missing budget is
 not a catalog miss. Continue pagination when `has_more` is true. Create a
 sourcing task only when the final response explicitly reports a terminal
 `no_match`, the search scope is exhausted, and the customer confirms that an

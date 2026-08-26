@@ -137,7 +137,6 @@ function syntheticResults(query, criteria, tenant) {
     category: product.category,
     summary: product.description,
     why: `Synthetic reviewed fixture for ${criteria.ship_to}; verify all commercial facts in a real deployment.`,
-    source: product.source,
     governance_status: "REVIEWED_PREVIEW",
     match_status: "illustrative_only",
     criteria_satisfied: false,

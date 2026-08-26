@@ -1,11 +1,12 @@
 openapi: 3.1.0
 info:
   title: Send From China Agent Core API
-  version: 1.0.0
+  version: 1.1.0
   description: Tenant-scoped, read-only catalog and non-binding catalog-estimate gateway. It does not return carrier shipping rates.
   license:
     name: Apache-2.0
     identifier: Apache-2.0
+  x-search-contract-version: "2.0"
 servers:
   - url: https://agent-core.invalid
     description: Replace with the deployed Worker URL
@@ -98,6 +99,31 @@ paths:
                 $ref: "#/components/schemas/CatalogPage"
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/QuotaExceeded" }
+  /api/search/v2:
+    post:
+      tags: [Catalog]
+      summary: Search with the product-first Search Contract v2
+      description: Delegates to the same tenant-scoped catalog kernel as product_search. It has no sourcing or transaction side effects.
+      operationId: searchCatalogV2
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "./search-v2-request.schema.json"
+      responses:
+        "200":
+          description: Versioned search result, clarification, terminal miss, or degraded state
+          content:
+            application/json:
+              schema:
+                $ref: "./search-v2-response.schema.json"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
         "429": { $ref: "#/components/responses/QuotaExceeded" }
   /api/products/{slug}:
     get:
@@ -263,6 +289,11 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
+    PayloadTooLarge:
+      description: The JSON request body exceeds the service limit
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
     QuotaExceeded:
       description: Tenant daily quota exceeded
       headers:
@@ -272,6 +303,10 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
   schemas:
+    SearchContractV2Request:
+      $ref: "./search-v2-request.schema.json"
+    SearchContractV2Response:
+      $ref: "./search-v2-response.schema.json"
     Money:
       type: object
       additionalProperties: false
@@ -279,7 +314,7 @@ components:
       properties:
         amount: { type: number, minimum: 0 }
         currency: { type: string, pattern: "^[A-Z]{3}$" }
-        tier: { type: string }
+        tier: { type: string, maxLength: 80 }
     Product:
       type: object
       additionalProperties: false
@@ -287,27 +322,32 @@ components:
       properties:
         public_id: { type: string, pattern: "^[A-Za-z0-9]{22}$" }
         slug: { type: string, pattern: "^[a-z0-9-]{1,100}$" }
-        title: { type: string }
-        description: { type: string }
-        category: { type: string }
-        tags: { type: array, items: { type: string } }
+        title: { type: string, minLength: 1, maxLength: 300 }
+        description: { type: string, maxLength: 5000 }
+        category: { type: string, maxLength: 200 }
+        tags: { type: array, maxItems: 50, items: { type: string, maxLength: 100 } }
         images:
           type: array
+          maxItems: 20
           items:
             type: object
             additionalProperties: false
             required: [url]
             properties:
-              url: { type: string, format: uri }
-              alt: { type: string }
+              url: { type: string, format: uri, pattern: "^https://", maxLength: 2048 }
+              alt: { type: string, maxLength: 300 }
         attributes:
           type: object
-          additionalProperties: { type: [string, number] }
+          maxProperties: 50
+          propertyNames: { pattern: "^[A-Za-z0-9_.-]{1,80}$" }
+          additionalProperties:
+            oneOf:
+              - { type: string, maxLength: 300 }
+              - { type: number }
         price: { $ref: "#/components/schemas/Money" }
         availability_band: { enum: [in_stock, low, out_of_stock] }
-        lead_time_days: { type: integer, minimum: 0 }
+        lead_time_days: { type: integer, minimum: 0, maximum: 3650 }
         as_of: { type: string, format: date-time }
-        source: { type: string }
         purchasable: { type: boolean }
     CatalogPage:
       type: object

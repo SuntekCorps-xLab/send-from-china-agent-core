@@ -4,6 +4,13 @@ All notable changes to the public reference implementation are documented here.
 
 ## Unreleased
 
+## 1.1.0 - 2026-08-26
+
+- Added Search Contract v2 request and response schemas, condition provenance,
+  truthful `results|needs_clarification|no_match|degraded` states, and an
+  integration and Semantic Versioning guide.
+- Added dependency-free SDK 1.1 normalization, TypeScript declarations, an
+  explicit `product_search` v1 compatibility adapter, and contract tests.
 - Added a dependency-free JavaScript SDK for capability discovery, catalog
   search, governed sourcing polling, paginated results, and allowlisted
   customer purchase handoffs.

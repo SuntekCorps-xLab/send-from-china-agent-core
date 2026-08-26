@@ -32,7 +32,17 @@
               }
             }
           },
-          "attributes": {"type": "object", "maxProperties": 50, "additionalProperties": {"type": ["string", "number"]}},
+          "attributes": {
+            "type": "object",
+            "maxProperties": 50,
+            "propertyNames": {"pattern": "^[A-Za-z0-9_.-]{1,80}$"},
+            "additionalProperties": {
+              "oneOf": [
+                {"type": "string", "maxLength": 300},
+                {"type": "number"}
+              ]
+            }
+          },
           "price": {
             "type": "object",
             "additionalProperties": false,
@@ -40,11 +50,11 @@
             "properties": {
               "amount": {"type": "number", "minimum": 0},
               "currency": {"type": "string", "pattern": "^[A-Za-z]{3}$"},
-              "tier": {"type": "string", "maxLength": 100}
+              "tier": {"type": "string", "maxLength": 80}
             }
           },
           "availability_band": {"enum": ["in_stock", "low", "out_of_stock"]},
-          "lead_time_days": {"type": "integer", "minimum": 0},
+          "lead_time_days": {"type": "integer", "minimum": 0, "maximum": 3650},
           "purchasable": {"type": "boolean"}
         }
       }

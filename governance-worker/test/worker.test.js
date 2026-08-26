@@ -29,7 +29,9 @@ test("well-known metadata states authentication and unsupported transaction capa
   assert.equal(body.mcp.discovery_auth_required, false);
   assert.equal(body.mcp.tool_auth, "bearer_tenant_key");
   assert.equal(body.registration.self_service, false);
+  assert.equal(body.version, "1.1.0");
   assert.equal(body.capabilities.catalog_estimate, true);
+  assert.equal(body.capabilities.search_contract_v2, true);
   assert.equal(body.capabilities.shipping_rates, false);
   assert.equal(body.capabilities.order, false);
 });
@@ -62,6 +64,124 @@ test("search validates inputs and returns ranked tenant matches", async () => {
   const body = await response.json();
   assert.equal(response.status, 200);
   assert.equal(body.items[0].slug, "modular-desk-organizer");
+});
+
+test("Search Contract v2 delegates to the existing catalog kernel", async () => {
+  const response = await call("/api/search/v2", {
+    method: "POST", headers: { ...authorization(ALPHA_KEY), "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contract_version: "2.0",
+      product_identity: {
+        name: "product_identity", value: "desk organizer", source: "explicit", scope: "product", hardness: "hard",
+      },
+      hard_constraints: [],
+      soft_context: [{
+        name: "recipient", value: "friend", source: "explicit", scope: "session", hardness: "soft",
+      }],
+      transaction_context: [], limit: 20, cursor: null,
+    }),
+  });
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.contract_version, "2.0");
+  assert.equal(body.status, "results");
+  assert.equal(body.results[0].slug, "modular-desk-organizer");
+  assert.equal(body.relaxations[0].condition, "recipient");
+  assert.equal(body.trace_id, response.headers.get("x-request-id"));
+});
+
+test("Search Contract v2 reports truthful terminal and degraded states", async () => {
+  const headers = { ...authorization(ALPHA_KEY), "Content-Type": "application/json" };
+  const request = {
+    contract_version: "2.0", product_identity: {
+      name: "product_identity", value: "product that is absent from the fixture",
+      source: "explicit", scope: "product", hardness: "hard",
+    },
+    hard_constraints: [], soft_context: [], transaction_context: [], limit: 5, cursor: null,
+  };
+  const terminal = await call("/api/search/v2", { method: "POST", headers, body: JSON.stringify(request) });
+  const body = await terminal.json();
+  assert.equal(terminal.status, 200);
+  assert.equal(body.status, "no_match");
+  assert.equal(body.search_scope.plan_complete, true);
+  assert.equal(body.search_scope.scope_exhausted, true);
+  assert.equal(body.search_scope.global_catalog_exhaustive, false);
+  assert.equal(body.search_scope.degraded, false);
+  assert.deepEqual(body.results, []);
+});
+
+test("Search Contract v2 validates requests and requires authentication", async () => {
+  const missingCredential = await call("/api/search/v2", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
+  });
+  assert.equal(missingCredential.status, 401);
+  const invalid = await call("/api/search/v2", {
+    method: "POST", headers: { ...authorization(ALPHA_KEY), "Content-Type": "application/json" }, body: "{}",
+  });
+  assert.equal(invalid.status, 400);
+  assert.equal((await invalid.json()).error.code, "INVALID_SEARCH_CONTRACT");
+  const shorthand = await call("/api/search/v2", {
+    method: "POST", headers: { ...authorization(ALPHA_KEY), "Content-Type": "application/json" },
+    body: JSON.stringify({ product_identity: "desk organizer", unexpected: "must not be ignored" }),
+  });
+  assert.equal(shorthand.status, 400);
+  assert.equal((await shorthand.json()).error.code, "INVALID_SEARCH_CONTRACT");
+  const oversized = await call("/api/search/v2", {
+    method: "POST",
+    headers: {
+      ...authorization(ALPHA_KEY), "Content-Type": "application/json", "Content-Length": "40000",
+    },
+    body: "{}",
+  });
+  assert.equal(oversized.status, 413);
+  assert.equal((await oversized.json()).error.code, "PAYLOAD_TOO_LARGE");
+});
+
+test("Search Contract v2 cursors are bound to the normalized intent", async () => {
+  const headers = { ...authorization(INTERNAL_KEY), "Content-Type": "application/json" };
+  const request = (identity, cursor = null) => ({
+    contract_version: "2.0",
+    product_identity: {
+      name: "product_identity", value: identity, source: "explicit", scope: "product", hardness: "hard",
+    },
+    hard_constraints: [], soft_context: [], transaction_context: [], limit: 1, cursor,
+  });
+  const firstResponse = await call("/api/search/v2", {
+    method: "POST", headers, body: JSON.stringify(request("a")),
+  });
+  const first = await firstResponse.json();
+  assert.equal(firstResponse.status, 200);
+  assert.match(first.pagination.next_cursor, /^sc2_[0-9a-f]{16}_/);
+
+  const nextResponse = await call("/api/search/v2", {
+    method: "POST", headers, body: JSON.stringify(request("a", first.pagination.next_cursor)),
+  });
+  assert.equal(nextResponse.status, 200);
+  assert.equal((await nextResponse.json()).status, "results");
+
+  const wrongIntent = await call("/api/search/v2", {
+    method: "POST", headers, body: JSON.stringify(request("desk organizer", first.pagination.next_cursor)),
+  });
+  assert.equal(wrongIntent.status, 400);
+  assert.equal((await wrongIntent.json()).error.code, "INVALID_SEARCH_CONTRACT");
+});
+
+test("Search Contract v2 reports global scope only for full-catalog tenants", async () => {
+  const headers = { ...authorization(INTERNAL_KEY), "Content-Type": "application/json" };
+  const response = await call("/api/search/v2", {
+    method: "POST", headers,
+    body: JSON.stringify({
+      contract_version: "2.0",
+      product_identity: {
+        name: "product_identity", value: "absent fixture product",
+        source: "explicit", scope: "product", hardness: "hard",
+      },
+      hard_constraints: [], soft_context: [], transaction_context: [], limit: 20, cursor: null,
+    }),
+  });
+  const body = await response.json();
+  assert.equal(body.status, "no_match");
+  assert.equal(body.search_scope.global_catalog_exhaustive, true);
 });
 
 test("product lookup validates slugs and reports missing products", async () => {
@@ -127,5 +247,5 @@ test("MCP discovery is public and catalog calls are tenant-scoped", async () => 
 test("responses do not contain private commerce fields", async () => {
   const response = await call("/api/search?q=desk", { headers: authorization(ALPHA_KEY) });
   const text = await response.text();
-  assert.doesNotMatch(text, /supplier_name|internal_product_id|warehouse_code|margin_rate|source_url/i);
+  assert.doesNotMatch(text, /supplier_name|internal_product_id|warehouse_code|margin_rate|source_url|cost_price|api_key|"source"/i);
 });

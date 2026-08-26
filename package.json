@@ -1,6 +1,6 @@
 {
   "name": "send-from-china-agent-core",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -11,9 +11,11 @@
     "dev": "node scripts/prepare-local.mjs && npm --prefix governance-worker run dev",
     "scan": "node scripts/scan-public.mjs .",
     "setup": "node scripts/prepare-local.mjs && npm --prefix governance-worker ci",
-    "sdk:test": "node --test sdk/test/client.test.js",
+    "sdk:test": "node --test sdk/test/client.test.js sdk/test/search-contract-v2.test.js",
     "smoke": "node scripts/smoke-public.mjs",
     "tenant:key": "node scripts/generate-tenant-key.mjs",
+    "types:check": "node scripts/generate-search-v2-types.mjs",
+    "types:generate": "node scripts/generate-search-v2-types.mjs --write",
     "test": "node scripts/verify.mjs",
     "verify": "node scripts/verify.mjs"
   }
