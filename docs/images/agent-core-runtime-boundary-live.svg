@@ -35,7 +35,9 @@
   <g class="sans">
     <circle cx="96" cy="87" r="22" fill="#fff"/><path d="M96 69l5 13 13 5-13 5-5 13-5-13-13-5 13-5z" fill="#e85d22"/>
     <text x="132" y="94" class="label white">SEND FROM CHINA</text><rect x="316" y="69" width="124" height="36" rx="18" fill="#294f50"/><circle cx="338" cy="87" r="6" fill="#8fc080"/><text x="352" y="92" class="small white">Agent Core</text>
-    <text x="1262" y="92" class="small white">Read-only runtime</text><rect x="1410" y="68" width="96" height="38" rx="19" fill="#fff" opacity=".12"/><text x="1433" y="93" class="small white">HTTP + MCP</text>
+    <text x="1242" y="92" class="small white">Read-only runtime</text>
+    <rect x="1380" y="68" width="64" height="38" rx="19" fill="#fff" opacity=".12"/><circle cx="1395" cy="87" r="5" fill="#8fc080"/><text x="1406" y="92" class="small white">HTTP</text>
+    <rect x="1450" y="68" width="64" height="38" rx="19" fill="#fff" opacity=".12"/><circle cx="1465" cy="87" r="5" fill="#f08a4e"/><text x="1476" y="92" class="small white">MCP</text>
 
     <text x="86" y="171" class="eyebrow orange">ONE GUARDED RUNTIME · TWO PROTOCOLS</text>
     <text x="86" y="211" class="serif ink" font-size="37">Discover openly. Call with scope. Return public fields.</text>
@@ -53,7 +55,11 @@
 
     <rect x="368" y="326" width="882" height="330" rx="24" fill="#10383b"/>
     <text x="396" y="362" class="eyebrow" fill="#9bcf91">SERVER-SIDE TRUST BOUNDARY</text>
-    <path d="M338 432H396M338 560H360C374 560 374 470 396 470M592 470H625M821 470H854M1050 470H1083" class="flow" marker-end="url(#arrow)"/>
+    <path d="M338 432H396" class="flow" marker-end="url(#arrow)"/>
+    <path d="M338 560H360C374 560 374 470 396 470" class="flow" marker-end="url(#arrow)"/>
+    <path d="M592 470H625" class="flow" marker-end="url(#arrow)"/>
+    <path d="M821 470H854" class="flow" marker-end="url(#arrow)"/>
+    <path d="M1050 470H1083" class="flow" marker-end="url(#arrow)"/>
 
     <g class="stage"><rect x="396" y="400" width="196" height="140" rx="20" fill="#fffdf9"/><circle cx="432" cy="438" r="22" fill="#e6eee7" class="shield"/><path d="M432 423l13 6v10c0 10-7 16-13 19-6-3-13-9-13-19v-10z" fill="#75a269"/><path d="M426 439l4 4 8-9" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/><text x="464" y="434" class="label ink">Auth gate</text><text x="464" y="456" class="small muted">Bearer credential</text><path d="M419 488h150" stroke="#d9dfd9"/><text x="419" y="512" class="small ink">Deployment-held registry</text></g>
     <g class="stage s2"><rect x="625" y="400" width="196" height="140" rx="20" fill="#fffdf9"/><circle cx="661" cy="438" r="22" fill="#f0e2d7"/><path d="M651 437a10 10 0 1 1 20 0v6h5v13h-30v-13h5z" fill="#df6d36"/><circle cx="661" cy="449" r="2.5" fill="#fff"/><text x="693" y="434" class="label ink">Tenant scope</text><text x="693" y="456" class="small muted">Access + quota</text><path d="M648 488h150" stroke="#d9dfd9"/><text x="648" y="512" class="small ink">Fail closed · bounded</text></g>
@@ -64,7 +70,8 @@
 
     <rect x="1280" y="326" width="234" height="330" rx="24" fill="#edf1eb" stroke="#d2dbd4"/>
     <text x="1306" y="362" class="eyebrow orange">RETURNS</text>
-    <path d="M1222 438h58M1222 502h24c18 0 18 58 34 58" class="flow" marker-end="url(#arrow)"/>
+    <path d="M1222 438H1280" class="flow" marker-end="url(#arrow)"/>
+    <path d="M1222 502H1246C1264 502 1264 560 1280 560" class="flow" marker-end="url(#arrow)"/>
     <g class="response" filter="url(#shadow)"><rect x="1306" y="388" width="182" height="108" rx="19" fill="#fff"/><circle cx="1336" cy="424" r="19" fill="#e4ece5"/><path d="M1327 417h18v15h-18zm4 19h10" fill="none" stroke="#285457" stroke-width="2.5"/><text x="1362" y="421" class="label ink">HTTP JSON</text><text x="1362" y="444" class="small muted">Scoped result</text><rect x="1327" y="467" width="132" height="8" rx="4" fill="#8dae80"/></g>
     <g class="response r2" filter="url(#shadow)"><rect x="1306" y="516" width="182" height="108" rx="19" fill="#fff"/><circle cx="1336" cy="552" r="19" fill="#f0e2d7"/><path d="M1326 546l10-7 10 7v13l-10 7-10-7z" fill="none" stroke="#d65c25" stroke-width="2.5"/><text x="1362" y="549" class="label ink">MCP result</text><text x="1362" y="572" class="small muted">Same policy</text><rect x="1327" y="595" width="132" height="8" rx="4" fill="#e08a59"/></g>
 

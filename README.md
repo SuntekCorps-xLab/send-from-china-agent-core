@@ -19,12 +19,12 @@ surface—without connecting the runtime to your private systems.
 <img src="docs/images/agent-core-live.svg" alt="Animated walkthrough of a published catalog passing through tenant, field-policy, and no-egress controls before reaching HTTP and MCP clients" width="100%">
 
 <p>
-  <a href="#60-second-local-run"><strong>Quickstart</strong></a> ·
-  <a href="#connect-an-mcp-client"><strong>MCP setup</strong></a> ·
-  <a href="#publish-your-own-catalog"><strong>Publisher</strong></a> ·
-  <a href="docs/SECURITY_MODEL.md"><strong>Security model</strong></a> ·
-  <a href="docs/ARCHITECTURE.md"><strong>Architecture</strong></a> ·
-  <a href="ROADMAP.md"><strong>Roadmap</strong></a>
+  <a href="#60-second-local-run"><strong>⚡ Quickstart</strong></a> ·
+  <a href="#connect-an-mcp-client"><strong>🔌 MCP setup</strong></a> ·
+  <a href="#publish-your-own-catalog"><strong>📦 Publisher</strong></a> ·
+  <a href="docs/SECURITY_MODEL.md"><strong>🛡️ Security model</strong></a> ·
+  <a href="docs/ARCHITECTURE.md"><strong>🏗️ Architecture</strong></a> ·
+  <a href="ROADMAP.md"><strong>🗺️ Roadmap</strong></a>
 </p>
 
 </div>
@@ -46,11 +46,11 @@ separate, and never handles payment credentials.
 Agent Core turns a pre-published product snapshot into a guarded HTTP and MCP
 surface. An application, shopping assistant, or automation can:
 
-- search a catalog without receiving unrestricted enumeration access;
-- read tenant-visible product facts through a positive field allowlist;
-- request a short-lived, non-binding catalog estimate that explicitly excludes shipping and tax;
-- inspect its own scopes and explicit non-transactional permissions;
-- run an idempotent fixture sourcing preview after a catalog miss.
+- 🔎 **Search:** query a catalog without receiving unrestricted enumeration access;
+- 🧾 **Public product facts:** read tenant-visible records through a positive field allowlist;
+- 🧮 **Non-binding estimate:** request a short-lived catalog estimate that explicitly excludes shipping and tax;
+- 🪪 **Tenant scope:** inspect its own scopes and explicit non-transactional permissions;
+- 🧭 **Sourcing preview:** run an idempotent fixture preview after a catalog miss.
 
 The gateway has no connection to a private catalog, supplier system, store,
 customer account, payment provider, or order system. It makes no outbound
