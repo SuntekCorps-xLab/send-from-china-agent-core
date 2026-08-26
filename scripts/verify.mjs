@@ -26,6 +26,7 @@ function run(command, args, options = {}) {
 const temporary = await mkdtemp(join(tmpdir(), "agent-core-"));
 try {
   run(npm, [...npmArgs, "--prefix", "governance-worker", "run", "verify"]);
+  run(process.execPath, ["--test", "sandbox/tests/sandbox.test.mjs"]);
   run(process.execPath, ["--test", "sdk/test/client.test.js", "sdk/test/search-contract-v2.test.js"]);
   run(process.execPath, ["scripts/generate-search-v2-types.mjs"]);
   run(process.execPath, ["--test", "scripts/generate-tenant-key.test.mjs"]);

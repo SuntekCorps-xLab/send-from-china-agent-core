@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Send From China — Agent Core Sandbox</title>
+  <link rel="stylesheet" href="/sandbox/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/sandbox" aria-label="Agent Core sandbox home">
+      <span class="brand-mark" aria-hidden="true">✦</span>
+      <span><strong>SEND FROM CHINA</strong><small>Agent Core Sandbox</small></span>
+    </a>
+    <div class="topbar-meta">
+      <span><i class="status-dot"></i> Local process</span>
+      <strong>HTTP + MCP</strong>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" aria-labelledby="sandbox-title">
+      <div class="hero-copy">
+        <p class="eyebrow">ZERO-ACCOUNT · SYNTHETIC SNAPSHOT</p>
+        <h1 id="sandbox-title">Run the real guarded contract.<br>Keep real systems out.</h1>
+        <p class="lede">Exercise Agent Core through HTTP and MCP with the checked-in public fixture. A temporary tenant credential stays inside this local process and is never sent to the browser.</p>
+        <div class="boundary-row" aria-label="Sandbox boundaries">
+          <span>🧪 Synthetic products</span>
+          <span>🚫 No carrier rates</span>
+          <span>🔒 No cart, order, or payment</span>
+        </div>
+      </div>
+      <aside class="runtime-card" aria-label="Local runtime status">
+        <div class="runtime-card-head"><span>RUNTIME CHECK</span><i class="status-dot"></i></div>
+        <strong data-runtime-title>Starting local sandbox…</strong>
+        <dl>
+          <div><dt>Published fixture</dt><dd data-product-count>—</dd></div>
+          <div><dt>Browser credential</dt><dd>None</dd></div>
+          <div><dt>Outbound fetch</dt><dd>Disabled</dd></div>
+          <div><dt>Commerce writes</dt><dd>Disabled</dd></div>
+        </dl>
+      </aside>
+    </section>
+
+    <section class="workbench" aria-labelledby="workbench-title">
+      <header class="workbench-head">
+        <div>
+          <p class="eyebrow">CLICK · INSPECT · COPY</p>
+          <h2 id="workbench-title">Protocol workbench</h2>
+        </div>
+        <div class="protocol-switch" role="group" aria-label="Filter recipes by protocol">
+          <button class="active" type="button" data-protocol="all">All</button>
+          <button type="button" data-protocol="http">HTTP</button>
+          <button type="button" data-protocol="mcp">MCP</button>
+        </div>
+      </header>
+
+      <div class="workbench-grid">
+        <nav class="recipe-list" aria-label="Sandbox recipes">
+          <button class="recipe active" type="button" data-scenario="http-search" data-kind="http">
+            <span>01</span><span><strong>Catalog search</strong><small>HTTP · tenant-scoped</small></span><i>→</i>
+          </button>
+          <button class="recipe" type="button" data-scenario="search-v2" data-kind="http">
+            <span>02</span><span><strong>Search Contract v2</strong><small>HTTP · product-first</small></span><i>→</i>
+          </button>
+          <button class="recipe" type="button" data-scenario="mcp-list" data-kind="mcp">
+            <span>03</span><span><strong>Discover tools</strong><small>MCP · public discovery</small></span><i>→</i>
+          </button>
+          <button class="recipe" type="button" data-scenario="mcp-search" data-kind="mcp">
+            <span>04</span><span><strong>Product search</strong><small>MCP · guarded call</small></span><i>→</i>
+          </button>
+          <button class="recipe" type="button" data-scenario="sourcing-preview" data-kind="mcp">
+            <span>05</span><span><strong>Sourcing preview</strong><small>MCP · explicit confirmation</small></span><i>→</i>
+          </button>
+        </nav>
+
+        <section class="request-panel" aria-labelledby="request-title">
+          <header class="panel-head">
+            <div><span class="panel-icon" aria-hidden="true">⌁</span><div><small>REQUEST</small><strong id="request-title" data-request-title>Catalog search</strong></div></div>
+            <span class="protocol-pill" data-request-protocol>HTTP</span>
+          </header>
+          <p class="request-note" data-request-note>Search only the five products visible to the synthetic tenant.</p>
+          <div class="code-shell">
+            <div class="code-label"><span data-method>GET</span><code data-path>/sandbox/api/search?q=desk&amp;limit=3</code></div>
+            <pre><code data-request-code></code></pre>
+          </div>
+          <label class="confirmation" data-confirmation hidden>
+            <input type="checkbox" data-confirm-checkbox>
+            <span><strong>Confirm illustrative preview</strong><small>I understand this creates only an in-memory, non-purchasable fixture task.</small></span>
+          </label>
+          <div class="request-actions">
+            <button class="primary-action" type="button" data-run>Run request <span>→</span></button>
+            <button class="secondary-action" type="button" data-copy>Copy local call</button>
+          </div>
+          <p class="copy-status" role="status" data-copy-status></p>
+        </section>
+
+        <section class="response-panel" aria-labelledby="response-title">
+          <header class="panel-head">
+            <div><span class="panel-icon response-icon" aria-hidden="true">✓</span><div><small>RESPONSE</small><strong id="response-title">Public fields only</strong></div></div>
+            <span class="response-status idle" data-response-status>Ready</span>
+          </header>
+          <div class="response-summary" data-response-summary>
+            <span>Choose a recipe, then run it.</span>
+            <small>The response comes from the same Worker used by the HTTP and MCP contract tests.</small>
+          </div>
+          <div class="result-cards" data-result-cards hidden></div>
+          <div class="response-code">
+            <pre aria-live="polite"><code data-response-code>{
+  "mode": "synthetic_local_sandbox",
+  "ready": true
+}</code></pre>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="truth-strip" aria-label="Sandbox truth labels">
+      <div><span>🧱</span><p><strong>Same policy</strong>Every product is rebuilt through the positive public-field allowlist.</p></div>
+      <div><span>🪪</span><p><strong>Scoped fixture</strong>The local wrapper injects one ephemeral tenant identity on the server side.</p></div>
+      <div><span>🛑</span><p><strong>Hard boundary</strong>Unknown proxy routes, enumeration, publication, and commerce writes are unavailable.</p></div>
+    </section>
+  </main>
+
+  <footer>
+    <strong>Local synthetic sandbox</strong>
+    <span>For a deployment, use the canonical endpoints with a deployment-issued bearer credential.</span>
+  </footer>
+  <script type="module" src="/sandbox/app.js"></script>
+</body>
+</html>

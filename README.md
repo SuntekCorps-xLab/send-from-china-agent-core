@@ -19,7 +19,7 @@ surface—without connecting the runtime to your private systems.
 <img src="docs/images/agent-core-live.svg" alt="Animated walkthrough of a published catalog passing through tenant, field-policy, and no-egress controls before reaching HTTP and MCP clients" width="100%">
 
 <p>
-  <a href="#60-second-local-run"><strong>⚡ Quickstart</strong></a> ·
+  <a href="#try-the-zero-account-sandbox"><strong>⚡ Try sandbox</strong></a> ·
   <a href="#connect-an-mcp-client"><strong>🔌 MCP setup</strong></a> ·
   <a href="#publish-your-own-catalog"><strong>📦 Publisher</strong></a> ·
   <a href="docs/SECURITY_MODEL.md"><strong>🛡️ Security model</strong></a> ·
@@ -70,6 +70,31 @@ catalog into a validated build-time snapshot without sending it anywhere.
     <td width="33%" valign="top"><strong>↔️ One policy, two protocols</strong><br>HTTP and MCP calls share the same snapshot, tenant scope, and non-transactional boundary.</td>
   </tr>
 </table>
+
+## Try the zero-account sandbox
+
+Run the real HTTP and MCP Worker contract against the checked-in synthetic
+snapshot without registering, configuring a tenant, or exposing a credential to
+the browser:
+
+```bash
+npm ci
+npm run sandbox
+```
+
+Open `http://127.0.0.1:8787/sandbox`. The workbench includes executable HTTP
+search, Search Contract v2, MCP discovery and product search, plus a terminal
+miss → explicit confirmation → illustrative sourcing recipe. All sandbox cards
+are synthetic; there are no carrier rates, commerce writes, or external image
+requests.
+
+The browser-safe `/sandbox/*` routes use a process-only ephemeral tenant. The
+canonical `/api/*` and `/mcp` routes keep their normal bearer-authentication
+contract. Sandbox responses apply a final conservative presentation overlay:
+every product and estimate is illustrative, unavailable, and non-purchasable,
+and purchase or external URL evidence is removed. Sandbox discovery points MCP
+clients to `/sandbox/mcp`; canonical deployments still require bearer auth.
+See the [sandbox boundary and MCP setup](docs/SANDBOX.md).
 
 ## From private input to a public snapshot
 
@@ -352,6 +377,7 @@ each claim.
 contracts/            Snapshot schema and OpenAPI contract
 fixtures/             Synthetic published snapshot for local use
 governance-worker/    HTTP and MCP gateway with tests
+sandbox/              Zero-account local HTTP and MCP workbench
 publisher/            Public-side publishing rules, never private mappings
 etl-pipeline/          File-only product validation examples
 docs/                  Architecture, deployment, operations, and security

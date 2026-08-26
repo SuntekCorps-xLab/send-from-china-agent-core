@@ -4,6 +4,16 @@ All notable changes to the public reference implementation are documented here.
 
 ## Unreleased
 
+- Added a loopback-only, zero-account HTTP and MCP sandbox that invokes the
+  real Worker with a process-only ephemeral tenant credential and the synthetic
+  published snapshot.
+- Added explicit sandbox status and boundary headers, executable browser
+  recipes, confirmation-gated illustrative sourcing, and fail-closed wrapper
+  tests without exposing catalog enumeration or commerce writes.
+- Projected browser-safe products and estimates as unavailable illustrative
+  fixtures, made sandbox MCP discovery self-consistent, and guarded both server
+  entry points against non-loopback binding.
+
 ## 1.1.0 - 2026-08-26
 
 - Added Search Contract v2 request and response schemas, condition provenance,
