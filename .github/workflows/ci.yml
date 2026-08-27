@@ -32,6 +32,10 @@ jobs:
         run: npm run eval:private-agreement:test
       - name: Test aggregate-only private prediction scorer contracts
         run: npm run eval:private-score:test
+      - name: Test local synthetic agent contract scaffolds
+        run: |
+          npm run eval:agent-trajectory:test 2>&1 | tee artifacts/agent-trajectory-contract-tests.log
+          npm run eval:adversarial:test 2>&1 | tee artifacts/adversarial-contract-tests.log
       - name: Upload Search Contract evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
