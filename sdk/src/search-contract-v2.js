@@ -499,15 +499,42 @@ function publicProduct(value) {
   return typeof output.title === "string" && output.title.trim() ? Object.freeze(output) : null;
 }
 
-function publicObject(value, fields) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return Object.freeze({});
-  return Object.freeze(Object.fromEntries(fields
-    .filter((field) => value[field] !== undefined)
-    .map((field) => [field, value[field]])));
+function invalidResponse() {
+  throw new TypeError("Invalid Search Contract v2 response");
 }
 
-function publicCondition(value) {
-  return publicObject(value, ["name", "value", "source", "scope", "hardness"]);
+function responseString(value, maximum, options = {}) {
+  if (typeof value !== "string" || value.length > maximum
+    || (options.nonEmpty && !value.trim())
+    || (options.pattern && !options.pattern.test(value))
+    || (options.values && !options.values.has(value))) invalidResponse();
+  return value;
+}
+
+function responseCursor(value) {
+  if (value === null) return null;
+  return responseString(value, 1000);
+}
+
+function responseRelaxationValue(value) {
+  if (value === null || typeof value === "boolean") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.length <= 300) return value;
+  return invalidResponse();
+}
+
+function responseRelaxation(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return invalidResponse();
+  const condition = responseString(value.condition, 64, {
+    pattern: /^[a-z][a-z0-9_]{0,63}$/u, nonEmpty: true,
+  });
+  const reason = responseString(value.reason, 300, { nonEmpty: true });
+  return Object.freeze({
+    condition,
+    ...(value.from !== undefined ? { from: responseRelaxationValue(value.from) } : {}),
+    ...(value.to !== undefined ? { to: responseRelaxationValue(value.to) } : {}),
+    reason,
+  });
 }
 
 // A v2 server is expected to honor the response schema, but the SDK does not
@@ -515,43 +542,77 @@ function publicCondition(value) {
 // response from known contract fields and reapply the product attribute policy
 // before returning it to an application.
 export function projectSearchContractV2Response(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new TypeError("Invalid Search Contract v2 response");
+  if (!value || typeof value !== "object" || Array.isArray(value)) return invalidResponse();
+  if (value.contract_version !== SEARCH_CONTRACT_VERSION) return invalidResponse();
+  const traceId = responseString(value.trace_id, 200, { nonEmpty: true });
+  const status = responseString(value.status, 30, {
+    values: new Set(["results", "needs_clarification", "no_match", "degraded"]),
+  });
+  const pagination = value.pagination;
+  if (!pagination || typeof pagination !== "object" || Array.isArray(pagination)
+    || !Number.isInteger(pagination.limit) || pagination.limit < 1 || pagination.limit > 50
+    || typeof pagination.has_more !== "boolean") return invalidResponse();
+  const cursor = responseCursor(pagination.cursor);
+  const nextCursor = responseCursor(pagination.next_cursor);
+  if ((pagination.has_more && !nextCursor) || (!pagination.has_more && nextCursor !== null)) return invalidResponse();
+  const intent = value.normalized_intent;
+  if (!intent || typeof intent !== "object" || Array.isArray(intent)) return invalidResponse();
+  const parsedIntent = parseSearchContractV2Request({
+    contract_version: SEARCH_CONTRACT_VERSION,
+    product_identity: intent.product_identity,
+    hard_constraints: intent.hard_constraints,
+    soft_context: intent.soft_context,
+    transaction_context: intent.transaction_context,
+    limit: pagination.limit,
+    cursor,
+  });
+  if (!Array.isArray(value.relaxations) || value.relaxations.length > 100
+    || !Array.isArray(value.missing_criteria) || value.missing_criteria.length > 50
+    || !Array.isArray(value.results) || value.results.length > 50) return invalidResponse();
+  const missingCriteria = value.missing_criteria.map((item) => responseString(item, 64, {
+    pattern: /^[a-z][a-z0-9_]{0,63}$/u,
+  }));
+  const results = value.results.map(publicProduct).filter(Boolean);
+  const searchScope = value.search_scope;
+  const scopeBooleans = [
+    "plan_complete", "scope_exhausted", "global_catalog_exhaustive", "scan_limit_reached", "degraded",
+  ];
+  if (!searchScope || typeof searchScope !== "object" || Array.isArray(searchScope)
+    || scopeBooleans.some((field) => typeof searchScope[field] !== "boolean")) return invalidResponse();
+  const degradedReason = searchScope.degraded_reason === null ? null
+    : responseString(searchScope.degraded_reason, 200, { nonEmpty: true });
+  if ((status === "degraded") !== (searchScope.degraded === true)
+    || (status === "degraded" ? degradedReason === null : degradedReason !== null)) return invalidResponse();
+  if (status === "no_match" && (results.length || pagination.has_more || nextCursor !== null
+    || !searchScope.plan_complete || !searchScope.scope_exhausted || searchScope.scan_limit_reached)) {
+    return invalidResponse();
   }
-  const output = {};
-  for (const field of ["contract_version", "trace_id", "status"]) {
-    if (value[field] !== undefined) output[field] = value[field];
-  }
-  if (value.normalized_intent !== undefined) {
-    const intent = value.normalized_intent;
-    output.normalized_intent = Object.freeze({
-      ...(intent?.product_identity !== undefined
-        ? { product_identity: publicCondition(intent.product_identity) } : {}),
-      ...(Array.isArray(intent?.hard_constraints)
-        ? { hard_constraints: Object.freeze(intent.hard_constraints.map(publicCondition)) } : {}),
-      ...(Array.isArray(intent?.soft_context)
-        ? { soft_context: Object.freeze(intent.soft_context.map(publicCondition)) } : {}),
-      ...(Array.isArray(intent?.transaction_context)
-        ? { transaction_context: Object.freeze(intent.transaction_context.map(publicCondition)) } : {}),
-    });
-  }
-  output.relaxations = Object.freeze((Array.isArray(value.relaxations) ? value.relaxations : [])
-    .map((item) => publicObject(item, ["condition", "from", "to", "reason"])));
-  output.missing_criteria = Object.freeze((Array.isArray(value.missing_criteria) ? value.missing_criteria : [])
-    .filter((item) => typeof item === "string").map((item) => item.slice(0, 64)));
-  output.results = Object.freeze((Array.isArray(value.results) ? value.results : [])
-    .map(publicProduct).filter(Boolean));
-  if (value.pagination !== undefined) {
-    output.pagination = publicObject(value.pagination, ["limit", "cursor", "next_cursor", "has_more"]);
-  }
-  if (value.search_scope !== undefined) {
-    output.search_scope = publicObject(value.search_scope, [
-      "plan_complete", "scope_exhausted", "global_catalog_exhaustive", "scan_limit_reached",
-      "degraded", "degraded_reason",
-    ]);
-  }
+  const output = {
+    contract_version: SEARCH_CONTRACT_VERSION,
+    trace_id: traceId,
+    status,
+    normalized_intent: normalizedIntent(parsedIntent),
+    relaxations: Object.freeze(value.relaxations.map(responseRelaxation)),
+    missing_criteria: Object.freeze(missingCriteria),
+    results: Object.freeze(results),
+    pagination: Object.freeze({ limit: pagination.limit, cursor, next_cursor: nextCursor, has_more: pagination.has_more }),
+    search_scope: Object.freeze({
+      plan_complete: searchScope.plan_complete,
+      scope_exhausted: searchScope.scope_exhausted,
+      global_catalog_exhaustive: searchScope.global_catalog_exhaustive,
+      scan_limit_reached: searchScope.scan_limit_reached,
+      degraded: searchScope.degraded,
+      degraded_reason: degradedReason,
+    }),
+  };
   if (value.compatibility !== undefined) {
-    output.compatibility = publicObject(value.compatibility, ["adapter", "legacy_status"]);
+    const compatibility = value.compatibility;
+    if (!compatibility || typeof compatibility !== "object" || Array.isArray(compatibility)
+      || compatibility.adapter !== "product_search_v1") return invalidResponse();
+    output.compatibility = Object.freeze({
+      adapter: "product_search_v1",
+      legacy_status: responseString(compatibility.legacy_status, 100),
+    });
   }
   return Object.freeze(output);
 }
@@ -563,8 +624,8 @@ function cleanRelaxation(value) {
   if (!/^[a-z][a-z0-9_]{0,63}$/.test(condition) || !reason) return null;
   return Object.freeze({
     condition,
-    ...(value.from !== undefined ? { from: value.from } : {}),
-    ...(value.to !== undefined ? { to: value.to } : {}),
+    ...(value.from !== undefined ? { from: responseRelaxationValue(value.from) } : {}),
+    ...(value.to !== undefined ? { to: responseRelaxationValue(value.to) } : {}),
     reason: reason.slice(0, 300),
   });
 }

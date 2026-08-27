@@ -12,6 +12,7 @@ import {
   createSendFromChinaClient,
   normalizeSearchContractV2Request,
   parseSearchContractV2Request,
+  projectSearchContractV2Response,
   PUBLIC_ATTRIBUTE_NAMES,
   PUBLIC_ATTRIBUTE_POLICY_VERSION,
   SEARCH_CONTRACT_VERSION,
@@ -390,7 +391,11 @@ test("client calls the authenticated Search Contract v2 endpoint", async () => {
       called = { url, body: JSON.parse(init.body) };
       return response({
         contract_version: "2.0", trace_id: "trace-direct", status: "results",
-        normalized_intent: {}, relaxations: [], missing_criteria: [], internal_trace: "must-not-leave",
+        normalized_intent: {
+          product_identity: called.body.product_identity,
+          hard_constraints: [], soft_context: [], transaction_context: [],
+        },
+        relaxations: [], missing_criteria: [], internal_trace: "must-not-leave",
         results: [{
           title: "Compact Desk", internal_id: "hidden",
           images: [{
@@ -403,7 +408,10 @@ test("client calls the authenticated Search Contract v2 endpoint", async () => {
           },
         }],
         pagination: { limit: 20, cursor: null, next_cursor: null, has_more: false },
-        search_scope: { plan_complete: false, scope_exhausted: false, global_catalog_exhaustive: false, scan_limit_reached: false, degraded: false },
+        search_scope: {
+          plan_complete: false, scope_exhausted: false, global_catalog_exhaustive: false,
+          scan_limit_reached: false, degraded: false, degraded_reason: null,
+        },
       });
     },
   });
@@ -419,6 +427,37 @@ test("client calls the authenticated Search Contract v2 endpoint", async () => {
   }]);
   assert.deepEqual(result.results[0].price, { amount: 29, currency: "USD", tier: "public" });
   assert.deepEqual(result.results[0].attributes, { material: "wood" });
+});
+
+test("direct v2 projection rejects nested metadata outside public product fields", () => {
+  const valid = {
+    contract_version: "2.0", trace_id: "trace-safe", status: "results",
+    normalized_intent: {
+      product_identity: baseRequest.product_identity,
+      hard_constraints: [], soft_context: [], transaction_context: [],
+    },
+    relaxations: [], missing_criteria: [], results: [{ title: "Safe product" }],
+    pagination: { limit: 20, cursor: null, next_cursor: null, has_more: false },
+    search_scope: {
+      plan_complete: false, scope_exhausted: false, global_catalog_exhaustive: false,
+      scan_limit_reached: false, degraded: false, degraded_reason: null,
+    },
+  };
+  assert.throws(() => projectSearchContractV2Response({
+    ...valid,
+    normalized_intent: {
+      ...valid.normalized_intent,
+      product_identity: { ...baseRequest.product_identity, value: { supplierId: "nested-leak" } },
+    },
+  }), /Invalid Search Contract v2/);
+  assert.throws(() => projectSearchContractV2Response({
+    ...valid,
+    relaxations: [{ condition: "material", from: { token: "nested-leak" }, reason: "safe reason" }],
+  }), /Invalid Search Contract v2/);
+  assert.throws(() => projectSearchContractV2Response({
+    ...valid,
+    pagination: { ...valid.pagination, cursor: { token: "nested-leak" } },
+  }), /Invalid Search Contract v2/);
 });
 
 test("client keeps the explicit v1 compatibility path", async () => {
