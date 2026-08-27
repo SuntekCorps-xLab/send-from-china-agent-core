@@ -67,6 +67,22 @@ test("attribute policy is a positive lower-snake-case allowlist", () => {
   assert.deepEqual(output.attributes, { material: "steel", capacity_ml: 480 });
 });
 
+test("approved attribute names still reject credential, PII, and internal URL values", () => {
+  const output = toPublicProduct(base({
+    attributes: {
+      material: "Bearer fictional-secret-token",
+      brand: "owner@example.invalid",
+      model: "https://catalog.internal/private/item",
+      certification: "Public illustrative certification",
+      width_cm: 24,
+    },
+  }));
+  assert.deepEqual(output.attributes, {
+    certification: "Public illustrative certification",
+    width_cm: 24,
+  });
+});
+
 test("missing required fields fail with a generic policy error", () => {
   assert.throws(() => toPublicProduct({ title: "Missing identity" }), FieldPolicyError);
   assert.throws(() => toPublicProduct(base({ availability_band: "unknown" })), FieldPolicyError);

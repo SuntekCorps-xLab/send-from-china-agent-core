@@ -339,6 +339,21 @@ test("v1 response adapter strips fields outside the public product presentation"
   });
 });
 
+test("v1 response adapter drops sensitive values under approved attribute names", () => {
+  const result = adaptSearchContractV1ResponseToV2({
+    status: "catalog_match", products: [{
+      title: "Public Product",
+      attributes: {
+        material: "Bearer fictional-secret-token",
+        brand: "owner@example.invalid",
+        model: "https://catalog.internal/private/item",
+        width_cm: 24,
+      },
+    }], exhaustive: false, search_scope_exhausted: false,
+  }, { request: baseRequest, traceId: "trace-sensitive-attribute-values" });
+  assert.deepEqual(result.results[0].attributes, { width_cm: 24 });
+});
+
 test("v1 pagination never promises another page without a cursor", () => {
   const result = adaptSearchContractV1ResponseToV2({
     status: "catalog_match", products: [{ title: "Bottle" }], has_more: true, next_cursor: null,

@@ -74,6 +74,7 @@ function cleanAttributes(value) {
     if (!publicAttributeName(key) || privateAttributeName(key) || containsPrivateAttribute(item)) continue;
     if (typeof item !== "string" && typeof item !== "number") continue;
     if (typeof item === "string" && item.length > 300) throw new FieldPolicyError();
+    if (typeof item === "string" && containsPrivateScalar(item)) continue;
     if (typeof item === "number" && !Number.isFinite(item)) throw new FieldPolicyError();
     output[key] = item;
   }
@@ -112,6 +113,17 @@ function containsPrivateAttribute(value, seen = new Set()) {
   seen.add(value);
   if (Array.isArray(value)) return value.some((item) => containsPrivateAttribute(item, seen));
   return Object.entries(value).some(([key, item]) => privateAttributeName(key) || containsPrivateAttribute(item, seen));
+}
+
+function containsPrivateScalar(value) {
+  const text = String(value || "").trim();
+  if (!text) return false;
+  return /(?:https?|ftp|file|gid):\/\//i.test(text)
+    || /\b(?:bearer|basic)\s+[a-z0-9._~+/=-]{8,}\b/i.test(text)
+    || /\b(?:api[_ -]?key|authorization|client[_ -]?secret|credential|password|private[_ -]?key|refresh[_ -]?token|secret|token)\s*[:=]/i.test(text)
+    || /\b[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)+\b/i.test(text)
+    || /\b(?:localhost|[a-z0-9.-]+\.(?:internal|local))(?::\d{1,5})?\b/i.test(text)
+    || /\beyJ[a-z0-9_-]{8,}\.[a-z0-9_-]{8,}\.[a-z0-9_-]{8,}\b/i.test(text);
 }
 
 function cleanPrice(value) {
