@@ -191,10 +191,12 @@ function containsBasicCredential(value) {
   }
 }
 
-function containsCredentialMarker(value) {
+function containsCredentialMarker(value, genericWithin = false) {
   const normalized = normalizedSecurityText(value);
-  return /(?:^|_)(?:access_?token|refresh_?token|id_?token|auth_?token|api_?key|x_?api_?key|authorization|bearer_?token|client_?secret|credential|password|session|signature|token|secret)(?:_|$)/u
-    .test(normalized);
+  return /(?:^|_)(?:access_?token|refresh_?token|id_?token|auth_?token|api_?key|x_?api_?key|authorization|bearer_?token|client_?secret|session_?(?:id|key|token)|signature_?(?:id|key|token))(?:_|$)/u
+    .test(normalized)
+    || (genericWithin
+      && /(?:^|_)(?:credential|password|session|signature|token|secret)(?:_|$)/u.test(normalized));
 }
 
 function containsCredentialAssignment(value) {
@@ -263,7 +265,7 @@ function containsSensitiveUrlSemantics(url, depth = 0) {
     || containsCredentialMaterial(component)
     || provenanceSegment(component))) return true;
   for (const [key, nested] of url.searchParams) {
-    if (containsCredentialMarker(key) || containsCredentialMarker(nested)
+    if (containsCredentialMarker(key, true) || containsCredentialMarker(nested)
       || containsCredentialMaterial(key) || containsCredentialMaterial(nested)
       || provenanceSegment(key) || provenanceSegment(nested)) return true;
     if (depth < 3 && containsPrivateNetworkUrl(decodedSecurityText(nested), depth + 1)) return true;

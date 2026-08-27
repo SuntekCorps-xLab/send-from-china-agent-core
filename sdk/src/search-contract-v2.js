@@ -377,10 +377,12 @@ function containsBasicCredential(value) {
   }
 }
 
-function containsCredentialMarker(value) {
+function containsCredentialMarker(value, genericWithin = false) {
   const normalized = normalizedSecurityText(value);
-  return /(?:^|_)(?:access_?token|refresh_?token|id_?token|auth_?token|api_?key|x_?api_?key|authorization|bearer_?token|client_?secret|credential|password|session|signature|token|secret)(?:_|$)/u
-    .test(normalized);
+  return /(?:^|_)(?:access_?token|refresh_?token|id_?token|auth_?token|api_?key|x_?api_?key|authorization|bearer_?token|client_?secret|session_?(?:id|key|token)|signature_?(?:id|key|token))(?:_|$)/u
+    .test(normalized)
+    || (genericWithin
+      && /(?:^|_)(?:credential|password|session|signature|token|secret)(?:_|$)/u.test(normalized));
 }
 
 function containsCredentialAssignment(value) {
@@ -449,7 +451,7 @@ function containsSensitiveUrlSemantics(url, depth = 0) {
     || containsCredentialMaterial(component)
     || provenanceSegment(component))) return true;
   for (const [key, nested] of url.searchParams) {
-    if (containsCredentialMarker(key) || containsCredentialMarker(nested)
+    if (containsCredentialMarker(key, true) || containsCredentialMarker(nested)
       || containsCredentialMaterial(key) || containsCredentialMaterial(nested)
       || provenanceSegment(key) || provenanceSegment(nested)) return true;
     if (depth < 3 && containsPrivateNetworkUrl(decodedSecurityText(nested), depth + 1)) return true;
@@ -619,6 +621,12 @@ function responseString(value, maximum, options = {}) {
   return value;
 }
 
+function responsePublicString(value, maximum, options = {}) {
+  const output = responseString(value, maximum, options);
+  if (containsPrivateScalar(output)) invalidResponse();
+  return output;
+}
+
 function responseCursor(value) {
   if (value === null) return null;
   return responseString(value, 1000);
@@ -627,7 +635,7 @@ function responseCursor(value) {
 function responseRelaxationScalar(value) {
   if (typeof value === "boolean") return value;
   if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string" && value.length <= 300 && value.trim()) return value;
+  if (typeof value === "string") return responsePublicString(value, 300, { nonEmpty: true });
   return invalidResponse();
 }
 
@@ -642,7 +650,7 @@ function responseRelaxation(value) {
   const condition = responseString(value.condition, 64, {
     pattern: /^[a-z][a-z0-9_]{0,63}$/u, nonEmpty: true,
   });
-  const reason = responseString(value.reason, 300, { nonEmpty: true });
+  const reason = responsePublicString(value.reason, 300, { nonEmpty: true });
   return Object.freeze({
     condition,
     ...(value.from !== undefined ? { from: responseRelaxationValue(value.from) } : {}),
@@ -658,7 +666,7 @@ function responseRelaxation(value) {
 export function projectSearchContractV2Response(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return invalidResponse();
   if (value.contract_version !== SEARCH_CONTRACT_VERSION) return invalidResponse();
-  const traceId = responseString(value.trace_id, 200, { nonEmpty: true });
+  const traceId = responsePublicString(value.trace_id, 200, { nonEmpty: true });
   const status = responseString(value.status, 30, {
     values: new Set(["results", "needs_clarification", "no_match", "degraded"]),
   });
@@ -694,7 +702,7 @@ export function projectSearchContractV2Response(value) {
   if (!searchScope || typeof searchScope !== "object" || Array.isArray(searchScope)
     || scopeBooleans.some((field) => typeof searchScope[field] !== "boolean")) return invalidResponse();
   const degradedReason = searchScope.degraded_reason === null ? null
-    : responseString(searchScope.degraded_reason, 200, { nonEmpty: true });
+    : responsePublicString(searchScope.degraded_reason, 200, { nonEmpty: true });
   if ((status === "degraded") !== (searchScope.degraded === true)
     || (status === "degraded" ? degradedReason === null : degradedReason !== null)) return invalidResponse();
   if (status === "no_match" && (results.length || pagination.has_more || nextCursor !== null
@@ -725,7 +733,7 @@ export function projectSearchContractV2Response(value) {
       || compatibility.adapter !== "product_search_v1") return invalidResponse();
     output.compatibility = Object.freeze({
       adapter: "product_search_v1",
-      legacy_status: responseString(compatibility.legacy_status, 100),
+      legacy_status: responsePublicString(compatibility.legacy_status, 100),
     });
   }
   return Object.freeze(output);
@@ -735,13 +743,18 @@ function cleanRelaxation(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const condition = String(value.condition || "").trim().toLowerCase();
   const reason = String(value.reason || "").trim();
-  if (!/^[a-z][a-z0-9_]{0,63}$/.test(condition) || !reason) return null;
-  return Object.freeze({
-    condition,
-    ...(value.from !== undefined ? { from: responseRelaxationValue(value.from) } : {}),
-    ...(value.to !== undefined ? { to: responseRelaxationValue(value.to) } : {}),
-    reason: reason.slice(0, 300),
-  });
+  if (!/^[a-z][a-z0-9_]{0,63}$/.test(condition) || !reason
+    || containsPrivateScalar(reason)) return null;
+  try {
+    return Object.freeze({
+      condition,
+      ...(value.from !== undefined ? { from: responseRelaxationValue(value.from) } : {}),
+      ...(value.to !== undefined ? { to: responseRelaxationValue(value.to) } : {}),
+      reason: reason.slice(0, 300),
+    });
+  } catch {
+    return null;
+  }
 }
 
 export function adaptSearchContractV2RequestToV1(value, options = {}) {
@@ -824,14 +837,20 @@ export function adaptSearchContractV1ResponseToV2(value, context = {}) {
   else if (legacyStatus === "needs_clarification" || missingCriteria.length) status = "needs_clarification";
   else if (legacyStatus === "no_match" && exhaustive && scopeExhausted && !scanLimitReached) status = "no_match";
   const relaxations = Object.freeze([
-    ...(Array.isArray(context.relaxations) ? context.relaxations : []),
+    ...(Array.isArray(context.relaxations) ? context.relaxations.map(cleanRelaxation).filter(Boolean) : []),
     ...(Array.isArray(legacy.relaxations) ? legacy.relaxations.map(cleanRelaxation).filter(Boolean) : []),
   ]);
   const degraded = status === "degraded";
-  const traceId = String(context.traceId || legacy.trace_id || legacy.search_id || "compat-v1-trace-unavailable").slice(0, 200);
+  const traceCandidate = String(
+    context.traceId || legacy.trace_id || legacy.search_id || "compat-v1-trace-unavailable",
+  ).slice(0, 200);
+  const traceId = !traceCandidate || containsPrivateScalar(traceCandidate)
+    ? "compat-v1-trace-unavailable" : traceCandidate;
+  const publicLegacyStatus = legacyStatus && legacyStatus.length <= 100
+    && !containsPrivateScalar(legacyStatus) ? legacyStatus : "unrecognized";
   return Object.freeze({
     contract_version: SEARCH_CONTRACT_VERSION,
-    trace_id: traceId || "compat-v1-trace-unavailable",
+    trace_id: traceId,
     status,
     normalized_intent: normalizedIntent(request),
     relaxations,
@@ -851,7 +870,7 @@ export function adaptSearchContractV1ResponseToV2(value, context = {}) {
       degraded,
       degraded_reason: degraded ? "The v1 response did not prove a complete terminal search outcome." : null,
     }),
-    compatibility: Object.freeze({ adapter: "product_search_v1", legacy_status: legacyStatus || "unknown" }),
+    compatibility: Object.freeze({ adapter: "product_search_v1", legacy_status: publicLegacyStatus }),
   });
 }
 

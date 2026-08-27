@@ -283,12 +283,18 @@ def _contains_basic_credential(value):
     return b":" in decoded
 
 
-def _contains_credential_marker(value):
+def _contains_credential_marker(value, generic_within=False):
     normalized = _normalized_security_text(value)
-    return bool(re.search(
-        r"(?:^|_)(?:access_?token|refresh_?token|id_?token|auth_?token|api_?key|x_?api_?key|authorization|bearer_?token|client_?secret|credential|password|session|signature|token|secret)(?:_|$)",
+    strong = re.search(
+        r"(?:^|_)(?:access_?token|refresh_?token|id_?token|auth_?token|api_?key|x_?api_?key|authorization|bearer_?token|client_?secret|session_?(?:id|key|token)|signature_?(?:id|key|token))(?:_|$)",
         normalized,
-    ))
+    )
+    if strong:
+        return True
+    if not generic_within:
+        return False
+    generic = r"(?:credential|password|session|signature|token|secret)"
+    return bool(re.search(rf"(?:^|_){generic}(?:_|$)", normalized))
 
 
 def _contains_credential_assignment(value):
@@ -394,7 +400,7 @@ def _contains_sensitive_url_semantics(parsed, depth=0):
             return True
     for key, nested in parse_qsl(parsed.query, keep_blank_values=True):
         if (
-            _contains_credential_marker(key)
+            _contains_credential_marker(key, generic_within=True)
             or _contains_credential_marker(nested)
             or _credential_material(key)
             or _credential_material(nested)

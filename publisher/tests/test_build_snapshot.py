@@ -146,6 +146,7 @@ class PublisherTest(unittest.TestCase):
             "https://shop.example/product#access_token=secretvalue123",
             "https://shop.example/product#accesstoken=secretvalue123",
             "https://shop.example/product?x-api-key=secretvalue123",
+            "https://shop.example/product?token=secretvalue123",
             "https://shop.example/product#authorization=Basic%20YWJjZGVmZ2hpams=.",
             "https://shop.example/product#authorization=Basic%20dXNlcjpwYXNzd29yZA==:",
             "https://catalog.office.lan/product",
@@ -191,6 +192,21 @@ class PublisherTest(unittest.TestCase):
         snapshot, _ = build_snapshot(payload, KEY, GENERATED_AT)
         self.assertEqual(snapshot["products"][0]["images"][0]["url"], public_url)
         self.assertEqual(snapshot["products"][0]["attributes"]["voltage"], public_url)
+
+        for url in [
+            "https://shop.example/products/secret-compartment",
+            "https://shop.example/products/token-ring",
+            "https://shop.example/products/password-journal",
+            "https://shop.example/products/session-chair",
+            "https://shop.example/products/secret",
+            "https://shop.example/products/token",
+            "https://shop.example/search?q=secret-compartment",
+        ]:
+            with self.subTest(url=url, surface="ordinary-commerce-url"):
+                payload = self.payload()
+                payload["products"][0]["images"] = [{"url": url, "alt": "Public product"}]
+                snapshot, _ = build_snapshot(payload, KEY, GENERATED_AT)
+                self.assertEqual(snapshot["products"][0]["images"][0]["url"], url)
 
     def test_every_public_text_surface_rejects_sensitive_values(self):
         loopback_host = ".".join(("127", "0", "0", "1"))

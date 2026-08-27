@@ -523,6 +523,7 @@ test("direct v2 projection removes unsafe URL semantics and preserves ordinary p
     "https://shop.example/product#access_token=secretvalue123",
     "https://shop.example/product#accesstoken=secretvalue123",
     "https://shop.example/product?x-api-key=secretvalue123",
+    "https://shop.example/product?token=secretvalue123",
     "https://shop.example/product#authorization=Basic%20YWJjZGVmZ2hpams=.",
     "https://shop.example/product#authorization=Basic%20dXNlcjpwYXNzd29yZA==:",
     "https://catalog.office.lan/product",
@@ -571,6 +572,23 @@ test("direct v2 projection removes unsafe URL semantics and preserves ordinary p
     images: [{ url: publicUrl, alt: "Public product" }],
     attributes: { material: "basic aluminum", voltage: publicUrl },
   });
+
+  for (const url of [
+    "https://shop.example/products/secret-compartment",
+    "https://shop.example/products/token-ring",
+    "https://shop.example/products/password-journal",
+    "https://shop.example/products/session-chair",
+    "https://shop.example/products/secret",
+    "https://shop.example/products/token",
+    "https://shop.example/search?q=secret-compartment",
+  ]) {
+    const ordinary = projectSearchContractV2Response({
+      ...responseBase,
+      results: [{ title: "Safe title", product_url: url, images: [{ url }] }],
+    });
+    assert.equal(ordinary.results[0].product_url, url);
+    assert.equal(ordinary.results[0].images[0].url, url);
+  }
 });
 
 test("direct v2 projection removes sensitive values from every public text surface", () => {
@@ -657,6 +675,81 @@ test("direct v2 projection removes sensitive values from every public text surfa
     price: { amount: 1, currency: "USD", tier: "secret compartment edition" },
     attributes: { material: "basic aluminum", compatibility: "keyboard session stand" },
   });
+});
+
+test("direct v2 projection rejects sensitive server-generated response strings", () => {
+  const loopbackHost = ["127", "0", "0", "1"].join(".");
+  const responseBase = {
+    contract_version: "2.0", trace_id: "trace-public-response", status: "results",
+    normalized_intent: {
+      product_identity: baseRequest.product_identity,
+      hard_constraints: [], soft_context: [], transaction_context: [],
+    },
+    relaxations: [], missing_criteria: [], results: [],
+    pagination: { limit: 20, cursor: null, next_cursor: null, has_more: false },
+    search_scope: {
+      plan_complete: true, scope_exhausted: true, global_catalog_exhaustive: false,
+      scan_limit_reached: false, degraded: false, degraded_reason: null,
+    },
+  };
+  const unsafeCases = [
+    { ...responseBase, trace_id: "Bearer leak-token" },
+    {
+      ...responseBase,
+      relaxations: [{ condition: "material", from: "safe", to: "safe", reason: "api_key=leakvalue" }],
+    },
+    {
+      ...responseBase,
+      relaxations: [{ condition: "material", from: "owner@example.com", to: "safe", reason: "Safe reason" }],
+    },
+    {
+      ...responseBase,
+      relaxations: [{ condition: "material", from: "safe", to: `http://${loopbackHost}/private`, reason: "Safe reason" }],
+    },
+    {
+      ...responseBase, status: "degraded",
+      search_scope: {
+        ...responseBase.search_scope, plan_complete: false, scope_exhausted: false,
+        degraded: true, degraded_reason: "client_secret=leakvalue",
+      },
+    },
+    {
+      ...responseBase,
+      compatibility: { adapter: "product_search_v1", legacy_status: "Bearer legacy-leak" },
+    },
+  ];
+  for (const unsafe of unsafeCases) {
+    assert.throws(() => projectSearchContractV2Response(unsafe), /Invalid Search Contract v2/);
+  }
+
+  const requestDerived = projectSearchContractV2Response({
+    ...responseBase,
+    normalized_intent: {
+      ...responseBase.normalized_intent,
+      product_identity: { ...baseRequest.product_identity, value: "owner@example.com" },
+    },
+    pagination: { ...responseBase.pagination, cursor: "opaque.cursor.token", next_cursor: null },
+  });
+  assert.equal(requestDerived.normalized_intent.product_identity.value, "owner@example.com");
+  assert.equal(requestDerived.pagination.cursor, "opaque.cursor.token");
+});
+
+test("v1 adapter replaces or drops sensitive upstream metadata", () => {
+  const loopbackHost = ["127", "0", "0", "1"].join(".");
+  const adapted = adaptSearchContractV1ResponseToV2({
+    status: "Bearer legacy-leak",
+    trace_id: "Basic dXNlcjpwYXNz",
+    exhaustive: false,
+    search_scope_exhausted: false,
+    products: [],
+    relaxations: [{
+      condition: "material", from: "owner@example.com", to: `http://${loopbackHost}/private`,
+      reason: "sourceReceipt=receipt123",
+    }],
+  }, { request: baseRequest });
+  assert.equal(adapted.trace_id, "compat-v1-trace-unavailable");
+  assert.equal(adapted.compatibility.legacy_status, "unrecognized");
+  assert.deepEqual(adapted.relaxations, []);
 });
 
 test("SDK projection accepts the exact Agent Core Search v2 handler response", async () => {

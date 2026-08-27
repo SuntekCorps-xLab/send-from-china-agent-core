@@ -819,6 +819,7 @@ test("credential, PII and internal-host values fail closed even in approved publ
     ["image", ["https://[fe", "80::1]/private.png"].join("")],
     ["image", "https://shop.example/product#access_token=secretvalue123"],
     ["image", "https://shop.example/product#accesstoken=secretvalue123"],
+    ["image", "https://shop.example/product?token=secretvalue123"],
     ["image", "https://shop.example/product?x-api-key=secretvalue123"],
     ["image", "https://shop.example/product#authorization=Basic%20YWJjZGVmZ2hpams=."],
     ["image", "https://shop.example/product#authorization=Basic%20dXNlcjpwYXNzd29yZA==:"],
@@ -908,6 +909,13 @@ test("public text surfaces do not reject lookalike words or ordinary public URLs
     "Basic QWx1bWludW0=",
     "Open-source sourcecode documentation",
     "https://docs.example.com/guides/open-source?topic=sourcecode#overview",
+    "https://shop.example/products/secret-compartment",
+    "https://shop.example/products/token-ring",
+    "https://shop.example/products/password-journal",
+    "https://shop.example/products/session-chair",
+    "https://shop.example/products/secret",
+    "https://shop.example/products/token",
+    "https://shop.example/search?q=secret-compartment",
   ];
   const surfaces = {
     title: (item, value) => { item.title = value; },

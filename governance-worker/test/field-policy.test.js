@@ -107,6 +107,7 @@ test("public URL values reject credential, provenance, and non-public network se
     "https://shop.example/product#access_token=secretvalue123",
     "https://shop.example/product#accesstoken=secretvalue123",
     "https://shop.example/product?x-api-key=secretvalue123",
+    "https://shop.example/product?token=secretvalue123",
     "https://shop.example/product#authorization=Basic%20YWJjZGVmZ2hpams=.",
     "https://shop.example/product#authorization=Basic%20dXNlcjpwYXNzd29yZA==:",
     "https://catalog.office.lan/product",
@@ -135,6 +136,19 @@ test("public URL values reject credential, provenance, and non-public network se
   }
 
   const publicUrl = "https://www.example.com/products/item?variant=1#details";
+  const ordinaryCommerceUrls = [
+    "https://shop.example/products/secret-compartment",
+    "https://shop.example/products/token-ring",
+    "https://shop.example/products/password-journal",
+    "https://shop.example/products/session-chair",
+    "https://shop.example/products/secret",
+    "https://shop.example/products/token",
+    "https://shop.example/search?q=secret-compartment",
+  ];
+  for (const url of ordinaryCommerceUrls) {
+    const safeProduct = toPublicProduct(base({ images: [{ url, alt: "Public product" }] }));
+    assert.equal(safeProduct.images[0].url, url);
+  }
   const output = toPublicProduct(base({
     images: [{ url: publicUrl, alt: "Public product" }],
     attributes: { material: "basic aluminum", voltage: publicUrl },
