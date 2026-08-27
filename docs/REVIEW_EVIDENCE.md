@@ -86,7 +86,7 @@ Before the recipe and starter work began, the release baseline was frozen at
 This baseline evidence remains immutable. New recipes and the JavaScript
 starter require their own exact-commit CI result before release.
 
-### Current candidate local verification
+### Recipe and starter candidate verification
 
 On 2026-08-27, `npm run verify`, `npm audit --audit-level=high`, and
 `git diff --check` passed for the recipe/starter candidate. The run included 46
@@ -95,5 +95,12 @@ JavaScript starter integration test, 2 Python recipe tests, 21 SDK tests, 2 key
 generator tests, 4 ETL tests, and 11 publisher tests. The dependency audit
 reported zero vulnerabilities and the public safety scan reported no finding.
 
-This is local candidate evidence only. The commit created from this tree must
-receive a successful remote CI result before the Green Gate is marked complete.
+The implementation was committed as
+`6fd252a74dacb852a78290c6305f1bedd2cc1212`. GitHub
+[CI run 33042082031](https://github.com/SuntekCorps-xLab/send-from-china-agent-core/actions/runs/33042082031)
+completed successfully on that exact SHA. Its
+[CodeQL run 33042082011](https://github.com/SuntekCorps-xLab/send-from-china-agent-core/actions/runs/33042082011)
+was skipped while the repository was private and is therefore recorded as
+`N/A (private)`, not as a passing scan. Any later documentation or release
+commit must also receive an exact-commit CI result; CodeQL must run and pass
+after the repository becomes public.
