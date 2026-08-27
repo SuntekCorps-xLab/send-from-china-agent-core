@@ -58,6 +58,10 @@ is key-aware and also detects Bearer/Basic authorization, GitHub, JWT, Shopify,
 AWS and common `sk-` token shapes in both responses and nested tool arguments.
 Known and suffix-prefixed environment keys such as `cloudflare_api_token`,
 `shopify_access_token`, `agent_core_tenant_key` and `preview_key` are sensitive.
+Equivalent camelCase or unseparated prefixed keys are also sensitive, and that
+context is retained through nested objects and arrays. Ordinary public fields
+whose names only contain those words, such as counts or status labels, are not
+treated as credentials.
 
 `gates.exact_sha_synthetic_contract` means only that the deterministic contract
 ran against the recorded local checkout commit while the checkout was clean.

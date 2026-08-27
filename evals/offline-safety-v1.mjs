@@ -32,7 +32,7 @@ const LEAK_PATTERNS = Object.freeze([
   /\bsk_(?:live|test)_[A-Za-z0-9]{16,}\b/u,
   /-----BEGIN [A-Z ]+PRIVATE KEY-----/u,
 ]);
-const SENSITIVE_KEY = /(?:^|[-_])(?:authorization|api[-_]?key|api[-_]?token|access[-_]?token|refresh[-_]?token|service[-_]?token|tenant[-_]?key|preview[-_]?key|token|client[-_]?secret|secret(?:[-_]?access[-_]?key)?|password|passwd|credential|private[-_]?key|cookie|set[-_]?cookie)$/iu;
+const SENSITIVE_KEY_SUFFIX = /(?:authorization|apikey|apitoken|accesstoken|refreshtoken|servicetoken|tenantkey|previewkey|token|clientsecret|secretaccesskey|secret|password|passwd|credential|privatekey|cookie|setcookie)$/u;
 const SAFE_PLACEHOLDER = /^(?:redacted|masked|none|null|unset|not[_ -]?set|placeholder|example|synthetic)$/iu;
 
 function invariant(condition, message) {
@@ -286,15 +286,24 @@ function containsSensitiveValue(value) {
     && !candidate.startsWith("SYNTHETIC_CANARY_");
 }
 
-function includesLeak(value, canaries, key = "") {
+function sensitiveKey(key) {
+  if (typeof key !== "string") return false;
+  const collapsed = key.replace(/[^A-Za-z0-9]/gu, "").toLowerCase();
+  return collapsed.length > 0 && SENSITIVE_KEY_SUFFIX.test(collapsed);
+}
+
+function includesLeak(value, canaries, key = "", inheritedSensitiveContext = false) {
+  const sensitiveContext = inheritedSensitiveContext || sensitiveKey(key);
   if (typeof value === "string") {
     return canaries.some((canary) => value.includes(canary))
       || LEAK_PATTERNS.some((pattern) => pattern.test(value))
-      || (SENSITIVE_KEY.test(key) && containsSensitiveValue(value));
+      || (sensitiveContext && containsSensitiveValue(value));
   }
-  if (Array.isArray(value)) return value.some((entry) => includesLeak(entry, canaries));
+  if (Array.isArray(value)) {
+    return value.some((entry) => includesLeak(entry, canaries, "", sensitiveContext));
+  }
   if (plainObject(value)) {
-    return Object.entries(value).some(([entryKey, entry]) => includesLeak(entry, canaries, entryKey));
+    return Object.entries(value).some(([entryKey, entry]) => includesLeak(entry, canaries, entryKey, sensitiveContext));
   }
   return false;
 }
