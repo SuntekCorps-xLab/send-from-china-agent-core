@@ -344,6 +344,7 @@ test("v1 response adapter drops sensitive values under approved attribute names"
   const githubToken = ["ghp", "abcdefghijklmnop"].join("_");
   const shopifyToken = ["shpat", "abcdefghijklmnop"].join("_");
   const cloudAccessKey = ["AK", "IA1234567890ABCDEF"].join("");
+  const documentationHost = ["192", "0", "2", "10"].join(".");
   const result = adaptSearchContractV1ResponseToV2({
     status: "catalog_match", products: [{
       title: "Public Product",
@@ -358,6 +359,7 @@ test("v1 response adapter drops sensitive values under approved attribute names"
         style: "owner@example.invalid",
         power: "https://catalog.internal/private/item",
         certification: "basic aluminum",
+        dimensions: `https://${documentationHost}/public/specification`,
         voltage: "https://www.example.com/public/specification",
         width_cm: 24,
       },
@@ -365,6 +367,7 @@ test("v1 response adapter drops sensitive values under approved attribute names"
   }, { request: baseRequest, traceId: "trace-sensitive-attribute-values" });
   assert.deepEqual(result.results[0].attributes, {
     certification: "basic aluminum",
+    dimensions: `https://${documentationHost}/public/specification`,
     voltage: "https://www.example.com/public/specification",
     width_cm: 24,
   });
@@ -390,6 +393,10 @@ test("client calls the authenticated Search Contract v2 endpoint", async () => {
         normalized_intent: {}, relaxations: [], missing_criteria: [], internal_trace: "must-not-leave",
         results: [{
           title: "Compact Desk", internal_id: "hidden",
+          images: [{
+            url: "https://www.example.com/images/desk.jpg", alt: "Compact desk", supplierId: "nested-leak",
+          }],
+          price: { amount: 29, currency: "USD", tier: "public", cost: 0.1 },
           attributes: {
             material: "wood", accessToken: "hidden", customerEmail: "hidden@example.invalid",
             model: githubToken,
@@ -407,6 +414,10 @@ test("client calls the authenticated Search Contract v2 endpoint", async () => {
   assert.equal(result.status, "results");
   assert.equal("internal_trace" in result, false);
   assert.equal("internal_id" in result.results[0], false);
+  assert.deepEqual(result.results[0].images, [{
+    url: "https://www.example.com/images/desk.jpg", alt: "Compact desk",
+  }]);
+  assert.deepEqual(result.results[0].price, { amount: 29, currency: "USD", tier: "public" });
   assert.deepEqual(result.results[0].attributes, { material: "wood" });
 });
 

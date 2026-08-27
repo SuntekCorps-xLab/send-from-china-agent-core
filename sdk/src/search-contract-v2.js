@@ -388,6 +388,62 @@ function publicAttributes(value) {
   return output;
 }
 
+function publicString(value, maximum, options = {}) {
+  if (typeof value !== "string" || value.length > maximum || containsPrivateScalar(value)) return undefined;
+  if (options.nonEmpty && !value.trim()) return undefined;
+  if (options.pattern && !options.pattern.test(value)) return undefined;
+  return value;
+}
+
+function publicHttpsUrl(value) {
+  const text = publicString(value, 2048, { nonEmpty: true });
+  if (!text) return undefined;
+  try {
+    const url = new URL(text);
+    if (url.protocol !== "https:" || url.username || url.password || privateHostname(url.hostname)) return undefined;
+    return text;
+  } catch {
+    return undefined;
+  }
+}
+
+function publicTags(value) {
+  if (!Array.isArray(value) || value.length > 50) return undefined;
+  const output = value.map((item) => publicString(item, 100, { nonEmpty: true }));
+  return output.some((item) => item === undefined) ? undefined : Object.freeze(output);
+}
+
+function publicImages(value) {
+  if (!Array.isArray(value) || value.length > 20) return undefined;
+  const output = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return undefined;
+    const url = publicHttpsUrl(item.url);
+    if (!url) return undefined;
+    const image = { url };
+    if (item.alt !== undefined) {
+      const alt = publicString(item.alt, 300);
+      if (alt === undefined) return undefined;
+      image.alt = alt;
+    }
+    output.push(Object.freeze(image));
+  }
+  return Object.freeze(output);
+}
+
+function publicPrice(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  if (typeof value.amount !== "number" || !Number.isFinite(value.amount) || value.amount < 0
+    || typeof value.currency !== "string" || !/^[A-Z]{3}$/u.test(value.currency)) return undefined;
+  const output = { amount: value.amount, currency: value.currency };
+  if (value.tier !== undefined) {
+    const tier = publicString(value.tier, 80);
+    if (tier === undefined) return undefined;
+    output.tier = tier;
+  }
+  return Object.freeze(output);
+}
+
 function publicProduct(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const output = {};
@@ -396,7 +452,49 @@ function publicProduct(value) {
     if (field === "attributes") {
       const attributes = publicAttributes(value.attributes);
       if (attributes !== undefined) output.attributes = attributes;
-    } else output[field] = value[field];
+    } else if (field === "images") {
+      const images = publicImages(value.images);
+      if (images !== undefined) output.images = images;
+    } else if (field === "price") {
+      const price = publicPrice(value.price);
+      if (price !== undefined) output.price = price;
+    } else if (field === "tags") {
+      const tags = publicTags(value.tags);
+      if (tags !== undefined) output.tags = tags;
+    } else if (["product_url", "add_to_cart_url"].includes(field)) {
+      const url = publicHttpsUrl(value[field]);
+      if (url !== undefined) output[field] = url;
+    } else if (field === "public_id") {
+      if (typeof value.public_id === "string" && /^[A-Za-z0-9]{22}$/u.test(value.public_id)) {
+        output.public_id = value.public_id;
+      }
+    } else if (field === "slug") {
+      const slug = publicString(value.slug, 100, { pattern: /^[a-z0-9-]{1,100}$/u });
+      if (slug !== undefined) output.slug = slug;
+    } else if (field === "title") {
+      const title = publicString(value.title, 300, { nonEmpty: true });
+      if (title !== undefined) output.title = title;
+    } else if (field === "description") {
+      const description = publicString(value.description, 5000);
+      if (description !== undefined) output.description = description;
+    } else if (field === "category") {
+      const category = publicString(value.category, 200);
+      if (category !== undefined) output.category = category;
+    } else if (field === "availability_band") {
+      if (typeof value.availability_band === "string" && value.availability_band.length <= 30) {
+        output.availability_band = value.availability_band;
+      }
+    } else if (field === "lead_time_days") {
+      if (Number.isInteger(value.lead_time_days) && value.lead_time_days >= 0 && value.lead_time_days <= 3650) {
+        output.lead_time_days = value.lead_time_days;
+      }
+    } else if (field === "as_of") {
+      if (typeof value.as_of === "string" && value.as_of.length <= 40 && Number.isFinite(Date.parse(value.as_of))) {
+        output.as_of = value.as_of;
+      }
+    } else if (field === "purchasable" && typeof value.purchasable === "boolean") {
+      output.purchasable = value.purchasable;
+    }
   }
   return typeof output.title === "string" && output.title.trim() ? Object.freeze(output) : null;
 }

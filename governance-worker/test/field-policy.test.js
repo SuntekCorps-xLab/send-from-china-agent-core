@@ -73,6 +73,7 @@ test("approved attribute names still reject credential, PII, and internal URL va
   const shopifyToken = ["shpat", "abcdefghijklmnop"].join("_");
   const cloudAccessKey = ["AK", "IA1234567890ABCDEF"].join("");
   const loopback = ["127", "0", "0", "1"].join(".");
+  const documentationHost = ["192", "0", "2", "10"].join(".");
   const output = toPublicProduct(base({
     attributes: {
       material: privateKeyMarker,
@@ -85,12 +86,14 @@ test("approved attribute names still reject credential, PII, and internal URL va
       style: "owner@example.invalid",
       power: `http://${loopback}/private/item`,
       certification: "basic aluminum",
+      dimensions: `https://${documentationHost}/public/specification`,
       voltage: "https://www.example.com/public/specification",
       width_cm: 24,
     },
   }));
   assert.deepEqual(output.attributes, {
     certification: "basic aluminum",
+    dimensions: `https://${documentationHost}/public/specification`,
     voltage: "https://www.example.com/public/specification",
     width_cm: 24,
   });

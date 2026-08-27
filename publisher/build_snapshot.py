@@ -169,7 +169,23 @@ def _private_hostname(hostname):
         address = ipaddress.ip_address(host)
     except ValueError:
         return False
-    return not address.is_global
+    if address.version == 4:
+        first, second, _, _ = [int(part) for part in host.split(".")]
+        return (
+            first in {0, 10, 127}
+            or (first == 100 and 64 <= second <= 127)
+            or (first == 169 and second == 254)
+            or (first == 172 and 16 <= second <= 31)
+            or (first == 192 and second == 168)
+            or (first == 198 and second in {18, 19})
+            or first >= 224
+        )
+    if address.is_unspecified or address.is_loopback:
+        return True
+    if address.ipv4_mapped is not None:
+        return _private_hostname(str(address.ipv4_mapped))
+    first = int(address) >> 112
+    return (first & 0xFE00) == 0xFC00 or (first & 0xFFC0) == 0xFE80
 
 
 def _contains_private_network_url(value):

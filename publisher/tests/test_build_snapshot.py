@@ -92,9 +92,11 @@ class PublisherTest(unittest.TestCase):
         github_token = "gh" + "p_abcdefghijklmnop"
         private_key_marker = "-----BEGIN " + "PRIVATE " + "KEY-----"
         loopback = ".".join(["127", "0", "0", "1"])
+        documentation_host = ".".join(["192", "0", "2", "10"])
         payload["products"][0]["attributes"].update({
             "compatibility": "Public model family",
             "certification": "basic aluminum",
+            "dimensions": "https://" + documentation_host + "/public/specification",
             "voltage": "https://www.example.com/public/specification",
             "accessToken": "hidden",
             "clientSecret": "hidden",
@@ -112,6 +114,7 @@ class PublisherTest(unittest.TestCase):
             "width_cm": 24,
             "compatibility": "Public model family",
             "certification": "basic aluminum",
+            "dimensions": "https://" + documentation_host + "/public/specification",
             "voltage": "https://www.example.com/public/specification",
         })
         self.assertEqual(report["discarded_input_field_count"], 8)
