@@ -378,10 +378,27 @@ and fail-closed unauthenticated access without reading deployment internals.
 See [Security model](docs/SECURITY_MODEL.md) for the exact test files behind
 each claim.
 
+## Public synthetic Eval v0
+
+Run the versioned, deterministic Search Contract regression subset against the
+real in-process Worker handler:
+
+```bash
+npm run eval:smoke
+```
+
+The scorer records Recall@20/50, Precision@10, NDCG@10, expected response
+states, forbidden IDs, and hard-constraint violations in a sanitized JSON
+artifact tied to the exact Git commit and dataset SHA-256. Full, security, and
+local microbenchmark variants are also available. This small public synthetic
+eval detects regressions; it is not evidence of production search relevance or
+a hosted performance SLO. See [Public synthetic Eval v0](evals/v0/README.md).
+
 ## Repository map
 
 ```text
 contracts/            Snapshot schema and OpenAPI contract
+evals/                Versioned public synthetic regression judgments
 fixtures/             Synthetic published snapshot for local use
 governance-worker/    HTTP and MCP gateway with tests
 sandbox/              Zero-account local HTTP and MCP workbench

@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/send-from-china/evals/v0/dataset.schema.json",
+  "title": "Send From China public synthetic Eval v0 dataset",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dataset_version",
+    "schema_version",
+    "provenance",
+    "generated_at",
+    "catalog_fixture",
+    "description",
+    "limitations",
+    "gates",
+    "cases"
+  ],
+  "properties": {
+    "dataset_version": { "const": "eval-v0.1.0" },
+    "schema_version": { "const": "send-from-china-eval-dataset/v0" },
+    "provenance": { "const": "public_synthetic" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "catalog_fixture": { "const": "fixtures/published-catalog.sample.json" },
+    "description": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "limitations": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 20,
+      "items": { "type": "string", "minLength": 1, "maxLength": 300 }
+    },
+    "gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "minimum_recall_at_20",
+        "minimum_recall_at_50",
+        "minimum_precision_at_10",
+        "minimum_ndcg_at_10",
+        "minimum_status_accuracy",
+        "maximum_forbidden_id_hits",
+        "maximum_hard_constraint_violations",
+        "maximum_duplicate_id_hits"
+      ],
+      "properties": {
+        "minimum_recall_at_20": { "type": "number", "minimum": 0, "maximum": 1 },
+        "minimum_recall_at_50": { "type": "number", "minimum": 0, "maximum": 1 },
+        "minimum_precision_at_10": { "type": "number", "minimum": 0, "maximum": 1 },
+        "minimum_ndcg_at_10": { "type": "number", "minimum": 0, "maximum": 1 },
+        "minimum_status_accuracy": { "type": "number", "minimum": 0, "maximum": 1 },
+        "maximum_forbidden_id_hits": { "type": "integer", "minimum": 0 },
+        "maximum_hard_constraint_violations": { "type": "integer", "minimum": 0 },
+        "maximum_duplicate_id_hits": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 12,
+      "items": { "$ref": "#/$defs/case" }
+    }
+  },
+  "$defs": {
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["case_id", "suites", "request", "expected"],
+      "properties": {
+        "case_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{2,80}$" },
+        "suites": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["smoke", "full", "security", "perf"] }
+        },
+        "request": { "$ref": "../../contracts/search-v2-request.schema.json" },
+        "expected": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "relevance", "forbidden_ids"],
+          "properties": {
+            "status": { "enum": ["results", "needs_clarification", "no_match", "degraded"] },
+            "relevance": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["public_id", "grade"],
+                "properties": {
+                  "public_id": { "type": "string", "pattern": "^[A-Za-z0-9]{22}$" },
+                  "grade": { "type": "integer", "minimum": 1, "maximum": 3 }
+                }
+              }
+            },
+            "forbidden_ids": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": { "type": "string", "pattern": "^[A-Za-z0-9]{22}$" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

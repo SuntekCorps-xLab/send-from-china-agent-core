@@ -21,3 +21,6 @@ Record the completed settings and links in the release review.
    valid SPDX 2.3 documents for Agent Core, the SDK, and Worker build tooling.
 10. Create the release from the exact reviewed commit and link its CI,
     security, and SBOM evidence.
+11. Run `npm run eval:full` and `npm run eval:security` on the exact release
+    commit and retain their sanitized artifacts. Treat Eval v0 as public
+    synthetic regression evidence, never as production relevance evidence.

@@ -26,6 +26,8 @@ jobs:
           npm run sdk:test 2>&1 | tee artifacts/sdk-search-contract-tests.log
       - name: Check generated Search Contract types
         run: npm run types:check 2>&1 | tee artifacts/search-contract-types.log
+      - name: Run public synthetic Eval v0 smoke
+        run: npm run eval:smoke -- --output artifacts/eval-v0-smoke.json
       - name: Upload Search Contract evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

@@ -1,0 +1,340 @@
+{
+  "dataset_version": "eval-v0.1.0",
+  "schema_version": "send-from-china-eval-dataset/v0",
+  "provenance": "public_synthetic",
+  "generated_at": "2026-08-27T00:00:00.000Z",
+  "catalog_fixture": "fixtures/published-catalog.sample.json",
+  "description": "Deterministic public regression judgments for the checked-in synthetic catalog and Search Contract v2.",
+  "limitations": [
+    "This small public synthetic dataset detects contract and ranking regressions; it is not evidence of production relevance.",
+    "The fixture contains no live inventory, supplier, shipping, customer, order, payment, or private catalog data.",
+    "Public cases can be optimized against and must not replace a separately reviewed holdout before production claims."
+  ],
+  "gates": {
+    "minimum_recall_at_20": 1,
+    "minimum_recall_at_50": 1,
+    "minimum_precision_at_10": 0.85,
+    "minimum_ndcg_at_10": 0.85,
+    "minimum_status_accuracy": 1,
+    "maximum_forbidden_id_hits": 0,
+    "maximum_hard_constraint_violations": 0,
+    "maximum_duplicate_id_hits": 0
+  },
+  "cases": [
+    {
+      "case_id": "desk-organizer-exact",
+      "suites": ["smoke", "full", "perf"],
+      "request": {
+        "contract_version": "2.0",
+        "product_identity": { "name": "product_identity", "value": "desk organizer", "source": "explicit", "scope": "product", "hardness": "hard" },
+        "hard_constraints": [], "soft_context": [], "transaction_context": [], "limit": 50, "cursor": null
+      },
+      "expected": {
+        "status": "results",
+        "relevance": [{ "public_id": "A1b2C3d4E5f6G7h8J9k0Lm", "grade": 3 }],
+        "forbidden_ids": []
+      }
+    },
+    {
+      "case_id": "garden-balcony-tool",
+      "suites": ["full"],
+      "request": {
+        "contract_version": "2.0",
+        "product_identity": { "name": "product_identity", "value": "garden balcony tool", "source": "explicit", "scope": "product", "hardness": "hard" },
+        "hard_constraints": [], "soft_context": [], "transaction_context": [], "limit": 50, "cursor": null
+      },
+      "expected": {
+        "status": "results",
+        "relevance": [
+          { "public_id": "B2c3D4e5F6g7H8j9K0m1Np", "grade": 3 },
+          { "public_id": "L1m2P3q4R5s6T7u8V9w0Xy", "grade": 1 }
+        ],
+        "forbidden_ids": []
+      }
+    },
+    {
+      "case_id": "wooden-construction-blocks",
+      "suites": ["smoke", "full"],
+      "request": {
+        "contract_version": "2.0",
+        "product_identity": { "name": "product_identity", "value": "wooden construction blocks", "source": "explicit", "scope": "product", "hardness": "hard" },
+        "hard_constraints": [], "soft_context": [], "transaction_context": [], "limit": 50, "cursor": null
+      },
+      "expected": {
+        "status": "results",
+        "relevance": [{ "public_id": "C3d4E5f6G7h8J9k0L1m2Pq", "grade": 3 }],
+        "forbidden_ids": []
+      }
+    },
+    {
+      "case_id": "travel-cable-pouch",
+      "suites": ["full"],
+      "request": {
+        "contract_version": "2.0",
+        "product_identity": { "name": "product_identity", "value": "travel cable pouch", "source": "explicit", "scope": "product", "hardness": "hard" },
+        "hard_constraints": [], "soft_context": [], "transaction_context": [], "limit": 50, "cursor": null
+      },
+      "expected": {
+        "status": "results",
+        "relevance": [
+          { "public_id": "D4e5F6g7H8j9K0m1N2p3Qr", "grade": 3 },
+          { "public_id": "J9k0L1m2P3q4R5s6T7u8Vw", "grade": 1 },
+          { "public_id": "G7h8J9k0L1m2P3q4R5s6Tu", "grade": 1 },
+          { "public_id": "M2p3Q4r5S6t7U8v9W0x1Yz", "grade": 1 }
+        ],
+        "forbidden_ids": []
+      }
+    },
+    {
+      "case_id": "insulated-lunch-tote",
+      "suites": ["smoke", "full"],
+      "request": {
+        "contract_version": "2.0",
+        "product_identity": { "name": "product_identity", "value": "insulated lunch tote", "source": "explicit", "scope": "product", "hardness": "hard" },
+        "hard_constraints": [], "soft_context": [], "transaction_context": [], "limit": 50, "cursor": null
+      },
+      "expected": {
+        "status": "results",
+        "relevance": [{ "public_id": "E5f6G7h8J9k0L1m2P3q4Rs", "grade": 3 }],
+        "forbidden_ids": []
+      }
+    },
+    {
+      "case_id": "ceramic-plant-mister",
+      "suites": ["full"],
+      "request": {
+        "contract_version": "2.0",
+        "product_identity": { "name": "product_identity", "value": "ceramic plant mister", "source": "explicit", "scope": "product", "hardness": "hard" },
+        "hard_constraints": [], "soft_context": [], "transaction_context": [], "limit": 50, "cursor": null
+      },
+      "expected": {
+        "status": "results",
+        "relevance": [{ "public_id": "F6g7H8j9K0m1N2p3Q4r5St", "grade": 3 }],
+        "forbidden_ids": []
+      }
+    },
+    {
+      "case_id": "folding-laptop-stand",
+      "suites": ["smoke", "full", "perf"],
+      "request": {
+        "contract_version": "2.0",
+        "product_identity": { "name": "product_identity", "value": "folding laptop stand", "source": "explicit", "scope": "product", "hardness": "hard" },
+        "hard_constraints": [], "soft_context": [], "transaction_context": [], "limit": 50, "cursor": null
+      },
+      "expected": {
+        "status": "results",
+        "relevance": [{ "public_id": "G7h8J9k0L1m2P3q4R5s6Tu", "grade": 3 }],
+        "forbidden_ids": []
+      }
+    },
+    {
+      "case_id": "reusable-produce-bags",
+      "suites": ["full"],
+      "request": {
+        "contract_version": "2.0",
+        "product_identity": { "name": "product_identity", "value": "reusable produce bags", "source": "explicit", "scope": "product", "hardness": "hard" },
+        "hard_constraints": [], "soft_context": [], "transaction_context": [], "limit": 50, "cursor": null
+      },
+      "expected": {
+        "status": "results",
+        "relevance": [{ "public_id": "H8j9K0m1N2p3Q4r5S6t7Uv", "grade": 3 }],
+        "forbidden_ids": []
+      }
+    },
+    {
+      "case_id": "portable-pet-water-bottle",
+      "suites": ["smoke", "full"],
+      "request": {
+        "contract_version": "2.0",
+        "product_identity": { "name": "product_identity", "value": "portable pet water bottle", "source": "explicit", "scope": "product", "hardness": "hard" },
+        "hard_constraints": [], "soft_context": [], "transaction_context": [], "limit": 50, "cursor": null
+      },
+      "expected": {
+        "status": "results",
+        "relevance": [{ "public_id": "J9k0L1m2P3q4R5s6T7u8Vw", "grade": 3 }],
+        "forbidden_ids": []
+      }
+    },
+    {
+      "case_id": "soft-reading-light",
+      "suites": ["full"],
+      "request": {
+        "contract_version": "2.0",
+        "product_identity": { "name": "product_identity", "value": "soft reading light", "source": "explicit", "scope": "product", "hardness": "hard" },
+        "hard_constraints": [], "soft_context": [], "transaction_context": [], "limit": 50, "cursor": null
+      },
+      "expected": {
+        "status": "results",
+        "relevance": [{ "public_id": "K0m1N2p3Q4r5S6t7U8v9Wx", "grade": 3 }],
+        "forbidden_ids": []
+      }
+    },
+    {
+      "case_id": "canvas-tool-roll",
+      "suites": ["full"],
+      "request": {
+        "contract_version": "2.0",
+        "product_identity": { "name": "product_identity", "value": "canvas tool roll", "source": "explicit", "scope": "product", "hardness": "hard" },
+        "hard_constraints": [], "soft_context": [], "transaction_context": [], "limit": 50, "cursor": null
+      },
+      "expected": {
+        "status": "results",
+        "relevance": [
+          { "public_id": "L1m2P3q4R5s6T7u8V9w0Xy", "grade": 3 },
+          { "public_id": "B2c3D4e5F6g7H8j9K0m1Np", "grade": 1 }
+        ],
+        "forbidden_ids": []
+      }
+    },
+    {
+      "case_id": "compact-picnic-blanket",
+      "suites": ["full"],
+      "request": {
+        "contract_version": "2.0",
+        "product_identity": { "name": "product_identity", "value": "compact picnic blanket outdoor", "source": "explicit", "scope": "product", "hardness": "hard" },
+        "hard_constraints": [], "soft_context": [], "transaction_context": [], "limit": 50, "cursor": null
+      },
+      "expected": {
+        "status": "results",
+        "relevance": [{ "public_id": "M2p3Q4r5S6t7U8v9W0x1Yz", "grade": 3 }],
+        "forbidden_ids": []
+      }
+    },
+    {
+      "case_id": "travel-category-broad",
+      "suites": ["smoke", "full", "perf"],
+      "request": {
+        "contract_version": "2.0",
+        "product_identity": { "name": "product_identity", "value": "travel", "source": "explicit", "scope": "product", "hardness": "hard" },
+        "hard_constraints": [], "soft_context": [], "transaction_context": [], "limit": 50, "cursor": null
+      },
+      "expected": {
+        "status": "results",
+        "relevance": [
+          { "public_id": "D4e5F6g7H8j9K0m1N2p3Qr", "grade": 3 },
+          { "public_id": "J9k0L1m2P3q4R5s6T7u8Vw", "grade": 2 },
+          { "public_id": "G7h8J9k0L1m2P3q4R5s6Tu", "grade": 1 }
+        ],
+        "forbidden_ids": []
+      }
+    },
+    {
+      "case_id": "tool-category-broad",
+      "suites": ["full"],
+      "request": {
+        "contract_version": "2.0",
+        "product_identity": { "name": "product_identity", "value": "tool", "source": "explicit", "scope": "product", "hardness": "hard" },
+        "hard_constraints": [], "soft_context": [], "transaction_context": [], "limit": 50, "cursor": null
+      },
+      "expected": {
+        "status": "results",
+        "relevance": [
+          { "public_id": "L1m2P3q4R5s6T7u8V9w0Xy", "grade": 3 },
+          { "public_id": "B2c3D4e5F6g7H8j9K0m1Np", "grade": 2 }
+        ],
+        "forbidden_ids": []
+      }
+    },
+    {
+      "case_id": "desk-bamboo-under-thirty",
+      "suites": ["smoke", "full", "security"],
+      "request": {
+        "contract_version": "2.0",
+        "product_identity": { "name": "product_identity", "value": "desk organizer", "source": "explicit", "scope": "product", "hardness": "hard" },
+        "hard_constraints": [
+          { "name": "material", "value": "bamboo", "source": "explicit", "scope": "product", "hardness": "hard" },
+          { "name": "price_max", "value": 30, "source": "explicit", "scope": "product", "hardness": "hard" }
+        ],
+        "soft_context": [], "transaction_context": [], "limit": 50, "cursor": null
+      },
+      "expected": {
+        "status": "results",
+        "relevance": [{ "public_id": "A1b2C3d4E5f6G7h8J9k0Lm", "grade": 3 }],
+        "forbidden_ids": ["G7h8J9k0L1m2P3q4R5s6Tu"]
+      }
+    },
+    {
+      "case_id": "travel-under-twenty",
+      "suites": ["full", "security"],
+      "request": {
+        "contract_version": "2.0",
+        "product_identity": { "name": "product_identity", "value": "travel", "source": "explicit", "scope": "product", "hardness": "hard" },
+        "hard_constraints": [{ "name": "price_max", "value": 20, "source": "explicit", "scope": "product", "hardness": "hard" }],
+        "soft_context": [], "transaction_context": [], "limit": 50, "cursor": null
+      },
+      "expected": {
+        "status": "results",
+        "relevance": [{ "public_id": "D4e5F6g7H8j9K0m1N2p3Qr", "grade": 3 }],
+        "forbidden_ids": ["G7h8J9k0L1m2P3q4R5s6Tu", "J9k0L1m2P3q4R5s6T7u8Vw"]
+      }
+    },
+    {
+      "case_id": "bags-excluding-polyester",
+      "suites": ["full", "security"],
+      "request": {
+        "contract_version": "2.0",
+        "product_identity": { "name": "product_identity", "value": "produce bags", "source": "explicit", "scope": "product", "hardness": "hard" },
+        "hard_constraints": [{ "name": "exclude", "value": "polyester", "source": "explicit", "scope": "product", "hardness": "hard" }],
+        "soft_context": [], "transaction_context": [], "limit": 50, "cursor": null
+      },
+      "expected": {
+        "status": "no_match", "relevance": [],
+        "forbidden_ids": ["H8j9K0m1N2p3Q4r5S6t7Uv"]
+      }
+    },
+    {
+      "case_id": "truthful-terminal-miss",
+      "suites": ["smoke", "full", "security", "perf"],
+      "request": {
+        "contract_version": "2.0",
+        "product_identity": { "name": "product_identity", "value": "quartz violin umbrella", "source": "explicit", "scope": "product", "hardness": "hard" },
+        "hard_constraints": [], "soft_context": [], "transaction_context": [], "limit": 50, "cursor": null
+      },
+      "expected": { "status": "no_match", "relevance": [], "forbidden_ids": [] }
+    },
+    {
+      "case_id": "reading-light-price-rejection",
+      "suites": ["full", "security"],
+      "request": {
+        "contract_version": "2.0",
+        "product_identity": { "name": "product_identity", "value": "reading light", "source": "explicit", "scope": "product", "hardness": "hard" },
+        "hard_constraints": [{ "name": "price_max", "value": 10, "source": "explicit", "scope": "product", "hardness": "hard" }],
+        "soft_context": [], "transaction_context": [], "limit": 50, "cursor": null
+      },
+      "expected": {
+        "status": "no_match", "relevance": [],
+        "forbidden_ids": ["K0m1N2p3Q4r5S6t7U8v9Wx"]
+      }
+    },
+    {
+      "case_id": "tool-excluding-canvas",
+      "suites": ["full", "security"],
+      "request": {
+        "contract_version": "2.0",
+        "product_identity": { "name": "product_identity", "value": "tool", "source": "explicit", "scope": "product", "hardness": "hard" },
+        "hard_constraints": [{ "name": "exclude", "value": "canvas", "source": "explicit", "scope": "product", "hardness": "hard" }],
+        "soft_context": [], "transaction_context": [], "limit": 50, "cursor": null
+      },
+      "expected": {
+        "status": "results",
+        "relevance": [{ "public_id": "B2c3D4e5F6g7H8j9K0m1Np", "grade": 3 }],
+        "forbidden_ids": ["L1m2P3q4R5s6T7u8V9w0Xy"]
+      }
+    },
+    {
+      "case_id": "steel-pet-water-bottle",
+      "suites": ["full", "security"],
+      "request": {
+        "contract_version": "2.0",
+        "product_identity": { "name": "product_identity", "value": "pet water bottle", "source": "explicit", "scope": "product", "hardness": "hard" },
+        "hard_constraints": [{ "name": "material", "value": "stainless steel", "source": "explicit", "scope": "product", "hardness": "hard" }],
+        "soft_context": [], "transaction_context": [], "limit": 50, "cursor": null
+      },
+      "expected": {
+        "status": "results",
+        "relevance": [{ "public_id": "J9k0L1m2P3q4R5s6T7u8Vw", "grade": 3 }],
+        "forbidden_ids": []
+      }
+    }
+  ]
+}
