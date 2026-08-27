@@ -30,6 +30,8 @@ jobs:
         run: npm run eval:smoke -- --output artifacts/eval-v0-smoke.json
       - name: Test private annotation agreement preflight contracts
         run: npm run eval:private-agreement:test
+      - name: Test aggregate-only private prediction scorer contracts
+        run: npm run eval:private-score:test
       - name: Upload Search Contract evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

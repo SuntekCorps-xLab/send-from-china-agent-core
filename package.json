@@ -14,6 +14,8 @@
     "eval:perf": "node evals/v0/run.mjs --suite perf",
     "eval:private-agreement": "node evals/private-gate/adjudicate.mjs",
     "eval:private-agreement:test": "node --test evals/private-gate/test/*.test.mjs",
+    "eval:private-score": "node evals/private-score/score.mjs",
+    "eval:private-score:test": "node --test evals/private-score/test/*.test.mjs",
     "eval:security": "node evals/v0/run.mjs --suite security",
     "eval:smoke": "node evals/v0/run.mjs --suite smoke",
     "eval:test": "node --test evals/v0/test/*.test.mjs",
