@@ -34,6 +34,7 @@ function dataset(count, version, prefix, offset = 0) {
     gates: { ...PRIVATE_LIVE_GATES },
     cases: Array.from({ length: count }, (_, position) => {
       const index = position + offset;
+      const isNoMatch = position % 4 === 0;
       const suites = ["full"];
       if (position < 8) suites.push("smoke");
       if (position === 0) suites.push("security");
@@ -62,9 +63,9 @@ function dataset(count, version, prefix, offset = 0) {
           cursor: null,
         },
         expected: {
-          status: "results",
-          relevance: [{ public_id: publicId("P", index), grade: 3 }],
-          forbidden_ids: [],
+          status: isNoMatch ? "no_match" : "results",
+          relevance: isNoMatch ? [] : [{ public_id: publicId("P", index), grade: 3 }],
+          forbidden_ids: position % 8 === 0 ? [publicId("D", index)] : [],
         },
       };
     }),
@@ -77,16 +78,16 @@ function review(gold, reviewer, mutate) {
     dataset_version: gold.dataset_version,
     reviewer_id_hash: reviewer.repeat(64),
     cases: gold.cases.map((entry, index) => {
-      const relevant = entry.expected.relevance[0].public_id;
+      const relevant = entry.expected.relevance[0]?.public_id;
       const decoy = publicId("D", index);
       const row = {
         case_id: entry.case_id,
-        status: "results",
+        status: entry.expected.status,
         candidates: [
-          { public_id: relevant, grade: 3 },
+          { public_id: relevant || publicId("N", index), grade: relevant ? 3 : 0 },
           { public_id: decoy, grade: 0 },
         ],
-        forbidden_ids: [],
+        forbidden_ids: [...entry.expected.forbidden_ids],
       };
       mutate?.(row, index);
       return row;
@@ -107,6 +108,10 @@ function fixture() {
     },
     reviewerA: review(coreDataset, "a"),
     reviewerB: review(coreDataset, "b"),
+    repository: {
+      commit: "c".repeat(40),
+      working_tree_dirty: false,
+    },
   };
 }
 
@@ -115,13 +120,46 @@ test("the shared dataset contract accepts private inputs only with locked live t
   assert.equal(validateDataset(value), value);
   value.gates.minimum_recall_at_20 = 0.89;
   assert.throws(() => validateDataset(value), /cannot change/);
+
+  const missingDescription = fixture().coreDataset;
+  delete missingDescription.description;
+  assert.throws(() => validateDataset(missingDescription), /top-level field/);
+
+  const looseDate = fixture().coreDataset;
+  looseDate.generated_at = "2026";
+  assert.throws(() => validateDataset(looseDate), /ISO date-time/);
+
+  for (const impossibleDate of [
+    "2026-02-29T00:00:00Z",
+    "2026-04-31T00:00:00Z",
+    "2026-01-01T24:00:00Z",
+  ]) {
+    const invalidCalendar = fixture().coreDataset;
+    invalidCalendar.generated_at = impossibleDate;
+    assert.throws(() => validateDataset(invalidCalendar), /ISO date-time/);
+  }
+
+  const oversizedIdentity = fixture().coreDataset;
+  oversizedIdentity.cases[0].request.product_identity.value = "x".repeat(301);
+  assert.throws(() => validateDataset(oversizedIdentity), /product identity/);
+
+  const negativePrice = fixture().coreDataset;
+  negativePrice.cases[0].request.hard_constraints[0].value = -1;
+  assert.throws(() => validateDataset(negativePrice), /hard constraint/);
+
+  const tooManyConstraints = fixture().coreDataset;
+  tooManyConstraints.cases[0].request.hard_constraints = Array.from(
+    { length: 51 },
+    () => ({ ...tooManyConstraints.cases[0].request.hard_constraints[0] }),
+  );
+  assert.throws(() => validateDataset(tooManyConstraints), /hard constraint/);
 });
 
 test("two independent matching reviews pass the 120/30/180 aggregate Gate", () => {
   const inputs = fixture();
   const artifact = buildPrivateEvalGate(inputs);
-  assert.equal(artifact.gate.passed, true);
-  assert.equal(artifact.gate.minimum_kappa, MINIMUM_KAPPA);
+  assert.equal(artifact.annotation_agreement_gate.passed, true);
+  assert.equal(artifact.annotation_agreement_gate.minimum_kappa, MINIMUM_KAPPA);
   assert.equal(artifact.agreement.gate_kappa, 1);
   assert.deepEqual(artifact.datasets, {
     core_sha256: artifact.datasets.core_sha256,
@@ -131,14 +169,20 @@ test("two independent matching reviews pass the 120/30/180 aggregate Gate", () =
     training_case_count: 90,
     hidden_holdout_case_count: 30,
     provisional_case_count: 180,
+    candidate_universe_sha256: artifact.datasets.candidate_universe_sha256,
   });
+  assert.match(artifact.runner.source_sha256, /^[0-9a-f]{64}$/u);
+  assert.equal(artifact.repository.commit, "c".repeat(40));
+  assert.equal(artifact.boundaries.evaluates_retrieval_quality, false);
+  assert.equal(artifact.boundaries.scores_hidden_holdout, false);
+  assert.equal(artifact.boundaries.scores_provisional_regression, false);
   assert.equal(artifact.boundaries.authorizes_search_rollout, false);
 
   const serialized = JSON.stringify(artifact);
   for (const forbidden of [
     inputs.coreDataset.cases[0].case_id,
     inputs.coreDataset.cases[0].request.product_identity.value,
-    inputs.coreDataset.cases[0].expected.relevance[0].public_id,
+    inputs.coreDataset.cases[1].expected.relevance[0].public_id,
     inputs.reviewerA.reviewer_id_hash,
   ]) {
     assert.equal(serialized.includes(forbidden), false);
@@ -148,20 +192,41 @@ test("two independent matching reviews pass the 120/30/180 aggregate Gate", () =
 test("low reviewer agreement blocks even when the final labels choose reviewer A", () => {
   const inputs = fixture();
   inputs.reviewerB = review(inputs.coreDataset, "b", (row) => {
+    if (row.status !== "results") return;
     row.candidates[0].grade = 0;
     row.candidates[1].grade = 3;
   });
   const artifact = buildPrivateEvalGate(inputs);
   assert.ok(artifact.agreement.relevance_quadratic_weighted_kappa < MINIMUM_KAPPA);
-  assert.equal(artifact.gate.passed, false);
+  assert.equal(artifact.annotation_agreement_gate.passed, false);
 });
 
 test("an adjudicated label unsupported by either reviewer fails closed", () => {
   const inputs = fixture();
-  inputs.coreDataset.cases[0].expected.relevance[0].grade = 2;
+  inputs.coreDataset.cases[1].expected.relevance[0].grade = 2;
   const artifact = buildPrivateEvalGate(inputs);
   assert.equal(artifact.adjudication.unsupported_decision_count, 1);
-  assert.equal(artifact.gate.passed, false);
+  assert.equal(artifact.annotation_agreement_gate.passed, false);
+});
+
+test("degenerate reviewer labels fail closed instead of producing kappa 1", () => {
+  const inputs = fixture();
+  for (const packet of [inputs.reviewerA, inputs.reviewerB]) {
+    for (const row of packet.cases) {
+      row.status = "results";
+      row.candidates[0].grade = 3;
+      row.candidates[1].grade = 0;
+      row.forbidden_ids = [];
+    }
+  }
+  assert.throws(() => buildPrivateEvalGate(inputs), /label variance/);
+});
+
+test("a dirty code checkout cannot pass annotation agreement", () => {
+  const inputs = fixture();
+  inputs.repository.working_tree_dirty = true;
+  const artifact = buildPrivateEvalGate(inputs);
+  assert.equal(artifact.annotation_agreement_gate.passed, false);
 });
 
 test("case counts, holdout membership, overlap and candidate universes are immutable", () => {
@@ -178,12 +243,12 @@ test("case counts, holdout membership, overlap and candidate universes are immut
   assert.throws(() => buildPrivateEvalGate(overlap), /must not overlap/);
 
   const differentUniverse = fixture();
-  differentUniverse.reviewerB.cases[0].candidates[1].public_id = publicId("X", 0);
+  differentUniverse.reviewerB.cases[1].candidates[1].public_id = publicId("X", 1);
   assert.throws(() => buildPrivateEvalGate(differentUniverse), /same candidate universe/);
 
   const relevantForbidden = fixture();
-  relevantForbidden.reviewerB.cases[0].forbidden_ids = [
-    relevantForbidden.reviewerB.cases[0].candidates[0].public_id,
+  relevantForbidden.reviewerB.cases[1].forbidden_ids = [
+    relevantForbidden.reviewerB.cases[1].candidates[0].public_id,
   ];
   assert.throws(() => buildPrivateEvalGate(relevantForbidden), /cannot be relevant/);
 });
@@ -194,8 +259,9 @@ test("all private Gate JSON Schemas are machine-readable and lock public-safe ou
     assert.equal(schema.additionalProperties, false);
   }
   const artifactSchema = JSON.parse(await readFile(new URL("../artifact.schema.json", import.meta.url), "utf8"));
-  assert.equal(artifactSchema.properties.gate.properties.minimum_kappa.const, 0.8);
+  assert.equal(artifactSchema.properties.annotation_agreement_gate.properties.minimum_kappa.const, 0.8);
   assert.equal(artifactSchema.properties.boundaries.properties.contains_queries.const, false);
+  assert.equal(artifactSchema.properties.boundaries.properties.evaluates_retrieval_quality.const, false);
   assert.equal(artifactSchema.properties.boundaries.properties.authorizes_search_rollout.const, false);
 });
 
@@ -204,7 +270,8 @@ test("the CLI writes only a sanitized ignored artifact", async () => {
   try {
     const inputs = fixture();
     const files = {};
-    for (const [name, value] of Object.entries(inputs)) {
+    for (const name of ["coreDataset", "provisionalDataset", "holdout", "reviewerA", "reviewerB"]) {
+      const value = inputs[name];
       files[name] = path.join(directory, `${name}.json`);
       await writeFile(files[name], JSON.stringify(value), "utf8");
     }
@@ -216,12 +283,20 @@ test("the CLI writes only a sanitized ignored artifact", async () => {
       "--reviewer-a", files.reviewerA,
       "--reviewer-b", files.reviewerB,
       "--output", output,
-    ]);
-    assert.equal(artifact.gate.passed, true);
+    ], { repository: inputs.repository });
+    assert.equal(artifact.annotation_agreement_gate.passed, true);
     const serialized = await readFile(output, "utf8");
     assert.equal(serialized.includes(inputs.coreDataset.cases[0].case_id), false);
     assert.equal(serialized.includes(inputs.coreDataset.cases[0].request.product_identity.value), false);
     assert.equal(serialized.includes(inputs.reviewerA.reviewer_id_hash), false);
+    await assert.rejects(runCli([
+      "--core", files.coreDataset,
+      "--provisional", files.provisionalDataset,
+      "--holdout", files.holdout,
+      "--reviewer-a", files.reviewerA,
+      "--reviewer-b", files.reviewerB,
+      "--output", output,
+    ], { repository: inputs.repository }), (error) => error?.code === "EEXIST");
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

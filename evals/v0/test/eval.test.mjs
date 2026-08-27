@@ -6,7 +6,8 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
-import { validateDataset } from "../dataset.mjs";
+import { PRIVATE_LIVE_GATES, validateDataset } from "../dataset.mjs";
+import { requirePublicSyntheticDataset } from "../run.mjs";
 import { scoreCase, scoreSuite } from "../scorer.mjs";
 
 const evalDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -42,6 +43,16 @@ test("the versioned public dataset is synthetic and has meaningful suite coverag
   assert.ok(dataset.cases.some((entry) => entry.expected.status === "no_match"));
   assert.ok(dataset.cases.some((entry) => entry.expected.forbidden_ids.length > 0));
   assert.ok(dataset.cases.some((entry) => entry.request.hard_constraints.length > 1));
+});
+
+test("the public runner refuses a valid private_live dataset before execution", async () => {
+  const dataset = JSON.parse(await readFile(resolve(evalDirectory, "dataset.json"), "utf8"));
+  dataset.provenance = "private_live";
+  dataset.dataset_version = "private-runner-refusal-v1";
+  dataset.catalog_fixture = `private-snapshot:${"a".repeat(64)}`;
+  dataset.gates = { ...PRIVATE_LIVE_GATES };
+  assert.equal(validateDataset(dataset), dataset);
+  assert.throws(() => requirePublicSyntheticDataset(dataset), /only public_synthetic/);
 });
 
 test("the scorer computes ranking metrics and catches forbidden and hard-constraint violations", () => {

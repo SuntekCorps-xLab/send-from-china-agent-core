@@ -71,5 +71,7 @@ catalogs, order data, credentials, or captured production responses.
 Private live evaluation uses this same dataset schema with
 `provenance: private_live`, an opaque `private-snapshot:<sha256>` reference and
 locked production-quality thresholds. Private datasets never enter this
-repository. The two-reviewer, 120-case, hidden-holdout and provisional-set Gate
-is documented in [`../private-gate/README.md`](../private-gate/README.md).
+repository. The two-reviewer annotation-agreement preflight is documented in
+[`../private-gate/README.md`](../private-gate/README.md). It freezes labels and
+does not replace black-box scoring of training, hidden-holdout, or provisional
+predictions.

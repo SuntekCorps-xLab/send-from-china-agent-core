@@ -5,13 +5,32 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "schema_version", "generated_at", "provenance", "input_fingerprint_sha256",
-    "datasets", "agreement", "adjudication", "gate", "boundaries"
+    "schema_version", "generated_at", "provenance", "runner", "repository",
+    "input_fingerprint_sha256", "datasets", "agreement", "adjudication",
+    "annotation_agreement_gate", "boundaries"
   ],
   "properties": {
     "schema_version": {"const": "send-from-china-private-eval-gate/v1"},
     "generated_at": {"type": "string", "format": "date-time"},
     "provenance": {"const": "private_live_aggregate_only"},
+    "runner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "source_sha256"],
+      "properties": {
+        "version": {"const": "private-eval-agreement-v1.1.0"},
+        "source_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "working_tree_dirty"],
+      "properties": {
+        "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "working_tree_dirty": {"type": "boolean"}
+      }
+    },
     "input_fingerprint_sha256": {"$ref": "#/$defs/sha256"},
     "datasets": {
       "type": "object",
@@ -19,7 +38,7 @@
       "required": [
         "core_sha256", "provisional_sha256", "holdout_assignment_sha256",
         "core_case_count", "training_case_count", "hidden_holdout_case_count",
-        "provisional_case_count"
+        "provisional_case_count", "candidate_universe_sha256"
       ],
       "properties": {
         "core_sha256": {"$ref": "#/$defs/sha256"},
@@ -28,7 +47,8 @@
         "core_case_count": {"const": 120},
         "training_case_count": {"const": 90},
         "hidden_holdout_case_count": {"const": 30},
-        "provisional_case_count": {"const": 180}
+        "provisional_case_count": {"const": 180},
+        "candidate_universe_sha256": {"$ref": "#/$defs/sha256"}
       }
     },
     "agreement": {
@@ -63,13 +83,13 @@
         "resolved_forbidden_disagreement_count": {"type": "integer", "minimum": 0}
       }
     },
-    "gate": {
+    "annotation_agreement_gate": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["minimum_kappa", "thresholds_locked", "passed"],
+      "required": ["minimum_kappa", "labeling_rules_locked", "passed"],
       "properties": {
         "minimum_kappa": {"const": 0.8},
-        "thresholds_locked": {"const": true},
+        "labeling_rules_locked": {"const": true},
         "passed": {"type": "boolean"}
       }
     },
@@ -78,13 +98,18 @@
       "additionalProperties": false,
       "required": [
         "contains_case_ids", "contains_queries", "contains_product_ids",
-        "contains_reviewer_identity", "authorizes_search_rollout"
+        "contains_reviewer_identity", "evaluates_retrieval_quality",
+        "scores_hidden_holdout", "scores_provisional_regression",
+        "authorizes_search_rollout"
       ],
       "properties": {
         "contains_case_ids": {"const": false},
         "contains_queries": {"const": false},
         "contains_product_ids": {"const": false},
         "contains_reviewer_identity": {"const": false},
+        "evaluates_retrieval_quality": {"const": false},
+        "scores_hidden_holdout": {"const": false},
+        "scores_provisional_regression": {"const": false},
         "authorizes_search_rollout": {"const": false}
       }
     }

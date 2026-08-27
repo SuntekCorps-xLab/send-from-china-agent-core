@@ -48,6 +48,13 @@ function milliseconds(nanoseconds) {
   return Number((Number(nanoseconds) / 1_000_000).toFixed(3));
 }
 
+export function requirePublicSyntheticDataset(dataset) {
+  if (dataset.provenance !== "public_synthetic") {
+    throw new TypeError("The public Eval runner accepts only public_synthetic data.");
+  }
+  return dataset;
+}
+
 async function executeCase(testCase) {
   let request = structuredClone(testCase.request);
   const results = [];
@@ -75,7 +82,7 @@ async function executeCase(testCase) {
 export async function runEvaluation({ suite, output, iterations = suite === "perf" ? 25 : 1 }) {
   if (!new Set(["smoke", "full", "security", "perf"]).has(suite)) throw new TypeError("Unknown Eval v0 suite.");
   const datasetBytes = await readFile(datasetPath);
-  const dataset = validateDataset(JSON.parse(datasetBytes.toString("utf8")));
+  const dataset = requirePublicSyntheticDataset(validateDataset(JSON.parse(datasetBytes.toString("utf8"))));
   const cases = dataset.cases.filter((entry) => entry.suites.includes(suite));
   if (!cases.length) throw new Error(`Eval v0 suite ${suite} has no cases.`);
   const durations = [];

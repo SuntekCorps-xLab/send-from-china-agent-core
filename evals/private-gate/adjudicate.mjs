@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -13,6 +15,7 @@ export const MINIMUM_KAPPA = 0.8;
 const ARTIFACT_SCHEMA = "send-from-china-private-eval-gate/v1";
 const REVIEW_SCHEMA = "send-from-china-eval-review/v1";
 const HOLDOUT_SCHEMA = "send-from-china-eval-holdout/v1";
+const RUNNER_VERSION = "private-eval-agreement-v1.1.0";
 const STATUS_VALUES = ["results", "needs_clarification", "no_match", "degraded"];
 const CASE_ID = /^[a-z0-9][a-z0-9_-]{2,80}$/u;
 const PUBLIC_ID = /^[A-Za-z0-9]{22}$/u;
@@ -40,6 +43,8 @@ function canonical(value) {
 function digest(value) {
   return createHash("sha256").update(typeof value === "string" ? value : canonical(value)).digest("hex");
 }
+
+const RUNNER_SOURCE_SHA256 = digest(readFileSync(fileURLToPath(import.meta.url), "utf8"));
 
 function validatePrivateDataset(dataset, expectedCount, label) {
   validateDataset(dataset);
@@ -109,6 +114,7 @@ function sameKeys(left, right) {
 
 function unweightedKappa(left, right, categories) {
   invariant(left.length === right.length && left.length > 0, "kappa label vectors are invalid");
+  invariant(new Set(left).size > 1 && new Set(right).size > 1, "unweighted kappa requires label variance from both reviewers");
   const observed = left.reduce((count, value, index) => count + Number(value === right[index]), 0) / left.length;
   let expected = 0;
   for (const category of categories) {
@@ -116,12 +122,13 @@ function unweightedKappa(left, right, categories) {
     const rightShare = right.filter((value) => value === category).length / right.length;
     expected += leftShare * rightShare;
   }
-  if (expected === 1) return observed === 1 ? 1 : 0;
+  invariant(expected !== 1, "unweighted kappa is undefined for degenerate labels");
   return Number(((observed - expected) / (1 - expected)).toFixed(6));
 }
 
 function quadraticWeightedKappa(left, right) {
   invariant(left.length === right.length && left.length > 0, "weighted kappa label vectors are invalid");
+  invariant(new Set(left).size > 1 && new Set(right).size > 1, "weighted kappa requires label variance from both reviewers");
   const categories = [0, 1, 2, 3];
   const maximumDistance = (categories.length - 1) ** 2;
   let observedDisagreement = 0;
@@ -138,7 +145,7 @@ function quadraticWeightedKappa(left, right) {
       expectedDisagreement += leftShare * rightShare * (((leftCategory - rightCategory) ** 2) / maximumDistance);
     }
   }
-  if (expectedDisagreement === 0) return observedDisagreement === 0 ? 1 : 0;
+  invariant(expectedDisagreement !== 0, "weighted kappa is undefined for degenerate labels");
   return Number((1 - (observedDisagreement / expectedDisagreement)).toFixed(6));
 }
 
@@ -186,7 +193,19 @@ function goldResolution(dataset, leftCases, rightCases) {
   return { unsupported, adjudicatedStatus, adjudicatedRelevance, adjudicatedForbidden };
 }
 
-export function buildPrivateEvalGate({ coreDataset, provisionalDataset, holdout, reviewerA, reviewerB }) {
+export function candidateUniverseFingerprint(cases) {
+  return digest([...cases.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([caseId, entry]) => ({
+      case_id: caseId,
+      candidate_ids: [...candidateMap(entry).keys()].sort(),
+    })));
+}
+
+export function buildPrivateEvalGate({ coreDataset, provisionalDataset, holdout, reviewerA, reviewerB, repository }) {
+  invariant(exactKeys(repository, new Set(["commit", "working_tree_dirty"])), "exact repository evidence is required");
+  invariant(/^[0-9a-f]{40}$/u.test(repository.commit), "repository commit must be an exact SHA");
+  invariant(typeof repository.working_tree_dirty === "boolean", "repository dirty state is invalid");
   validatePrivateDataset(coreDataset, CORE_CASE_COUNT, "core dataset");
   validatePrivateDataset(provisionalDataset, PROVISIONAL_CASE_COUNT, "provisional dataset");
   invariant(coreDataset.dataset_version !== provisionalDataset.dataset_version, "core and provisional dataset versions must differ");
@@ -241,11 +260,18 @@ export function buildPrivateEvalGate({ coreDataset, provisionalDataset, holdout,
   ).toFixed(6));
 
   const resolution = goldResolution(coreDataset, leftCases, rightCases);
-  const passed = agreement.gate_kappa >= MINIMUM_KAPPA && resolution.unsupported === 0;
+  const passed = agreement.gate_kappa >= MINIMUM_KAPPA
+    && resolution.unsupported === 0
+    && repository.working_tree_dirty === false;
   return {
     schema_version: ARTIFACT_SCHEMA,
     generated_at: new Date().toISOString(),
     provenance: "private_live_aggregate_only",
+    runner: {
+      version: RUNNER_VERSION,
+      source_sha256: RUNNER_SOURCE_SHA256,
+    },
+    repository,
     input_fingerprint_sha256: digest({ coreDataset, provisionalDataset, holdout, reviewerA, reviewerB }),
     datasets: {
       core_sha256: digest(coreDataset),
@@ -255,6 +281,7 @@ export function buildPrivateEvalGate({ coreDataset, provisionalDataset, holdout,
       training_case_count: CORE_CASE_COUNT - HOLDOUT_CASE_COUNT,
       hidden_holdout_case_count: HOLDOUT_CASE_COUNT,
       provisional_case_count: PROVISIONAL_CASE_COUNT,
+      candidate_universe_sha256: candidateUniverseFingerprint(leftCases),
     },
     agreement,
     adjudication: {
@@ -263,9 +290,9 @@ export function buildPrivateEvalGate({ coreDataset, provisionalDataset, holdout,
       resolved_relevance_disagreement_count: resolution.adjudicatedRelevance,
       resolved_forbidden_disagreement_count: resolution.adjudicatedForbidden,
     },
-    gate: {
+    annotation_agreement_gate: {
       minimum_kappa: MINIMUM_KAPPA,
-      thresholds_locked: true,
+      labeling_rules_locked: true,
       passed,
     },
     boundaries: {
@@ -273,6 +300,9 @@ export function buildPrivateEvalGate({ coreDataset, provisionalDataset, holdout,
       contains_queries: false,
       contains_product_ids: false,
       contains_reviewer_identity: false,
+      evaluates_retrieval_quality: false,
+      scores_hidden_holdout: false,
+      scores_provisional_regression: false,
       authorizes_search_rollout: false,
     },
   };
@@ -288,12 +318,25 @@ async function readJson(file) {
   return JSON.parse(await readFile(path.resolve(file), "utf8"));
 }
 
+function gitOutput(args) {
+  const result = spawnSync("git", args, { cwd: repositoryRoot, encoding: "utf8", shell: false });
+  invariant(result.status === 0, "exact Git metadata is required");
+  return result.stdout.trim();
+}
+
+function repositoryEvidence() {
+  return {
+    commit: gitOutput(["rev-parse", "HEAD"]),
+    working_tree_dirty: gitOutput(["status", "--porcelain", "--untracked-files=normal"]).length > 0,
+  };
+}
+
 function inside(parent, child) {
   const relative = path.relative(parent, child);
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
 
-export async function runCli(args = process.argv.slice(2)) {
+export async function runCli(args = process.argv.slice(2), options = {}) {
   const output = path.resolve(argument(args, "--output"));
   const inputs = {
     core: path.resolve(argument(args, "--core")),
@@ -302,7 +345,10 @@ export async function runCli(args = process.argv.slice(2)) {
     reviewerA: path.resolve(argument(args, "--reviewer-a")),
     reviewerB: path.resolve(argument(args, "--reviewer-b")),
   };
-  invariant(Object.values(inputs).every((file) => !inside(repositoryRoot, file)), "private Eval inputs must remain outside the repository");
+  const physicalRepositoryRoot = await realpath(repositoryRoot);
+  const physicalInputs = await Promise.all(Object.values(inputs).map((file) => realpath(file)));
+  invariant(Object.values(inputs).every((file) => !inside(repositoryRoot, file))
+    && physicalInputs.every((file) => !inside(physicalRepositoryRoot, file)), "private Eval inputs must remain outside the repository");
   invariant(!Object.values(inputs).includes(output), "output cannot overwrite a private Eval input");
   if (inside(repositoryRoot, output)) {
     invariant(inside(path.join(repositoryRoot, "build"), output), "repository-local output must stay under ignored build");
@@ -313,11 +359,18 @@ export async function runCli(args = process.argv.slice(2)) {
     holdout: await readJson(inputs.holdout),
     reviewerA: await readJson(inputs.reviewerA),
     reviewerB: await readJson(inputs.reviewerB),
+    repository: options.repository || repositoryEvidence(),
   });
   await mkdir(path.dirname(output), { recursive: true });
-  await writeFile(output, `${JSON.stringify(artifact, null, 2)}\n`, "utf8");
-  process.stdout.write(`${artifact.gate.passed ? "PASS" : "BLOCKED"}: private Eval agreement ${artifact.agreement.gate_kappa.toFixed(6)}; sanitized artifact written\n`);
-  if (!artifact.gate.passed) process.exitCode = 2;
+  const physicalOutputParent = await realpath(path.dirname(output));
+  if (inside(physicalRepositoryRoot, physicalOutputParent)) {
+    await mkdir(path.join(repositoryRoot, "build"), { recursive: true });
+    const physicalBuildRoot = await realpath(path.join(repositoryRoot, "build"));
+    invariant(inside(physicalBuildRoot, physicalOutputParent), "repository-local output must stay under ignored build");
+  }
+  await writeFile(output, `${JSON.stringify(artifact, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
+  process.stdout.write(`${artifact.annotation_agreement_gate.passed ? "PASS" : "BLOCKED"}: private annotation agreement ${artifact.agreement.gate_kappa.toFixed(6)}; sanitized artifact written; retrieval quality not evaluated\n`);
+  if (!artifact.annotation_agreement_gate.passed) process.exitCode = 2;
   return artifact;
 }
 
