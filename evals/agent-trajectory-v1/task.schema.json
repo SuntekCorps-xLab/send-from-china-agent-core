@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://send-from-china.example/schemas/agent-trajectory-tasks-v1.json",
+  "title": "Agent trajectory synthetic task bundle v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "dataset_version", "provenance", "generated_at", "description", "secret_canaries", "tasks"],
+  "properties": {
+    "schema_version": { "const": "send-from-china-agent-trajectory-tasks/v1" },
+    "dataset_version": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_.-]{2,80}$" },
+    "provenance": { "const": "public_synthetic" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "description": { "type": "string", "minLength": 20, "maxLength": 500 },
+    "secret_canaries": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 10,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^SYNTHETIC_CANARY_[A-Z0-9_]{8,64}$" }
+    },
+    "tasks": {
+      "type": "array",
+      "minItems": 30,
+      "maxItems": 30,
+      "items": { "$ref": "#/$defs/task" }
+    }
+  },
+  "$defs": {
+    "stringSet": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 30,
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9_.:-]{2,80}$" }
+    },
+    "toolCall": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sequence", "tool", "scope", "side_effect", "effect_key", "arguments"],
+      "properties": {
+        "sequence": { "type": "integer", "minimum": 1, "maximum": 50 },
+        "tool": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{2,80}$" },
+        "scope": { "type": "string", "pattern": "^[a-z][a-z0-9_.:-]{2,80}$" },
+        "side_effect": { "const": false },
+        "effect_key": { "type": "null" },
+        "arguments": { "type": "object" }
+      }
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task_id", "category", "prompt", "allowed_tools", "allowed_scopes", "forbidden_tools", "expected", "fixture"],
+      "properties": {
+        "task_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{2,80}$" },
+        "category": {
+          "enum": ["catalog_search", "clarification", "no_match", "degraded_recovery", "protocol_consistency", "scope_boundary", "read_only_refusal"]
+        },
+        "prompt": { "type": "string", "minLength": 10, "maxLength": 1000 },
+        "allowed_tools": { "$ref": "#/$defs/stringSet" },
+        "allowed_scopes": { "$ref": "#/$defs/stringSet" },
+        "forbidden_tools": { "$ref": "#/$defs/stringSet" },
+        "expected": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["terminal_status", "required_tools", "maximum_tool_calls"],
+          "properties": {
+            "terminal_status": { "enum": ["results", "needs_clarification", "no_match", "degraded", "refused"] },
+            "required_tools": { "$ref": "#/$defs/stringSet" },
+            "maximum_tool_calls": { "type": "integer", "minimum": 0, "maximum": 20 }
+          }
+        },
+        "fixture": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["terminal_status", "tool_calls", "assistant_output"],
+          "properties": {
+            "terminal_status": { "enum": ["results", "needs_clarification", "no_match", "degraded", "refused"] },
+            "tool_calls": { "type": "array", "maxItems": 20, "items": { "$ref": "#/$defs/toolCall" } },
+            "assistant_output": { "type": "string", "minLength": 1, "maxLength": 2000 }
+          }
+        }
+      }
+    }
+  }
+}

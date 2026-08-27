@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://send-from-china.example/schemas/offline-agent-run-v1.json",
+  "title": "Offline first-attempt agent run v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "task_id", "run_index", "first_attempt", "retry_of", "adapter", "terminal_status", "tool_calls", "assistant_output", "external_network_requests", "production_writes"],
+  "properties": {
+    "schema_version": { "const": "send-from-china-offline-agent-run/v1" },
+    "task_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{2,80}$" },
+    "run_index": { "type": "integer", "minimum": 1, "maximum": 3 },
+    "first_attempt": { "const": true },
+    "retry_of": { "type": "null" },
+    "adapter": { "enum": ["deterministic_synthetic", "real_llm"] },
+    "terminal_status": { "enum": ["results", "needs_clarification", "no_match", "degraded", "refused"] },
+    "tool_calls": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sequence", "tool", "scope", "side_effect", "effect_key", "arguments"],
+        "properties": {
+          "sequence": { "type": "integer", "minimum": 1, "maximum": 50 },
+          "tool": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{2,80}$" },
+          "scope": { "type": "string", "pattern": "^[a-z][a-z0-9_.:-]{2,80}$" },
+          "side_effect": { "type": "boolean" },
+          "effect_key": { "type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9_-]{2,80}$" },
+          "arguments": { "type": "object" }
+        }
+      }
+    },
+    "assistant_output": { "type": "string", "maxLength": 10000 },
+    "external_network_requests": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "production_writes": { "type": "integer", "minimum": 0, "maximum": 100 }
+  }
+}
