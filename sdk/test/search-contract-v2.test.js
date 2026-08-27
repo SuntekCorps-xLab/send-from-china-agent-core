@@ -3,6 +3,15 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
+  PUBLIC_ATTRIBUTE_NAMES as WORKER_PUBLIC_ATTRIBUTE_NAMES,
+  PUBLIC_ATTRIBUTE_POLICY_VERSION as WORKER_PUBLIC_ATTRIBUTE_POLICY_VERSION,
+} from "../../governance-worker/src/field-policy.js";
+import {
+  PUBLIC_ATTRIBUTE_NAMES,
+  PUBLIC_ATTRIBUTE_POLICY_VERSION,
+} from "../src/search-contract-v2.js";
+
+import {
   adaptSearchContractV1ResponseToV2,
   adaptSearchContractV2RequestToV1,
   createSendFromChinaClient,
@@ -10,6 +19,12 @@ import {
   parseSearchContractV2Request,
   SEARCH_CONTRACT_VERSION,
 } from "../src/index.js";
+
+test("Worker and SDK use one versioned public attribute schema", () => {
+  assert.equal(PUBLIC_ATTRIBUTE_POLICY_VERSION, "public-product-attributes/v1");
+  assert.equal(PUBLIC_ATTRIBUTE_POLICY_VERSION, WORKER_PUBLIC_ATTRIBUTE_POLICY_VERSION);
+  assert.deepEqual(PUBLIC_ATTRIBUTE_NAMES, WORKER_PUBLIC_ATTRIBUTE_NAMES);
+});
 
 const baseRequest = {
   contract_version: "2.0",
@@ -306,8 +321,11 @@ test("v1 response adapter strips fields outside the public product presentation"
       price: { amount: 19, currency: "USD" }, source: "private-source",
       supplier_url: "not-public", cost_price: 1,
       attributes: {
-        material: "steel", supplier_url: "https://supplier.invalid/item",
-        nested: { api_key: "hidden" }, cost_price: 1,
+        material: "steel", brand: "Public Brand", model: "PB-100", width_cm: 8,
+        supplier_url: "https://supplier.invalid/item", accessToken: "hidden",
+        clientSecret: "hidden", customerEmail: "hidden@example.invalid",
+        supplierId: "hidden", actionUrl: "https://checkout.invalid",
+        unknown_future_key: "not reviewed", nested: { api_key: "hidden" }, cost_price: 1,
       },
     }], exhaustive: false, search_scope_exhausted: false,
   }, { request: baseRequest, traceId: "trace-result" });
@@ -316,7 +334,9 @@ test("v1 response adapter strips fields outside the public product presentation"
   assert.equal("supplier_url" in result.results[0], false);
   assert.equal("cost_price" in result.results[0], false);
   assert.equal("source" in result.results[0], false);
-  assert.deepEqual(result.results[0].attributes, { material: "steel" });
+  assert.deepEqual(result.results[0].attributes, {
+    material: "steel", brand: "Public Brand", model: "PB-100", width_cm: 8,
+  });
 });
 
 test("v1 pagination never promises another page without a cursor", () => {

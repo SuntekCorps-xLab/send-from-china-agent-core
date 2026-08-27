@@ -27,6 +27,18 @@ const PRIVATE_ATTRIBUTE_NAMES = new Set([
   "supplier_name", "supplier_url", "token", "vendor", "vendor_id", "warehouse_code",
   "wholesale_price",
 ]);
+export const PUBLIC_ATTRIBUTE_POLICY_VERSION = "public-product-attributes/v1";
+export const PUBLIC_ATTRIBUTE_NAMES = Object.freeze([
+  "age_range", "battery_mah", "battery_wh", "brand", "capacity_l", "capacity_ml",
+  "certification", "certifications", "color", "colour", "compartment_count",
+  "depth_cm", "depth_in", "depth_mm", "diameter_cm", "diameter_in", "diameter_mm",
+  "dimensions", "finish", "height_cm", "height_in", "height_mm", "length_cm",
+  "length_in", "length_mm", "material", "materials", "model", "pack_size",
+  "pattern", "piece_count", "pieces", "pocket_count", "pockets", "shape", "size",
+  "style", "thickness_cm", "thickness_in", "thickness_mm", "volume_l", "volume_ml",
+  "weight_g", "weight_kg", "weight_lb", "weight_oz", "width_cm", "width_in", "width_mm",
+]);
+const PUBLIC_ATTRIBUTE_NAME_SET = new Set(PUBLIC_ATTRIBUTE_NAMES);
 
 function invalid(message) {
   throw new TypeError(`Invalid Search Contract v2 request: ${message}`);
@@ -274,6 +286,12 @@ function normalizedAttributeName(value) {
   return String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
 }
 
+function publicAttributeName(value) {
+  return typeof value === "string"
+    && value === normalizedAttributeName(value)
+    && PUBLIC_ATTRIBUTE_NAME_SET.has(value);
+}
+
 function privateAttributeName(value) {
   const name = normalizedAttributeName(value);
   return PRIVATE_ATTRIBUTE_NAMES.has(name)
@@ -296,7 +314,10 @@ function publicAttributes(value) {
   if (entries.length > 50) return undefined;
   const output = {};
   for (const [key, item] of entries) {
-    if (!/^[A-Za-z0-9_.-]{1,80}$/.test(key) || privateAttributeName(key) || containsPrivateAttribute(item)) continue;
+    if (!/^[A-Za-z0-9_.-]{1,80}$/.test(key)
+      || !publicAttributeName(key)
+      || privateAttributeName(key)
+      || containsPrivateAttribute(item)) continue;
     if (typeof item === "string" && item.length <= 300) output[key] = item;
     else if (typeof item === "number" && Number.isFinite(item)) output[key] = item;
   }

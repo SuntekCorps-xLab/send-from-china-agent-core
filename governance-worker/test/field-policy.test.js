@@ -25,17 +25,46 @@ test("positive policy drops poison fields without echoing their names", () => {
     source: "private-source-record",
     attributes: {
       material: "wood",
+      brand: "Public Brand",
+      model: "PB-100",
+      certification: "Illustrative certification",
+      width_cm: 24,
       supplier_url: "https://supplier.invalid/item",
       cost_price: 1,
       api_key: "hidden",
+      accessToken: "hidden",
+      clientSecret: "hidden",
+      customerEmail: "hidden@example.invalid",
+      supplierId: "hidden",
+      actionUrl: "https://checkout.invalid",
+      unknown_future_key: "drop until reviewed",
       nested: { supplier_name: "hidden" },
     },
   }));
   const rendered = JSON.stringify(output);
   for (const name of Object.keys(poison)) assert.doesNotMatch(rendered, new RegExp(name));
-  assert.deepEqual(output.attributes, { material: "wood" });
+  assert.deepEqual(output.attributes, {
+    material: "wood",
+    brand: "Public Brand",
+    model: "PB-100",
+    certification: "Illustrative certification",
+    width_cm: 24,
+  });
   assert.equal("source" in output, false);
   assert.notEqual(output, poison);
+});
+
+test("attribute policy is a positive lower-snake-case allowlist", () => {
+  const output = toPublicProduct(base({
+    attributes: {
+      material: "steel",
+      capacity_ml: 480,
+      Material: "not canonical",
+      access_token: "private",
+      arbitrary_public_sounding_name: "not reviewed",
+    },
+  }));
+  assert.deepEqual(output.attributes, { material: "steel", capacity_ml: 480 });
 });
 
 test("missing required fields fail with a generic policy error", () => {

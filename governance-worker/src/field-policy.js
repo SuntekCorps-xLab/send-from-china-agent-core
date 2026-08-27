@@ -12,6 +12,22 @@ const AVAILABILITY_BANDS = new Set(["in_stock", "low", "out_of_stock"]);
 const SLUG_PATTERN = /^[a-z0-9-]{1,100}$/;
 const PUBLIC_ID_PATTERN = /^[A-Za-z0-9]{22}$/;
 
+// Attributes are an explicitly versioned public schema, not an arbitrary
+// extension bag. Keep this list synchronized with the Search Contract adapter.
+// New names require a contract review and positive/negative compatibility tests.
+export const PUBLIC_ATTRIBUTE_POLICY_VERSION = "public-product-attributes/v1";
+export const PUBLIC_ATTRIBUTE_NAMES = Object.freeze([
+  "age_range", "battery_mah", "battery_wh", "brand", "capacity_l", "capacity_ml",
+  "certification", "certifications", "color", "colour", "compartment_count",
+  "depth_cm", "depth_in", "depth_mm", "diameter_cm", "diameter_in", "diameter_mm",
+  "dimensions", "finish", "height_cm", "height_in", "height_mm", "length_cm",
+  "length_in", "length_mm", "material", "materials", "model", "pack_size",
+  "pattern", "piece_count", "pieces", "pocket_count", "pockets", "shape", "size",
+  "style", "thickness_cm", "thickness_in", "thickness_mm", "volume_l", "volume_ml",
+  "weight_g", "weight_kg", "weight_lb", "weight_oz", "width_cm", "width_in", "width_mm",
+]);
+const PUBLIC_ATTRIBUTE_NAME_SET = new Set(PUBLIC_ATTRIBUTE_NAMES);
+
 export class FieldPolicyError extends Error {
   constructor(code = "INVALID_PUBLIC_PRODUCT") {
     super("Product data does not satisfy the public field policy.");
@@ -55,7 +71,7 @@ function cleanAttributes(value) {
   const output = {};
   for (const [key, item] of entries) {
     if (!/^[A-Za-z0-9_.-]{1,80}$/.test(key)) throw new FieldPolicyError();
-    if (privateAttributeName(key) || containsPrivateAttribute(item)) continue;
+    if (!publicAttributeName(key) || privateAttributeName(key) || containsPrivateAttribute(item)) continue;
     if (typeof item !== "string" && typeof item !== "number") continue;
     if (typeof item === "string" && item.length > 300) throw new FieldPolicyError();
     if (typeof item === "number" && !Number.isFinite(item)) throw new FieldPolicyError();
@@ -74,6 +90,12 @@ const PRIVATE_ATTRIBUTE_NAMES = new Set([
 
 function normalizedAttributeName(value) {
   return String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+}
+
+function publicAttributeName(value) {
+  return typeof value === "string"
+    && value === normalizedAttributeName(value)
+    && PUBLIC_ATTRIBUTE_NAME_SET.has(value);
 }
 
 function privateAttributeName(value) {
