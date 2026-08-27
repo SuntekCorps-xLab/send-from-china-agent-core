@@ -11,7 +11,7 @@ import sys
 import tempfile
 import unicodedata
 from datetime import datetime, timedelta, timezone
-from urllib.parse import urlparse
+from urllib.parse import unquote_plus, urlparse
 
 
 BASE62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
@@ -85,7 +85,12 @@ def _https_url(value):
         parsed = urlparse(text)
     except ValueError as exc:
         raise PublisherError("INVALID_IMAGE_URL") from exc
-    if parsed.scheme != "https" or not parsed.netloc or not parsed.path.strip("/"):
+    if (
+        parsed.scheme != "https"
+        or not parsed.netloc
+        or not parsed.path.strip("/")
+        or _unsafe_parsed_url(parsed)
+    ):
         raise PublisherError("INVALID_IMAGE_URL")
     return text
 
@@ -163,6 +168,9 @@ def _private_hostname(hostname):
         or host.endswith(".local")
         or host.endswith(".internal")
         or host.endswith(".corp")
+        or host.endswith(".lan")
+        or host.endswith(".localdomain")
+        or host.endswith(".home.arpa")
     ):
         return True
     try:
@@ -185,7 +193,93 @@ def _private_hostname(hostname):
     if address.ipv4_mapped is not None:
         return _private_hostname(str(address.ipv4_mapped))
     first = int(address) >> 112
-    return (first & 0xFE00) == 0xFC00 or (first & 0xFFC0) == 0xFE80
+    return (
+        (first & 0xFE00) == 0xFC00
+        or (first & 0xFFC0) == 0xFE80
+        or (first & 0xFFC0) == 0xFEC0
+        or (first & 0xFF00) == 0xFF00
+    )
+
+
+def _decoded_security_text(value):
+    output = str(value or "").replace("+", " ")
+    for _ in range(2):
+        try:
+            decoded = unquote_plus(output)
+        except (UnicodeDecodeError, ValueError):
+            break
+        if decoded == output:
+            break
+        output = decoded
+    return output
+
+
+def _normalized_security_text(value):
+    decoded = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", _decoded_security_text(value))
+    return re.sub(r"[^a-z0-9]+", "_", decoded.lower()).strip("_")
+
+
+def _contains_basic_credential(value):
+    match = re.search(
+        r"\bBasic\s+([A-Za-z0-9+/]{8,}={0,2})(?=$|[^A-Za-z0-9+/=])",
+        _decoded_security_text(value),
+        re.IGNORECASE,
+    )
+    return bool(
+        match
+        and re.search(r"[A-Z]", match.group(1))
+        and re.search(r"[a-z]", match.group(1))
+        and re.search(r"[0-9+/=]", match.group(1))
+    )
+
+
+def _credential_material(value):
+    text = _decoded_security_text(value)
+    return bool(
+        re.search(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----", text, re.IGNORECASE)
+        or re.search(r"\bBearer\s+[A-Za-z0-9._~+/=-]{12,}", text, re.IGNORECASE)
+        or _contains_basic_credential(text)
+        or re.search(
+            r"\b(?:github_pat|ghp|gho|ghu|ghs|ghr|sk_live|shpat|shpca|shppa)_[A-Za-z0-9_-]{12,}\b",
+            text,
+            re.IGNORECASE,
+        )
+        or re.search(r"\bAKIA[0-9A-Z]{16}\b", text)
+        or re.search(r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b", text)
+        or re.search(
+            r"(?:^|[#?&;\s])(?:access[_-]?token|api[_-]?key|x[_-]?api[_-]?key|authorization|client[_-]?secret|credential|password|session|signature|token)\s*[=:]\s*[^#&;\s]{6,}",
+            text,
+            re.IGNORECASE,
+        )
+    )
+
+
+def _contains_sensitive_url_semantics(parsed):
+    credential_marker = re.compile(
+        r"(?:^|_)(?:access_?token|api_?key|x_?api_?key|authorization|client_?secret|credential|password|session|signature|token)(?:_|$)"
+    )
+    provenance_marker = re.compile(
+        r"(?:^|_)(?:source_?(?:id|url|record|reference|receipt)|supplier(?:portal)?|vendor_?(?:id|url)|warehouse_?code)(?:_|$)"
+    )
+    for component in (parsed.netloc, parsed.path, parsed.query, parsed.fragment):
+        normalized = _normalized_security_text(component)
+        if credential_marker.search(normalized) or provenance_marker.search(normalized):
+            return True
+        if _credential_material(component):
+            return True
+    return False
+
+
+def _unsafe_parsed_url(parsed):
+    try:
+        return bool(
+            parsed.username
+            or parsed.password
+            or _private_hostname(parsed.hostname)
+            or _contains_sensitive_url_semantics(parsed)
+        )
+    except ValueError:
+        return True
 
 
 def _contains_private_network_url(value):
@@ -193,9 +287,7 @@ def _contains_private_network_url(value):
         candidate = match.group(0).rstrip("),.;!?")
         try:
             parsed = urlparse(candidate)
-            if parsed.scheme in {"http", "https"} and (
-                parsed.username or parsed.password or _private_hostname(parsed.hostname)
-            ):
+            if parsed.scheme in {"http", "https"} and _unsafe_parsed_url(parsed):
                 return True
         except ValueError:
             continue
@@ -206,20 +298,7 @@ def _sensitive_scalar(value):
     if not isinstance(value, str):
         return False
     return bool(
-        re.search(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----", value, re.IGNORECASE)
-        or re.search(r"\bBearer\s+[A-Za-z0-9._~+/=-]{12,}", value, re.IGNORECASE)
-        or re.search(
-            r"\b(?:github_pat|ghp|gho|ghu|ghs|ghr|sk_live|shpat|shpca|shppa)_[A-Za-z0-9_-]{12,}\b",
-            value,
-            re.IGNORECASE,
-        )
-        or re.search(r"\bAKIA[0-9A-Z]{16}\b", value)
-        or re.search(r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b", value)
-        or re.search(
-            r"(?:^|[?&;\s])(?:access[_-]?token|api[_-]?key|authorization|client[_-]?secret|credential|password|session|signature|token)\s*[=:]\s*[^&;\s]{6,}",
-            value,
-            re.IGNORECASE,
-        )
+        _credential_material(value)
         or re.search(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", value, re.IGNORECASE)
         or _contains_private_network_url(value)
     )

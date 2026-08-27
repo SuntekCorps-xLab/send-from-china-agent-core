@@ -643,7 +643,8 @@ function privateNetworkHost(value) {
   const hostname = String(value || "").trim().toLowerCase()
     .replace(/^\[|\]$/gu, "").replace(/\.$/u, "");
   if (hostname === "localhost" || hostname.endsWith(".localhost")
-    || /\.(?:internal|local|corp)$/u.test(hostname)) return true;
+    || /\.(?:internal|local|corp|lan|localdomain)$/u.test(hostname)
+    || hostname.endsWith(".home.arpa")) return true;
   const version = isIP(hostname);
   if (version === 4) return privateIpv4(hostname);
   if (version !== 6) return false;
@@ -660,7 +661,55 @@ function privateNetworkHost(value) {
     }
   }
   const first = Number.parseInt(hostname.split(":").find((item) => item.length > 0) || "0", 16);
-  return (first & 0xfe00) === 0xfc00 || (first & 0xffc0) === 0xfe80;
+  return (first & 0xfe00) === 0xfc00 || (first & 0xffc0) === 0xfe80
+    || (first & 0xffc0) === 0xfec0 || (first & 0xff00) === 0xff00;
+}
+
+function decodedSecurityText(value) {
+  let output = String(value || "").replace(/\+/gu, " ");
+  for (let pass = 0; pass < 2; pass += 1) {
+    try {
+      const decoded = decodeURIComponent(output).replace(/\+/gu, " ");
+      if (decoded === output) break;
+      output = decoded;
+    } catch {
+      break;
+    }
+  }
+  return output;
+}
+
+function normalizedSecurityText(value) {
+  return decodedSecurityText(value).replace(/([a-z0-9])([A-Z])/gu, "$1_$2")
+    .toLowerCase().replace(/[^a-z0-9]+/gu, "_").replace(/^_+|_+$/gu, "");
+}
+
+function containsBasicCredential(value) {
+  const match = /\bBasic\s+([A-Za-z0-9+/]{8,}={0,2})(?=$|[^A-Za-z0-9+/=])/iu
+    .exec(decodedSecurityText(value));
+  return Boolean(match && /[A-Z]/u.test(match[1]) && /[a-z]/u.test(match[1])
+    && /[0-9+/=]/u.test(match[1]));
+}
+
+function containsCredentialMaterial(value) {
+  const text = decodedSecurityText(value);
+  return /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/iu.test(text)
+    || /\bBearer\s+[A-Za-z0-9._~+/=-]{12,}/iu.test(text)
+    || containsBasicCredential(text)
+    || /\b(?:github_pat|ghp|gho|ghu|ghs|ghr|sk_live|shpat|shpca|shppa)_[A-Za-z0-9_-]{12,}\b/iu.test(text)
+    || /\bAKIA[0-9A-Z]{16}\b/u.test(text)
+    || /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/u.test(text)
+    || /(?:^|[#?&;\s])(?:access[_-]?token|api[_-]?key|x[_-]?api[_-]?key|authorization|client[_-]?secret|credential|password|session|signature|token)\s*[=:]\s*[^#&;\s]{6,}/iu.test(text);
+}
+
+function containsSensitiveUrlSemantics(url) {
+  for (const component of [url.hostname, url.pathname, url.search, url.hash]) {
+    const normalized = normalizedSecurityText(component);
+    if (/(?:^|_)(?:access_?token|api_?key|x_?api_?key|authorization|client_?secret|credential|password|session|signature|token)(?:_|$)/u.test(normalized)
+      || /(?:^|_)(?:source_?(?:id|url|record|reference|receipt)|supplier(?:portal)?|vendor_?(?:id|url)|warehouse_?code)(?:_|$)/u.test(normalized)
+      || containsCredentialMaterial(component)) return true;
+  }
+  return false;
 }
 
 function containsPrivateNetworkUrl(value) {
@@ -669,7 +718,8 @@ function containsPrivateNetworkUrl(value) {
     try {
       const url = new URL(candidate);
       if (["http:", "https:"].includes(url.protocol)
-        && (url.username || url.password || privateNetworkHost(url.hostname))) return true;
+        && (url.username || url.password || privateNetworkHost(url.hostname)
+          || containsSensitiveUrlSemantics(url))) return true;
     } catch {
       // Invalid URLs are handled by field semantics where a URL is required.
     }
@@ -679,12 +729,7 @@ function containsPrivateNetworkUrl(value) {
 
 function sensitiveScalarValue(value) {
   if (typeof value !== "string") return false;
-  return /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/iu.test(value)
-    || /\bBearer\s+[A-Za-z0-9._~+/=-]{12,}/iu.test(value)
-    || /\b(?:github_pat|ghp|gho|ghu|ghs|ghr|sk_live|shpat|shpca|shppa)_[A-Za-z0-9_-]{12,}\b/iu.test(value)
-    || /\bAKIA[0-9A-Z]{16}\b/u.test(value)
-    || /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/u.test(value)
-    || /(?:^|[?&;\s])(?:access[_-]?token|api[_-]?key|authorization|client[_-]?secret|credential|password|session|signature|token)\s*[=:]\s*[^&;\s]{6,}/iu.test(value)
+  return containsCredentialMaterial(value)
     || /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/iu.test(value)
     || containsPrivateNetworkUrl(value);
 }

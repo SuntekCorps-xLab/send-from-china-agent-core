@@ -140,6 +140,42 @@ class PublisherTest(unittest.TestCase):
         with self.assertRaisesRegex(PublisherError, "INVALID_ATTRIBUTES"):
             build_snapshot(payload, KEY, GENERATED_AT)
 
+    def test_url_policy_rejects_credentials_provenance_and_non_public_networks(self):
+        unsafe_urls = [
+            "https://shop.example/product#access_token=secretvalue123",
+            "https://shop.example/product#accesstoken=secretvalue123",
+            "https://shop.example/product?x-api-key=secretvalue123",
+            "https://shop.example/product#authorization=Basic%20YWJjZGVmZ2hpams=.",
+            "https://shop.example/product#authorization=Basic%20dXNlcjpwYXNzd29yZA==:",
+            "https://catalog.office.lan/product",
+            "https://catalog.office.corp/product",
+            "https://supplierportal.example/product",
+            "https://shop.example/sourcereceipt/1",
+            "https://router.localdomain/product",
+            "https://router.home.arpa/product",
+            "https://[fec0::1]/product",
+            "https://[ff00::1]/product",
+        ]
+        for url in unsafe_urls:
+            with self.subTest(url=url, surface="image"):
+                payload = self.payload()
+                payload["products"][0]["images"] = [{"url": url}]
+                with self.assertRaisesRegex(PublisherError, "INVALID_IMAGE_URL"):
+                    build_snapshot(payload, KEY, GENERATED_AT)
+            with self.subTest(url=url, surface="attribute"):
+                payload = self.payload()
+                payload["products"][0]["attributes"]["material"] = url
+                snapshot, _ = build_snapshot(payload, KEY, GENERATED_AT)
+                self.assertNotIn("material", snapshot["products"][0]["attributes"])
+
+        public_url = "https://www.example.com/products/item?variant=1#details"
+        payload = self.payload()
+        payload["products"][0]["images"] = [{"url": public_url, "alt": "Public product"}]
+        payload["products"][0]["attributes"]["voltage"] = public_url
+        snapshot, _ = build_snapshot(payload, KEY, GENERATED_AT)
+        self.assertEqual(snapshot["products"][0]["images"][0]["url"], public_url)
+        self.assertEqual(snapshot["products"][0]["attributes"]["voltage"], public_url)
+
     def test_non_finite_price_fails_closed(self):
         payload = self.payload()
         payload["products"][0]["price"]["amount"] = float("inf")

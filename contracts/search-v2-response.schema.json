@@ -220,8 +220,8 @@
         "lead_time_days": { "type": "integer", "minimum": 0 },
         "as_of": { "type": "string", "format": "date-time" },
         "purchasable": { "type": "boolean" },
-        "product_url": { "type": "string", "format": "uri" },
-        "add_to_cart_url": { "type": "string", "format": "uri" }
+        "product_url": { "type": "string", "format": "uri", "pattern": "^https://", "maxLength": 2048 },
+        "add_to_cart_url": { "type": "string", "format": "uri", "pattern": "^https://", "maxLength": 2048 }
       }
     }
   }

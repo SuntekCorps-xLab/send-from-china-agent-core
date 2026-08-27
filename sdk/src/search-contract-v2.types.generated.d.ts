@@ -1,6 +1,6 @@
 // Generated from contracts/search-v2-*.schema.json. Do not edit by hand.
 // request-schema-sha256: 069f1eb612575bc7ec42ccb8a675a21181d8075e5cf76bf90ed75330fd4b2d6b
-// response-schema-sha256: e973b7cd3c5c33c09ac2d706148337be2711d74ddd2318075e3247f583c9e328
+// response-schema-sha256: c20bb8e98cd228f82eb2e4975d6f19d2cd5906635fa8c40c0f19910d7b3f642f
 export type SearchConditionSource = "explicit" | "inferred" | "default";
 export type SearchConditionScope = "product" | "session" | "transaction";
 export type SearchConditionHardness = "hard" | "soft" | "informational";

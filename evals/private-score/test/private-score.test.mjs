@@ -817,6 +817,19 @@ test("credential, PII and internal-host values fail closed even in approved publ
     ["image", ["https://0", "0", "0", "0/private.png"].join(".")],
     ["image", ["https://[fd", "00::1]/private.png"].join("")],
     ["image", ["https://[fe", "80::1]/private.png"].join("")],
+    ["image", "https://shop.example/product#access_token=secretvalue123"],
+    ["image", "https://shop.example/product#accesstoken=secretvalue123"],
+    ["image", "https://shop.example/product?x-api-key=secretvalue123"],
+    ["image", "https://shop.example/product#authorization=Basic%20YWJjZGVmZ2hpams=."],
+    ["image", "https://shop.example/product#authorization=Basic%20dXNlcjpwYXNzd29yZA==:"],
+    ["image", "https://catalog.office.lan/product"],
+    ["image", "https://catalog.office.corp/product"],
+    ["image", "https://supplierportal.example/product"],
+    ["image", "https://shop.example/sourcereceipt/1"],
+    ["image", "https://router.localdomain/product"],
+    ["image", "https://router.home.arpa/product"],
+    ["image", "https://[fec0::1]/product"],
+    ["image", "https://[ff00::1]/product"],
   ]) {
     const inputs = fixture();
     const { testCase, poolCase } = findCase(inputs);
@@ -831,6 +844,21 @@ test("credential, PII and internal-host values fail closed even in approved publ
     assert.ok(scored.violations.private_field_violations >= 1, value);
     assert.equal(JSON.stringify(scored).includes(value), false, value);
   }
+});
+
+test("ordinary public product URLs remain valid public evidence", () => {
+  const inputs = fixture();
+  const { testCase, poolCase } = findCase(inputs);
+  const surface = structuredClone(capturedCase(
+    inputs.candidatePredictions, testCase.case_id,
+  ).surfaces.http);
+  const safe = product(testCase.expected.relevance[0].public_id, testCase);
+  const publicUrl = "https://www.example.com/products/item?variant=1#details";
+  safe.images = [{ url: publicUrl, alt: "Public product" }];
+  safe.attributes.voltage = publicUrl;
+  replaceResponse(surface, "results", [safe]);
+  const scored = scorePrivateCase(testCase, surface, poolCase);
+  assert.equal(scored.violations.private_field_violations, 0);
 });
 
 test("Schema-level title, date and HTTPS URL semantics are enforced at runtime", () => {

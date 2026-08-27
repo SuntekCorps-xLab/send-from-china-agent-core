@@ -99,6 +99,37 @@ test("approved attribute names still reject credential, PII, and internal URL va
   });
 });
 
+test("public URL values reject credential, provenance, and non-public network semantics", () => {
+  const unsafeUrls = [
+    "https://shop.example/product#access_token=secretvalue123",
+    "https://shop.example/product#accesstoken=secretvalue123",
+    "https://shop.example/product?x-api-key=secretvalue123",
+    "https://shop.example/product#authorization=Basic%20YWJjZGVmZ2hpams=.",
+    "https://shop.example/product#authorization=Basic%20dXNlcjpwYXNzd29yZA==:",
+    "https://catalog.office.lan/product",
+    "https://catalog.office.corp/product",
+    "https://supplierportal.example/product",
+    "https://shop.example/sourcereceipt/1",
+    "https://router.localdomain/product",
+    "https://router.home.arpa/product",
+    "https://[fec0::1]/product",
+    "https://[ff00::1]/product",
+  ];
+  for (const url of unsafeUrls) {
+    assert.throws(() => toPublicProduct(base({ images: [{ url }] })), FieldPolicyError, url);
+    const output = toPublicProduct(base({ attributes: { material: url, width_cm: 24 } }));
+    assert.deepEqual(output.attributes, { width_cm: 24 }, url);
+  }
+
+  const publicUrl = "https://www.example.com/products/item?variant=1#details";
+  const output = toPublicProduct(base({
+    images: [{ url: publicUrl, alt: "Public product" }],
+    attributes: { material: "basic aluminum", voltage: publicUrl },
+  }));
+  assert.deepEqual(output.images, [{ url: publicUrl, alt: "Public product" }]);
+  assert.deepEqual(output.attributes, { material: "basic aluminum", voltage: publicUrl });
+});
+
 test("missing required fields fail with a generic policy error", () => {
   assert.throws(() => toPublicProduct({ title: "Missing identity" }), FieldPolicyError);
   assert.throws(() => toPublicProduct(base({ availability_band: "unknown" })), FieldPolicyError);

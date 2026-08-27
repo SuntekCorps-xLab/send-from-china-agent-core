@@ -124,6 +124,10 @@ test("publishes strict v2 request and response schemas", async () => {
     "./search-v2-request.schema.json#/$defs/condition/properties/value");
   assert.equal(responseSchema.$defs.relaxation.properties.to.$ref,
     "./search-v2-request.schema.json#/$defs/condition/properties/value");
+  assert.equal(responseSchema.$defs.product.properties.product_url.pattern, "^https://");
+  assert.equal(responseSchema.$defs.product.properties.product_url.maxLength, 2048);
+  assert.equal(responseSchema.$defs.product.properties.add_to_cart_url.pattern, "^https://");
+  assert.equal(responseSchema.$defs.product.properties.add_to_cart_url.maxLength, 2048);
   const noMatchScope = responseSchema.allOf[0].then.properties.search_scope.properties;
   assert.deepEqual(noMatchScope.scan_limit_reached, { const: false });
   assert.equal("source" in responseSchema.$defs.product.properties, false);
@@ -498,6 +502,64 @@ test("direct v2 projection rejects nested metadata outside public product fields
     ...valid,
     pagination: { ...valid.pagination, cursor: { token: "nested-leak" } },
   }), /Invalid Search Contract v2/);
+});
+
+test("direct v2 projection removes unsafe URL semantics and preserves ordinary public URLs", () => {
+  const responseBase = {
+    contract_version: "2.0", trace_id: "trace-url-policy", status: "results",
+    normalized_intent: {
+      product_identity: baseRequest.product_identity,
+      hard_constraints: [], soft_context: [], transaction_context: [],
+    },
+    relaxations: [], missing_criteria: [],
+    pagination: { limit: 20, cursor: null, next_cursor: null, has_more: false },
+    search_scope: {
+      plan_complete: false, scope_exhausted: false, global_catalog_exhaustive: false,
+      scan_limit_reached: false, degraded: false, degraded_reason: null,
+    },
+  };
+  const unsafeUrls = [
+    "https://shop.example/product#access_token=secretvalue123",
+    "https://shop.example/product#accesstoken=secretvalue123",
+    "https://shop.example/product?x-api-key=secretvalue123",
+    "https://shop.example/product#authorization=Basic%20YWJjZGVmZ2hpams=.",
+    "https://shop.example/product#authorization=Basic%20dXNlcjpwYXNzd29yZA==:",
+    "https://catalog.office.lan/product",
+    "https://catalog.office.corp/product",
+    "https://supplierportal.example/product",
+    "https://shop.example/sourcereceipt/1",
+    "https://router.localdomain/product",
+    "https://router.home.arpa/product",
+    "https://[fec0::1]/product",
+    "https://[ff00::1]/product",
+  ];
+  for (const url of unsafeUrls) {
+    const projected = projectSearchContractV2Response({
+      ...responseBase,
+      results: [{
+        title: "Safe title", product_url: url, add_to_cart_url: url,
+        images: [{ url }], attributes: { material: url, width_cm: 24 },
+      }],
+    });
+    assert.deepEqual(projected.results[0], {
+      title: "Safe title", attributes: { width_cm: 24 },
+    }, url);
+  }
+
+  const publicUrl = "https://www.example.com/products/item?variant=1#details";
+  const projected = projectSearchContractV2Response({
+    ...responseBase,
+    results: [{
+      title: "Safe title", product_url: publicUrl, add_to_cart_url: publicUrl,
+      images: [{ url: publicUrl, alt: "Public product" }],
+      attributes: { material: "basic aluminum", voltage: publicUrl },
+    }],
+  });
+  assert.deepEqual(projected.results[0], {
+    title: "Safe title", product_url: publicUrl, add_to_cart_url: publicUrl,
+    images: [{ url: publicUrl, alt: "Public product" }],
+    attributes: { material: "basic aluminum", voltage: publicUrl },
+  });
 });
 
 test("SDK projection accepts the exact Agent Core Search v2 handler response", async () => {
