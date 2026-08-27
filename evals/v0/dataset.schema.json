@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.com/send-from-china/evals/v0/dataset.schema.json",
-  "title": "Send From China public synthetic Eval v0 dataset",
+  "title": "Send From China Eval v0 dataset",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -16,11 +16,14 @@
     "cases"
   ],
   "properties": {
-    "dataset_version": { "const": "eval-v0.1.0" },
+    "dataset_version": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,80}$" },
     "schema_version": { "const": "send-from-china-eval-dataset/v0" },
-    "provenance": { "const": "public_synthetic" },
+    "provenance": { "enum": ["public_synthetic", "private_live"] },
     "generated_at": { "type": "string", "format": "date-time" },
-    "catalog_fixture": { "const": "fixtures/published-catalog.sample.json" },
+    "catalog_fixture": {
+      "type": "string",
+      "pattern": "^(fixtures/published-catalog\\.sample\\.json|private-snapshot:[0-9a-f]{64})$"
+    },
     "description": { "type": "string", "minLength": 1, "maxLength": 500 },
     "limitations": {
       "type": "array",
@@ -58,6 +61,38 @@
       "items": { "$ref": "#/$defs/case" }
     }
   },
+  "allOf": [
+    {
+      "if": {"properties": {"provenance": {"const": "public_synthetic"}}},
+      "then": {
+        "properties": {
+          "dataset_version": {"const": "eval-v0.1.0"},
+          "catalog_fixture": {"const": "fixtures/published-catalog.sample.json"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"provenance": {"const": "private_live"}}},
+      "then": {
+        "properties": {
+          "dataset_version": {"pattern": "^private-[a-z0-9][a-z0-9._-]{2,72}$"},
+          "catalog_fixture": {"pattern": "^private-snapshot:[0-9a-f]{64}$"},
+          "gates": {
+            "properties": {
+              "minimum_recall_at_20": {"const": 0.9},
+              "minimum_recall_at_50": {"const": 0.95},
+              "minimum_precision_at_10": {"const": 0.85},
+              "minimum_ndcg_at_10": {"const": 0.8},
+              "minimum_status_accuracy": {"const": 1},
+              "maximum_forbidden_id_hits": {"const": 0},
+              "maximum_hard_constraint_violations": {"const": 0},
+              "maximum_duplicate_id_hits": {"const": 0}
+            }
+          }
+        }
+      }
+    }
+  ],
   "$defs": {
     "case": {
       "type": "object",

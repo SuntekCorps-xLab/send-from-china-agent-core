@@ -6,9 +6,21 @@ const GATE_FIELDS = new Set([
   "minimum_ndcg_at_10", "minimum_status_accuracy", "maximum_forbidden_id_hits",
   "maximum_hard_constraint_violations", "maximum_duplicate_id_hits",
 ]);
+const PROVENANCE = new Set(["public_synthetic", "private_live"]);
+
+export const PRIVATE_LIVE_GATES = Object.freeze({
+  minimum_recall_at_20: 0.9,
+  minimum_recall_at_50: 0.95,
+  minimum_precision_at_10: 0.85,
+  minimum_ndcg_at_10: 0.8,
+  minimum_status_accuracy: 1,
+  maximum_forbidden_id_hits: 0,
+  maximum_hard_constraint_violations: 0,
+  maximum_duplicate_id_hits: 0,
+});
 
 function assert(condition, message) {
-  if (!condition) throw new TypeError(`Invalid public Eval v0 dataset: ${message}`);
+  if (!condition) throw new TypeError(`Invalid Eval v0 dataset: ${message}`);
 }
 
 function exactKeys(value, fields) {
@@ -27,13 +39,24 @@ export function validateDataset(dataset) {
     "dataset_version", "schema_version", "provenance", "generated_at", "catalog_fixture",
     "description", "limitations", "gates", "cases",
   ])), "unexpected top-level field");
-  assert(dataset.dataset_version === "eval-v0.1.0", "unsupported dataset_version");
+  assert(/^[a-z0-9][a-z0-9._-]{2,80}$/u.test(dataset.dataset_version), "unsupported dataset_version");
   assert(dataset.schema_version === "send-from-china-eval-dataset/v0", "unsupported schema_version");
-  assert(dataset.provenance === "public_synthetic", "provenance must be public_synthetic");
+  assert(PROVENANCE.has(dataset.provenance), "unsupported provenance");
   assert(Number.isFinite(Date.parse(dataset.generated_at)), "generated_at must be an ISO date-time");
-  assert(dataset.catalog_fixture === "fixtures/published-catalog.sample.json", "catalog fixture changed");
+  if (dataset.provenance === "public_synthetic") {
+    assert(dataset.dataset_version === "eval-v0.1.0", "public dataset version changed");
+    assert(dataset.catalog_fixture === "fixtures/published-catalog.sample.json", "public catalog fixture changed");
+  } else {
+    assert(/^private-[a-z0-9][a-z0-9._-]{2,72}$/u.test(dataset.dataset_version), "private dataset version must use a private- prefix");
+    assert(/^private-snapshot:[0-9a-f]{64}$/u.test(dataset.catalog_fixture), "private catalog snapshot must be opaque");
+  }
   assert(Array.isArray(dataset.limitations) && dataset.limitations.length >= 2, "limitations are required");
   assert(exactKeys(dataset.gates, GATE_FIELDS) && Object.values(dataset.gates).every(Number.isFinite), "invalid gates");
+  if (dataset.provenance === "private_live") {
+    for (const [field, expected] of Object.entries(PRIVATE_LIVE_GATES)) {
+      assert(dataset.gates[field] === expected, `private gate ${field} cannot change`);
+    }
+  }
   assert(Array.isArray(dataset.cases) && dataset.cases.length >= 12, "at least 12 cases are required");
   const caseIds = new Set();
   for (const entry of dataset.cases) {

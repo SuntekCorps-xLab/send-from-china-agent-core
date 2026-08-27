@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/send-from-china/evals/private-gate/holdout.schema.json",
+  "title": "Private Eval hidden holdout assignment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "dataset_version", "case_ids"],
+  "properties": {
+    "schema_version": {"const": "send-from-china-eval-holdout/v1"},
+    "dataset_version": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,80}$"},
+    "case_ids": {
+      "type": "array",
+      "minItems": 30,
+      "maxItems": 30,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{2,80}$"}
+    }
+  }
+}

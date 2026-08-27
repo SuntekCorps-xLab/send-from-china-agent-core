@@ -33,6 +33,7 @@ try {
   run(process.execPath, ["--test", "sdk/test/client.test.js", "sdk/test/search-contract-v2.test.js"]);
   run(process.execPath, ["scripts/generate-search-v2-types.mjs"]);
   run(process.execPath, ["--test", "evals/v0/test/eval.test.mjs"]);
+  run(process.execPath, ["--test", "evals/private-gate/test/private-gate.test.mjs"]);
   run(process.execPath, ["evals/v0/run.mjs", "--suite", "smoke"]);
   run(process.execPath, ["--test", "scripts/generate-tenant-key.test.mjs"]);
   run(python, ["-m", "unittest", "discover", "-s", "etl-pipeline/tests", "-p", "test_*.py", "-v"]);

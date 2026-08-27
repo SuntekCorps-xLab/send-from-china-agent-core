@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/send-from-china/evals/private-gate/review.schema.json",
+  "title": "Private Eval independent reviewer packet",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "dataset_version", "reviewer_id_hash", "cases"],
+  "properties": {
+    "schema_version": {"const": "send-from-china-eval-review/v1"},
+    "dataset_version": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,80}$"},
+    "reviewer_id_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "cases": {
+      "type": "array",
+      "minItems": 120,
+      "maxItems": 120,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["case_id", "status", "candidates", "forbidden_ids"],
+        "properties": {
+          "case_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{2,80}$"},
+          "status": {"enum": ["results", "needs_clarification", "no_match", "degraded"]},
+          "candidates": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 500,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["public_id", "grade"],
+              "properties": {
+                "public_id": {"type": "string", "pattern": "^[A-Za-z0-9]{22}$"},
+                "grade": {"type": "integer", "minimum": 0, "maximum": 3}
+              }
+            }
+          },
+          "forbidden_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {"type": "string", "pattern": "^[A-Za-z0-9]{22}$"}
+          }
+        }
+      }
+    }
+  }
+}

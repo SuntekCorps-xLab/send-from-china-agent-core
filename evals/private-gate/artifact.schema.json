@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/send-from-china/evals/private-gate/artifact.schema.json",
+  "title": "Sanitized private Eval agreement Gate artifact",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "generated_at", "provenance", "input_fingerprint_sha256",
+    "datasets", "agreement", "adjudication", "gate", "boundaries"
+  ],
+  "properties": {
+    "schema_version": {"const": "send-from-china-private-eval-gate/v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "provenance": {"const": "private_live_aggregate_only"},
+    "input_fingerprint_sha256": {"$ref": "#/$defs/sha256"},
+    "datasets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "core_sha256", "provisional_sha256", "holdout_assignment_sha256",
+        "core_case_count", "training_case_count", "hidden_holdout_case_count",
+        "provisional_case_count"
+      ],
+      "properties": {
+        "core_sha256": {"$ref": "#/$defs/sha256"},
+        "provisional_sha256": {"$ref": "#/$defs/sha256"},
+        "holdout_assignment_sha256": {"$ref": "#/$defs/sha256"},
+        "core_case_count": {"const": 120},
+        "training_case_count": {"const": 90},
+        "hidden_holdout_case_count": {"const": 30},
+        "provisional_case_count": {"const": 180}
+      }
+    },
+    "agreement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status_kappa", "relevance_quadratic_weighted_kappa", "forbidden_binary_kappa",
+        "status_disagreement_count", "relevance_disagreement_count",
+        "forbidden_disagreement_count", "gate_kappa"
+      ],
+      "properties": {
+        "status_kappa": {"type": "number", "minimum": -1, "maximum": 1},
+        "relevance_quadratic_weighted_kappa": {"type": "number", "minimum": -1, "maximum": 1},
+        "forbidden_binary_kappa": {"type": "number", "minimum": -1, "maximum": 1},
+        "gate_kappa": {"type": "number", "minimum": -1, "maximum": 1},
+        "status_disagreement_count": {"type": "integer", "minimum": 0},
+        "relevance_disagreement_count": {"type": "integer", "minimum": 0},
+        "forbidden_disagreement_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "adjudication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unsupported_decision_count", "resolved_status_disagreement_count",
+        "resolved_relevance_disagreement_count", "resolved_forbidden_disagreement_count"
+      ],
+      "properties": {
+        "unsupported_decision_count": {"type": "integer", "minimum": 0},
+        "resolved_status_disagreement_count": {"type": "integer", "minimum": 0},
+        "resolved_relevance_disagreement_count": {"type": "integer", "minimum": 0},
+        "resolved_forbidden_disagreement_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum_kappa", "thresholds_locked", "passed"],
+      "properties": {
+        "minimum_kappa": {"const": 0.8},
+        "thresholds_locked": {"const": true},
+        "passed": {"type": "boolean"}
+      }
+    },
+    "boundaries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contains_case_ids", "contains_queries", "contains_product_ids",
+        "contains_reviewer_identity", "authorizes_search_rollout"
+      ],
+      "properties": {
+        "contains_case_ids": {"const": false},
+        "contains_queries": {"const": false},
+        "contains_product_ids": {"const": false},
+        "contains_reviewer_identity": {"const": false},
+        "authorizes_search_rollout": {"const": false}
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

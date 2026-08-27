@@ -67,3 +67,9 @@ public cases must use synthetic public IDs, normalized Search Contract v2
 requests, explicit expected states, graded relevance, and explicit forbidden
 IDs. Never derive public cases from customer prompts, supplier data, private
 catalogs, order data, credentials, or captured production responses.
+
+Private live evaluation uses this same dataset schema with
+`provenance: private_live`, an opaque `private-snapshot:<sha256>` reference and
+locked production-quality thresholds. Private datasets never enter this
+repository. The two-reviewer, 120-case, hidden-holdout and provisional-set Gate
+is documented in [`../private-gate/README.md`](../private-gate/README.md).
