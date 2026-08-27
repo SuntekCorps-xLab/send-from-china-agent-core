@@ -1,10 +1,11 @@
 // Generated from contracts/search-v2-*.schema.json. Do not edit by hand.
 // request-schema-sha256: 069f1eb612575bc7ec42ccb8a675a21181d8075e5cf76bf90ed75330fd4b2d6b
-// response-schema-sha256: 95925f6b261052d886104607b2f37826039cf3d744c50208757a4cf8eea4becc
+// response-schema-sha256: 436f6ac0380adc2026a03542f31b36a0a9934e43c7fa0ed857ba3f4ec1ec4859
 export type SearchConditionSource = "explicit" | "inferred" | "default";
 export type SearchConditionScope = "product" | "session" | "transaction";
 export type SearchConditionHardness = "hard" | "soft" | "informational";
 export type SearchConditionValue = string | number | boolean | Array<string | number | boolean>;
+export type PublicProductAttributeName = "age_range" | "battery_mah" | "battery_wh" | "brand" | "capacity_l" | "capacity_ml" | "certification" | "certifications" | "color" | "colors" | "colour" | "compartment_count" | "compatibility" | "compatible_models" | "depth_cm" | "depth_in" | "depth_mm" | "diameter_cm" | "diameter_in" | "diameter_mm" | "dimensions" | "feature" | "features" | "finish" | "gender" | "height_cm" | "height_in" | "height_mm" | "length_cm" | "length_in" | "length_mm" | "material" | "materials" | "model" | "pack_size" | "pattern" | "piece_count" | "pieces" | "pocket_count" | "pockets" | "power" | "shape" | "size" | "sizes" | "style" | "styles" | "thickness_cm" | "thickness_in" | "thickness_mm" | "use_case" | "voltage" | "volume_l" | "volume_ml" | "weight" | "weight_g" | "weight_kg" | "weight_lb" | "weight_oz" | "width_cm" | "width_in" | "width_mm";
 
 export interface SearchCondition {
   "name": string;
@@ -137,7 +138,7 @@ export interface SearchProduct {
   "category"?: string;
   "tags"?: Array<string>;
   "images"?: SearchProductImage[];
-  "attributes"?: Record<string, string | number>;
+  "attributes"?: Partial<Record<PublicProductAttributeName, string | number>>;
   "price"?: SearchProductPrice;
   "availability_band"?: string;
   "lead_time_days"?: number;

@@ -1,5 +1,6 @@
 import type {
   NormalizedSearchContractV2Request,
+  PublicProductAttributeName,
   SearchContractV2Request,
   SearchContractV2Response,
   SearchContractV2WireRequest,
@@ -8,6 +9,7 @@ import type {
 
 export type {
   NormalizedSearchContractV2Request,
+  PublicProductAttributeName,
   SearchCondition,
   SearchConditionHardness,
   SearchConditionScope,
@@ -63,6 +65,9 @@ export interface SendFromChinaClient {
 }
 
 export declare const SEARCH_CONTRACT_VERSION: "2.0";
+export declare const PUBLIC_ATTRIBUTE_POLICY_VERSION: "public-product-attributes/v1";
+export declare const PUBLIC_ATTRIBUTE_NAMES: readonly PublicProductAttributeName[];
+export declare function projectSearchContractV2Response(value: Record<string, unknown>): SearchContractV2Response;
 export declare function normalizeSearchContractV2Request(value: SearchContractV2Request): NormalizedSearchContractV2Request;
 export declare function parseSearchContractV2Request(value: SearchContractV2WireRequest): NormalizedSearchContractV2Request;
 export declare function adaptSearchContractV2RequestToV1(value: SearchContractV2Request, options?: {

@@ -339,7 +339,7 @@ components:
         attributes:
           type: object
           maxProperties: 50
-          propertyNames: { pattern: "^[A-Za-z0-9_.-]{1,80}$" }
+          propertyNames: { $ref: "./public-product-attribute-policy.v1.json" }
           additionalProperties:
             oneOf:
               - { type: string, maxLength: 300 }

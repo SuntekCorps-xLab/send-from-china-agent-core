@@ -30,13 +30,15 @@ const PRIVATE_ATTRIBUTE_NAMES = new Set([
 export const PUBLIC_ATTRIBUTE_POLICY_VERSION = "public-product-attributes/v1";
 export const PUBLIC_ATTRIBUTE_NAMES = Object.freeze([
   "age_range", "battery_mah", "battery_wh", "brand", "capacity_l", "capacity_ml",
-  "certification", "certifications", "color", "colour", "compartment_count",
-  "depth_cm", "depth_in", "depth_mm", "diameter_cm", "diameter_in", "diameter_mm",
-  "dimensions", "finish", "height_cm", "height_in", "height_mm", "length_cm",
-  "length_in", "length_mm", "material", "materials", "model", "pack_size",
-  "pattern", "piece_count", "pieces", "pocket_count", "pockets", "shape", "size",
-  "style", "thickness_cm", "thickness_in", "thickness_mm", "volume_l", "volume_ml",
-  "weight_g", "weight_kg", "weight_lb", "weight_oz", "width_cm", "width_in", "width_mm",
+  "certification", "certifications", "color", "colors", "colour", "compartment_count",
+  "compatibility", "compatible_models", "depth_cm", "depth_in", "depth_mm",
+  "diameter_cm", "diameter_in", "diameter_mm", "dimensions", "feature", "features",
+  "finish", "gender", "height_cm", "height_in", "height_mm", "length_cm", "length_in",
+  "length_mm", "material", "materials", "model", "pack_size", "pattern", "piece_count",
+  "pieces", "pocket_count", "pockets", "power", "shape", "size", "sizes", "style",
+  "styles", "thickness_cm", "thickness_in", "thickness_mm", "use_case", "voltage",
+  "volume_l", "volume_ml", "weight", "weight_g", "weight_kg", "weight_lb", "weight_oz",
+  "width_cm", "width_in", "width_mm",
 ]);
 const PUBLIC_ATTRIBUTE_NAME_SET = new Set(PUBLIC_ATTRIBUTE_NAMES);
 
@@ -308,15 +310,66 @@ function containsPrivateAttribute(value, seen = new Set()) {
   return Object.entries(value).some(([key, item]) => privateAttributeName(key) || containsPrivateAttribute(item, seen));
 }
 
+function privateIpv4(hostname) {
+  const match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/u.exec(hostname);
+  if (!match) return false;
+  const octets = match.slice(1).map(Number);
+  if (octets.some((octet) => octet > 255)) return true;
+  const [first, second] = octets;
+  return first === 0 || first === 10 || first === 127
+    || (first === 100 && second >= 64 && second <= 127)
+    || (first === 169 && second === 254)
+    || (first === 172 && second >= 16 && second <= 31)
+    || (first === 192 && second === 168)
+    || (first === 198 && (second === 18 || second === 19))
+    || first >= 224;
+}
+
+function privateHostname(hostname) {
+  const host = String(hostname || "").toLowerCase().replace(/^\[|\]$/gu, "").replace(/\.$/u, "");
+  if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local")
+    || host.endsWith(".internal") || host.endsWith(".corp")) return true;
+  if (/^(?:\d{1,3}\.){3}\d{1,3}$/u.test(host)) return privateIpv4(host);
+  if (host === "::" || host === "::1") return true;
+  if (host.startsWith("::ffff:")) {
+    const mapped = host.slice("::ffff:".length);
+    if (privateIpv4(mapped)) return true;
+    const pair = mapped.split(":");
+    if (pair.length === 2 && pair.every((item) => /^[0-9a-f]{1,4}$/u.test(item))) {
+      const numeric = (Number.parseInt(pair[0], 16) * 65_536) + Number.parseInt(pair[1], 16);
+      return privateIpv4([
+        (numeric >>> 24) & 255, (numeric >>> 16) & 255, (numeric >>> 8) & 255, numeric & 255,
+      ].join("."));
+    }
+  }
+  const first = Number.parseInt(host.split(":").find((item) => item.length > 0) || "0", 16);
+  return (first & 0xfe00) === 0xfc00 || (first & 0xffc0) === 0xfe80;
+}
+
+function containsPrivateNetworkUrl(value) {
+  for (const match of String(value).matchAll(/https?:\/\/[^\s<>"']+/giu)) {
+    const candidate = match[0].replace(/[),.;!?]+$/gu, "");
+    try {
+      const url = new URL(candidate);
+      if (["http:", "https:"].includes(url.protocol)
+        && (url.username || url.password || privateHostname(url.hostname))) return true;
+    } catch {
+      // A field that semantically requires a URL performs stricter validation later.
+    }
+  }
+  return false;
+}
+
 function containsPrivateScalar(value) {
-  const text = String(value || "").trim();
-  if (!text) return false;
-  return /(?:https?|ftp|file|gid):\/\//i.test(text)
-    || /\b(?:bearer|basic)\s+[a-z0-9._~+/=-]{8,}\b/i.test(text)
-    || /\b(?:api[_ -]?key|authorization|client[_ -]?secret|credential|password|private[_ -]?key|refresh[_ -]?token|secret|token)\s*[:=]/i.test(text)
-    || /\b[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)+\b/i.test(text)
-    || /\b(?:localhost|[a-z0-9.-]+\.(?:internal|local))(?::\d{1,5})?\b/i.test(text)
-    || /\beyJ[a-z0-9_-]{8,}\.[a-z0-9_-]{8,}\.[a-z0-9_-]{8,}\b/i.test(text);
+  if (typeof value !== "string") return false;
+  return /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/iu.test(value)
+    || /\bBearer\s+[A-Za-z0-9._~+/=-]{12,}/iu.test(value)
+    || /\b(?:github_pat|ghp|gho|ghu|ghs|ghr|sk_live|shpat|shpca|shppa)_[A-Za-z0-9_-]{12,}\b/iu.test(value)
+    || /\bAKIA[0-9A-Z]{16}\b/u.test(value)
+    || /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/u.test(value)
+    || /(?:^|[?&;\s])(?:access[_-]?token|api[_-]?key|authorization|client[_-]?secret|credential|password|session|signature|token)\s*[=:]\s*[^&;\s]{6,}/iu.test(value)
+    || /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/iu.test(value)
+    || containsPrivateNetworkUrl(value);
 }
 
 function publicAttributes(value) {
@@ -346,6 +399,63 @@ function publicProduct(value) {
     } else output[field] = value[field];
   }
   return typeof output.title === "string" && output.title.trim() ? Object.freeze(output) : null;
+}
+
+function publicObject(value, fields) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return Object.freeze({});
+  return Object.freeze(Object.fromEntries(fields
+    .filter((field) => value[field] !== undefined)
+    .map((field) => [field, value[field]])));
+}
+
+function publicCondition(value) {
+  return publicObject(value, ["name", "value", "source", "scope", "hardness"]);
+}
+
+// A v2 server is expected to honor the response schema, but the SDK does not
+// treat an upstream JSON object as a trusted public projection. Rebuild the
+// response from known contract fields and reapply the product attribute policy
+// before returning it to an application.
+export function projectSearchContractV2Response(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new TypeError("Invalid Search Contract v2 response");
+  }
+  const output = {};
+  for (const field of ["contract_version", "trace_id", "status"]) {
+    if (value[field] !== undefined) output[field] = value[field];
+  }
+  if (value.normalized_intent !== undefined) {
+    const intent = value.normalized_intent;
+    output.normalized_intent = Object.freeze({
+      ...(intent?.product_identity !== undefined
+        ? { product_identity: publicCondition(intent.product_identity) } : {}),
+      ...(Array.isArray(intent?.hard_constraints)
+        ? { hard_constraints: Object.freeze(intent.hard_constraints.map(publicCondition)) } : {}),
+      ...(Array.isArray(intent?.soft_context)
+        ? { soft_context: Object.freeze(intent.soft_context.map(publicCondition)) } : {}),
+      ...(Array.isArray(intent?.transaction_context)
+        ? { transaction_context: Object.freeze(intent.transaction_context.map(publicCondition)) } : {}),
+    });
+  }
+  output.relaxations = Object.freeze((Array.isArray(value.relaxations) ? value.relaxations : [])
+    .map((item) => publicObject(item, ["condition", "from", "to", "reason"])));
+  output.missing_criteria = Object.freeze((Array.isArray(value.missing_criteria) ? value.missing_criteria : [])
+    .filter((item) => typeof item === "string").map((item) => item.slice(0, 64)));
+  output.results = Object.freeze((Array.isArray(value.results) ? value.results : [])
+    .map(publicProduct).filter(Boolean));
+  if (value.pagination !== undefined) {
+    output.pagination = publicObject(value.pagination, ["limit", "cursor", "next_cursor", "has_more"]);
+  }
+  if (value.search_scope !== undefined) {
+    output.search_scope = publicObject(value.search_scope, [
+      "plan_complete", "scope_exhausted", "global_catalog_exhaustive", "scan_limit_reached",
+      "degraded", "degraded_reason",
+    ]);
+  }
+  if (value.compatibility !== undefined) {
+    output.compatibility = publicObject(value.compatibility, ["adapter", "legacy_status"]);
+  }
+  return Object.freeze(output);
 }
 
 function cleanRelaxation(value) {

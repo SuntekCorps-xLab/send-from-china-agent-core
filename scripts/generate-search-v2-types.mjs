@@ -5,12 +5,15 @@ import { resolve } from "node:path";
 const root = resolve(new URL("..", import.meta.url).pathname.replace(/^\/(?:[A-Za-z]:)/, (value) => value.slice(1)));
 const requestPath = resolve(root, "contracts/search-v2-request.schema.json");
 const responsePath = resolve(root, "contracts/search-v2-response.schema.json");
-const [requestText, responseText] = await Promise.all([
+const attributePolicyPath = resolve(root, "contracts/public-product-attribute-policy.v1.json");
+const [requestText, responseText, attributePolicyText] = await Promise.all([
   readFile(requestPath, "utf8"),
   readFile(responsePath, "utf8"),
+  readFile(attributePolicyPath, "utf8"),
 ]);
 const requestSchema = JSON.parse(requestText);
 const responseSchema = JSON.parse(responseText);
+const attributePolicy = JSON.parse(attributePolicyText);
 const outputPath = resolve(root, "sdk/src/search-contract-v2.types.generated.d.ts");
 
 function union(values) {
@@ -67,6 +70,7 @@ const sources = condition.properties.source.enum;
 const scopes = condition.properties.scope.enum;
 const hardness = condition.properties.hardness.enum;
 const statuses = responseSchema.properties.status.enum;
+const publicAttributeNames = attributePolicy.enum;
 const product = responseSchema.$defs.product;
 const pagination = responseSchema.properties.pagination;
 const searchScope = responseSchema.properties.search_scope;
@@ -96,6 +100,12 @@ if (hardConstraintNames.length !== canonicalHardConstraintNames.length || unknow
   || !transactionNames.includes("delivery_days_max")) {
   throw new Error("Search v2 field-specific request constraints are incomplete");
 }
+if (attributePolicy.schema_version !== "public-product-attributes/v1"
+  || !Array.isArray(publicAttributeNames) || !publicAttributeNames.length
+  || new Set(publicAttributeNames).size !== publicAttributeNames.length
+  || publicAttributeNames.some((name) => !/^[a-z][a-z0-9_]{0,79}$/u.test(name))) {
+  throw new Error("Public product attribute policy is invalid");
+}
 
 const output = `// Generated from contracts/search-v2-*.schema.json. Do not edit by hand.
 // request-schema-sha256: ${digest(requestText)}
@@ -104,6 +114,7 @@ export type SearchConditionSource = ${union(sources)};
 export type SearchConditionScope = ${union(scopes)};
 export type SearchConditionHardness = ${union(hardness)};
 export type SearchConditionValue = ${schemaType(condition.properties.value)};
+export type PublicProductAttributeName = ${union(publicAttributeNames)};
 
 ${renderInterface("SearchCondition", condition, {
   source: "SearchConditionSource",
@@ -216,6 +227,7 @@ ${renderInterface("SearchProductPrice", product.properties.price)}
 
 ${renderInterface("SearchProduct", product, {
   images: "SearchProductImage[]",
+  attributes: "Partial<Record<PublicProductAttributeName, string | number>>",
   price: "SearchProductPrice",
 })}
 

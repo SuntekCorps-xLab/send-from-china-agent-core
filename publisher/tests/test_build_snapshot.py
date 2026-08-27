@@ -87,6 +87,35 @@ class PublisherTest(unittest.TestCase):
             self.assertNotIn(forbidden, encoded)
         self.assertEqual(report["discarded_input_field_count"], 4)
 
+    def test_positive_attribute_policy_and_sensitive_values_apply_before_publish(self):
+        payload = self.payload()
+        github_token = "gh" + "p_abcdefghijklmnop"
+        private_key_marker = "-----BEGIN " + "PRIVATE " + "KEY-----"
+        loopback = ".".join(["127", "0", "0", "1"])
+        payload["products"][0]["attributes"].update({
+            "compatibility": "Public model family",
+            "certification": "basic aluminum",
+            "voltage": "https://www.example.com/public/specification",
+            "accessToken": "hidden",
+            "clientSecret": "hidden",
+            "customerEmail": "hidden@example.invalid",
+            "supplierId": "hidden",
+            "actionUrl": "https://checkout.invalid",
+            "model": github_token,
+            "features": private_key_marker,
+            "power": "http://" + loopback + "/private",
+        })
+        snapshot, report = build_snapshot(payload, KEY, GENERATED_AT)
+        attributes = snapshot["products"][0]["attributes"]
+        self.assertEqual(attributes, {
+            "material": "bamboo",
+            "width_cm": 24,
+            "compatibility": "Public model family",
+            "certification": "basic aluminum",
+            "voltage": "https://www.example.com/public/specification",
+        })
+        self.assertEqual(report["discarded_input_field_count"], 8)
+
     def test_tenant_source_references_become_public_ids(self):
         snapshot, _ = build_snapshot(self.payload(), KEY, GENERATED_AT)
         product_id = snapshot["products"][0]["public_id"]

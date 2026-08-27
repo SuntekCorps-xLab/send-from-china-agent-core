@@ -229,23 +229,13 @@
         "attributes": {
           "type": "object",
           "maxProperties": 50,
-          "propertyNames": {
-            "enum": [
-              "battery_mah", "capacity_l", "capacity_ml", "color", "compatibility",
-              "depth_cm", "diameter_cm", "features", "finish", "height_cm", "length_cm",
-              "material", "pack_size", "pattern", "pieces", "pockets", "size", "style",
-              "volume_ml", "weight_g", "width_cm"
+          "propertyNames": {"$ref": "../../contracts/public-product-attribute-policy.v1.json"},
+          "additionalProperties": {
+            "oneOf": [
+              {"type": "string", "maxLength": 300},
+              {"type": "number"}
             ]
-          },
-          "patternProperties": {
-            "^(?:battery_mah|capacity_l|capacity_ml|color|compatibility|depth_cm|diameter_cm|features|finish|height_cm|length_cm|material|pack_size|pattern|pieces|pockets|size|style|volume_ml|weight_g|width_cm)$": {
-              "oneOf": [
-                {"type": "string", "maxLength": 300},
-                {"type": "number"}
-              ]
-            }
-          },
-          "additionalProperties": false
+          }
         },
         "price": {
           "type": "object",

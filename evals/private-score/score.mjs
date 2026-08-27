@@ -49,6 +49,9 @@ const MAX_TOTAL_INPUT_BYTES = 640 * 1024 * 1024;
 const MAX_JSON_NESTING = 128;
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const fieldPolicyPath = fileURLToPath(new URL("../../governance-worker/src/field-policy.js", import.meta.url));
+const publicAttributePolicyPath = fileURLToPath(new URL(
+  "../../contracts/public-product-attribute-policy.v1.json", import.meta.url,
+));
 const agreementRunnerPath = fileURLToPath(new URL("../private-gate/adjudicate.mjs", import.meta.url));
 const RAW_METRICS = Symbol("raw_metrics");
 const RAW_LATENCY = Symbol("raw_latency");
@@ -125,6 +128,7 @@ function runnerSourceDigest() {
     agreementRunnerPath,
     fileURLToPath(new URL("../v0/dataset.mjs", import.meta.url)),
     fieldPolicyPath,
+    publicAttributePolicyPath,
     fileURLToPath(new URL("../../contracts/search-v2-response.schema.json", import.meta.url)),
   ];
   return canonicalDigest(files.map((file) => readFileSync(file, "utf8")));
@@ -132,15 +136,14 @@ function runnerSourceDigest() {
 
 const RUNNER_SOURCE_SHA256 = runnerSourceDigest();
 const AGREEMENT_RUNNER_SOURCE_SHA256 = canonicalDigest(readFileSync(agreementRunnerPath, "utf8"));
-// This scorer-local positive policy is deliberately stricter than the current
-// runtime projection. Session B may detect a production-policy leak, but must
-// not silently change production Search Contract behavior from the Eval branch.
-const PUBLIC_PRODUCT_ATTRIBUTE_FIELDS = Object.freeze([
-  "battery_mah", "capacity_l", "capacity_ml", "color", "compatibility",
-  "depth_cm", "diameter_cm", "features", "finish", "height_cm", "length_cm",
-  "material", "pack_size", "pattern", "pieces", "pockets", "size", "style",
-  "volume_ml", "weight_g", "width_cm",
-]);
+const PUBLIC_ATTRIBUTE_POLICY = JSON.parse(readFileSync(publicAttributePolicyPath, "utf8"));
+invariant(PUBLIC_ATTRIBUTE_POLICY?.schema_version === "public-product-attributes/v1"
+  && Array.isArray(PUBLIC_ATTRIBUTE_POLICY.enum)
+  && PUBLIC_ATTRIBUTE_POLICY.enum.length > 0
+  && new Set(PUBLIC_ATTRIBUTE_POLICY.enum).size === PUBLIC_ATTRIBUTE_POLICY.enum.length
+  && PUBLIC_ATTRIBUTE_POLICY.enum.every((name) => /^[a-z][a-z0-9_]{0,79}$/u.test(name)),
+"PUBLIC_ATTRIBUTE_POLICY_INVALID");
+const PUBLIC_PRODUCT_ATTRIBUTE_FIELDS = Object.freeze([...PUBLIC_ATTRIBUTE_POLICY.enum]);
 const PUBLIC_PRODUCT_ATTRIBUTE_FIELD_SET = new Set(PUBLIC_PRODUCT_ATTRIBUTE_FIELDS);
 export const PUBLIC_FIELD_ALLOWLIST_SHA256 = canonicalDigest({
   product_fields: PUBLIC_PRODUCT_FIELDS,

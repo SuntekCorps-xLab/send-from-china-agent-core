@@ -7,23 +7,23 @@ import {
   PUBLIC_ATTRIBUTE_POLICY_VERSION as WORKER_PUBLIC_ATTRIBUTE_POLICY_VERSION,
 } from "../../governance-worker/src/field-policy.js";
 import {
-  PUBLIC_ATTRIBUTE_NAMES,
-  PUBLIC_ATTRIBUTE_POLICY_VERSION,
-} from "../src/search-contract-v2.js";
-
-import {
   adaptSearchContractV1ResponseToV2,
   adaptSearchContractV2RequestToV1,
   createSendFromChinaClient,
   normalizeSearchContractV2Request,
   parseSearchContractV2Request,
+  PUBLIC_ATTRIBUTE_NAMES,
+  PUBLIC_ATTRIBUTE_POLICY_VERSION,
   SEARCH_CONTRACT_VERSION,
 } from "../src/index.js";
 
-test("Worker and SDK use one versioned public attribute schema", () => {
+test("Worker and SDK use one versioned public attribute schema", async () => {
+  const canonical = JSON.parse(await readFile(new URL("../../contracts/public-product-attribute-policy.v1.json", import.meta.url)));
   assert.equal(PUBLIC_ATTRIBUTE_POLICY_VERSION, "public-product-attributes/v1");
   assert.equal(PUBLIC_ATTRIBUTE_POLICY_VERSION, WORKER_PUBLIC_ATTRIBUTE_POLICY_VERSION);
+  assert.equal(PUBLIC_ATTRIBUTE_POLICY_VERSION, canonical.schema_version);
   assert.deepEqual(PUBLIC_ATTRIBUTE_NAMES, WORKER_PUBLIC_ATTRIBUTE_NAMES);
+  assert.deepEqual(PUBLIC_ATTRIBUTE_NAMES, canonical.enum);
 });
 
 const baseRequest = {
@@ -340,18 +340,34 @@ test("v1 response adapter strips fields outside the public product presentation"
 });
 
 test("v1 response adapter drops sensitive values under approved attribute names", () => {
+  const privateKeyMarker = ["-----BEGIN", ["PRIVATE", "KEY-----"].join(" ")].join(" ");
+  const githubToken = ["ghp", "abcdefghijklmnop"].join("_");
+  const shopifyToken = ["shpat", "abcdefghijklmnop"].join("_");
+  const cloudAccessKey = ["AK", "IA1234567890ABCDEF"].join("");
   const result = adaptSearchContractV1ResponseToV2({
     status: "catalog_match", products: [{
       title: "Public Product",
       attributes: {
-        material: "Bearer fictional-secret-token",
-        brand: "owner@example.invalid",
-        model: "https://catalog.internal/private/item",
+        material: privateKeyMarker,
+        brand: githubToken,
+        model: shopifyToken,
+        compatibility: cloudAccessKey,
+        features: "Bearer fictional-secret-token",
+        finish: "eyJabcdefgh.ijklmnop.qrstuvwx",
+        use_case: "client_secret=fictional-secret",
+        style: "owner@example.invalid",
+        power: "https://catalog.internal/private/item",
+        certification: "basic aluminum",
+        voltage: "https://www.example.com/public/specification",
         width_cm: 24,
       },
     }], exhaustive: false, search_scope_exhausted: false,
   }, { request: baseRequest, traceId: "trace-sensitive-attribute-values" });
-  assert.deepEqual(result.results[0].attributes, { width_cm: 24 });
+  assert.deepEqual(result.results[0].attributes, {
+    certification: "basic aluminum",
+    voltage: "https://www.example.com/public/specification",
+    width_cm: 24,
+  });
 });
 
 test("v1 pagination never promises another page without a cursor", () => {
@@ -364,13 +380,21 @@ test("v1 pagination never promises another page without a cursor", () => {
 
 test("client calls the authenticated Search Contract v2 endpoint", async () => {
   let called;
+  const githubToken = ["ghp", "abcdefghijklmnop"].join("_");
   const client = createSendFromChinaClient({
     baseUrl: "https://agent.example.test", token: "tenant_test_token",
     fetch: async (url, init) => {
       called = { url, body: JSON.parse(init.body) };
       return response({
         contract_version: "2.0", trace_id: "trace-direct", status: "results",
-        normalized_intent: {}, relaxations: [], missing_criteria: [], results: [{ title: "Compact Desk" }],
+        normalized_intent: {}, relaxations: [], missing_criteria: [], internal_trace: "must-not-leave",
+        results: [{
+          title: "Compact Desk", internal_id: "hidden",
+          attributes: {
+            material: "wood", accessToken: "hidden", customerEmail: "hidden@example.invalid",
+            model: githubToken,
+          },
+        }],
         pagination: { limit: 20, cursor: null, next_cursor: null, has_more: false },
         search_scope: { plan_complete: false, scope_exhausted: false, global_catalog_exhaustive: false, scan_limit_reached: false, degraded: false },
       });
@@ -381,6 +405,9 @@ test("client calls the authenticated Search Contract v2 endpoint", async () => {
   assert.equal(called.body.product_identity.value, "compact desk");
   assert.equal(result.contract_version, "2.0");
   assert.equal(result.status, "results");
+  assert.equal("internal_trace" in result, false);
+  assert.equal("internal_id" in result.results[0], false);
+  assert.deepEqual(result.results[0].attributes, { material: "wood" });
 });
 
 test("client keeps the explicit v1 compatibility path", async () => {

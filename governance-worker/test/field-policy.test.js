@@ -68,17 +68,30 @@ test("attribute policy is a positive lower-snake-case allowlist", () => {
 });
 
 test("approved attribute names still reject credential, PII, and internal URL values", () => {
+  const privateKeyMarker = ["-----BEGIN", ["PRIVATE", "KEY-----"].join(" ")].join(" ");
+  const githubToken = ["ghp", "abcdefghijklmnop"].join("_");
+  const shopifyToken = ["shpat", "abcdefghijklmnop"].join("_");
+  const cloudAccessKey = ["AK", "IA1234567890ABCDEF"].join("");
+  const loopback = ["127", "0", "0", "1"].join(".");
   const output = toPublicProduct(base({
     attributes: {
-      material: "Bearer fictional-secret-token",
-      brand: "owner@example.invalid",
-      model: "https://catalog.internal/private/item",
-      certification: "Public illustrative certification",
+      material: privateKeyMarker,
+      brand: githubToken,
+      model: shopifyToken,
+      compatibility: cloudAccessKey,
+      features: "Bearer fictional-secret-token",
+      finish: "eyJabcdefgh.ijklmnop.qrstuvwx",
+      use_case: "api_key=fictional-secret",
+      style: "owner@example.invalid",
+      power: `http://${loopback}/private/item`,
+      certification: "basic aluminum",
+      voltage: "https://www.example.com/public/specification",
       width_cm: 24,
     },
   }));
   assert.deepEqual(output.attributes, {
-    certification: "Public illustrative certification",
+    certification: "basic aluminum",
+    voltage: "https://www.example.com/public/specification",
     width_cm: 24,
   });
 });

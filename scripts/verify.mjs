@@ -31,6 +31,7 @@ try {
   run(process.execPath, ["--test", "starters/agent-core-js/test/starter.test.mjs"]);
   run(python, ["-m", "unittest", "discover", "-s", "recipes/python", "-p", "test_*.py", "-v"]);
   run(process.execPath, ["--test", "sdk/test/client.test.js", "sdk/test/search-contract-v2.test.js"]);
+  run(process.execPath, ["scripts/verify-public-attribute-policy.mjs"]);
   run(process.execPath, ["scripts/generate-search-v2-types.mjs"]);
   run(process.execPath, ["--test", "evals/v0/test/eval.test.mjs"]);
   run(process.execPath, ["--test", "evals/private-gate/test/private-gate.test.mjs"]);

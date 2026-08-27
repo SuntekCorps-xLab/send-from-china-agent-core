@@ -6,16 +6,20 @@ const TERMINAL_TASK_STATES = new Set([
 
 export {
   SEARCH_CONTRACT_VERSION,
+  PUBLIC_ATTRIBUTE_NAMES,
+  PUBLIC_ATTRIBUTE_POLICY_VERSION,
   adaptSearchContractV1ResponseToV2,
   adaptSearchContractV2RequestToV1,
   createSearchContractV1Adapter,
   normalizeSearchContractV2Request,
   parseSearchContractV2Request,
+  projectSearchContractV2Response,
 } from "./search-contract-v2.js";
 
 import {
   adaptSearchContractV1ResponseToV2,
   adaptSearchContractV2RequestToV1,
+  projectSearchContractV2Response,
 } from "./search-contract-v2.js";
 
 export class SendFromChinaError extends Error {
@@ -183,9 +187,10 @@ export function createSendFromChinaClient(options = {}) {
     productSearch: (args, options = {}) => callTool("product_search", args, options),
     async searchContractV2(searchRequest, options = {}) {
       const normalized = adaptSearchContractV2RequestToV1(searchRequest).request;
-      return request("/api/search/v2", {
+      const value = await request("/api/search/v2", {
         method: "POST", signal: options.signal, body: JSON.stringify(normalized),
       });
+      return projectSearchContractV2Response(value);
     },
     async searchContractV2ViaV1(searchRequest, options = {}) {
       const adapted = adaptSearchContractV2RequestToV1(searchRequest, { operation: options.operation });

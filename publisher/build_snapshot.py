@@ -1,6 +1,7 @@
 import argparse
 import hashlib
 import hmac
+import ipaddress
 import json
 import math
 import os
@@ -30,6 +31,20 @@ PRIVATE_ATTRIBUTE_NAMES = {
     "supplier_name", "supplier_url", "token", "vendor", "vendor_id", "warehouse_code",
     "wholesale_price",
 }
+PUBLIC_ATTRIBUTE_POLICY_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "contracts"
+    / "public-product-attribute-policy.v1.json"
+)
+PUBLIC_ATTRIBUTE_POLICY = json.loads(PUBLIC_ATTRIBUTE_POLICY_PATH.read_text(encoding="utf-8"))
+if (
+    PUBLIC_ATTRIBUTE_POLICY.get("schema_version") != "public-product-attributes/v1"
+    or not isinstance(PUBLIC_ATTRIBUTE_POLICY.get("enum"), list)
+    or not PUBLIC_ATTRIBUTE_POLICY["enum"]
+    or len(set(PUBLIC_ATTRIBUTE_POLICY["enum"])) != len(PUBLIC_ATTRIBUTE_POLICY["enum"])
+):
+    raise RuntimeError("INVALID_PUBLIC_ATTRIBUTE_POLICY")
+PUBLIC_ATTRIBUTE_NAMES = frozenset(PUBLIC_ATTRIBUTE_POLICY["enum"])
 
 
 class PublisherError(ValueError):
@@ -140,6 +155,60 @@ def _private_attribute_name(value):
     )
 
 
+def _private_hostname(hostname):
+    host = str(hostname or "").strip().lower().strip("[]").rstrip(".")
+    if (
+        host == "localhost"
+        or host.endswith(".localhost")
+        or host.endswith(".local")
+        or host.endswith(".internal")
+        or host.endswith(".corp")
+    ):
+        return True
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return not address.is_global
+
+
+def _contains_private_network_url(value):
+    for match in re.finditer(r"https?://[^\s<>\"']+", str(value), flags=re.IGNORECASE):
+        candidate = match.group(0).rstrip("),.;!?")
+        try:
+            parsed = urlparse(candidate)
+            if parsed.scheme in {"http", "https"} and (
+                parsed.username or parsed.password or _private_hostname(parsed.hostname)
+            ):
+                return True
+        except ValueError:
+            continue
+    return False
+
+
+def _sensitive_scalar(value):
+    if not isinstance(value, str):
+        return False
+    return bool(
+        re.search(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----", value, re.IGNORECASE)
+        or re.search(r"\bBearer\s+[A-Za-z0-9._~+/=-]{12,}", value, re.IGNORECASE)
+        or re.search(
+            r"\b(?:github_pat|ghp|gho|ghu|ghs|ghr|sk_live|shpat|shpca|shppa)_[A-Za-z0-9_-]{12,}\b",
+            value,
+            re.IGNORECASE,
+        )
+        or re.search(r"\bAKIA[0-9A-Z]{16}\b", value)
+        or re.search(r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b", value)
+        or re.search(
+            r"(?:^|[?&;\s])(?:access[_-]?token|api[_-]?key|authorization|client[_-]?secret|credential|password|session|signature|token)\s*[=:]\s*[^&;\s]{6,}",
+            value,
+            re.IGNORECASE,
+        )
+        or re.search(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", value, re.IGNORECASE)
+        or _contains_private_network_url(value)
+    )
+
+
 def _attributes(value):
     if value is None:
         return {}, 0
@@ -149,7 +218,7 @@ def _attributes(value):
     discarded = 0
     for key, item in value.items():
         name = _text(key, 80, required=True)
-        if _private_attribute_name(name):
+        if name not in PUBLIC_ATTRIBUTE_NAMES or _private_attribute_name(name):
             discarded += 1
             continue
         if not re.fullmatch(r"[A-Za-z0-9_.-]{1,80}", name):
@@ -158,6 +227,9 @@ def _attributes(value):
             raise PublisherError("INVALID_ATTRIBUTES")
         if isinstance(item, str):
             item = _text(item, 300)
+            if _sensitive_scalar(item):
+                discarded += 1
+                continue
         if isinstance(item, float) and not (float("-inf") < item < float("inf")):
             raise PublisherError("INVALID_ATTRIBUTES")
         output[name] = item

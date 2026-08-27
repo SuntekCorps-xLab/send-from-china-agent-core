@@ -1258,16 +1258,15 @@ test("all private scorer Schemas parse and lock aggregate-only boundaries", asyn
   assert.equal(pointerSchema.maxItems, 1000);
   assert.equal(pointerSchema.items.maxLength, 4096);
   assert.equal(pointerSchema.items.pattern, "^(?:/(?:[^~/]|~[01])*)+$");
-  assert.deepEqual(
-    schemas["predictions.schema.json"].$defs.publicProduct.properties.attributes
-      .propertyNames.enum,
-    [
-      "battery_mah", "capacity_l", "capacity_ml", "color", "compatibility",
-      "depth_cm", "diameter_cm", "features", "finish", "height_cm", "length_cm",
-      "material", "pack_size", "pattern", "pieces", "pockets", "size", "style",
-      "volume_ml", "weight_g", "width_cm",
-    ],
+  const publicAttributePolicy = JSON.parse(await readFile(
+    new URL("../../../contracts/public-product-attribute-policy.v1.json", import.meta.url), "utf8",
+  ));
+  assert.equal(
+    schemas["predictions.schema.json"].$defs.publicProduct.properties.attributes.propertyNames.$ref,
+    "../../contracts/public-product-attribute-policy.v1.json",
   );
+  assert.equal(publicAttributePolicy.schema_version, "public-product-attributes/v1");
+  assert.equal(publicAttributePolicy.enum.length, 61);
 });
 
 test("the CLI consumes only external captures and writes a new sanitized artifact", async () => {
