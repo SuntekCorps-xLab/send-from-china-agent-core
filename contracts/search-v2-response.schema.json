@@ -162,8 +162,8 @@
       "required": ["condition", "reason"],
       "properties": {
         "condition": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
-        "from": {},
-        "to": {},
+        "from": { "$ref": "./search-v2-request.schema.json#/$defs/condition/properties/value" },
+        "to": { "$ref": "./search-v2-request.schema.json#/$defs/condition/properties/value" },
         "reason": { "type": "string", "minLength": 1, "maxLength": 300 }
       }
     },

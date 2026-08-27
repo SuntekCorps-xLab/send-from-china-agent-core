@@ -516,11 +516,17 @@ function responseCursor(value) {
   return responseString(value, 1000);
 }
 
-function responseRelaxationValue(value) {
-  if (value === null || typeof value === "boolean") return value;
+function responseRelaxationScalar(value) {
+  if (typeof value === "boolean") return value;
   if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string" && value.length <= 300) return value;
+  if (typeof value === "string" && value.length <= 300 && value.trim()) return value;
   return invalidResponse();
+}
+
+function responseRelaxationValue(value) {
+  if (!Array.isArray(value)) return responseRelaxationScalar(value);
+  if (value.length < 1 || value.length > 50) return invalidResponse();
+  return Object.freeze(value.map(responseRelaxationScalar));
 }
 
 function responseRelaxation(value) {

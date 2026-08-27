@@ -866,8 +866,10 @@ function allowedObservedPointer(pointer) {
     return parts.length === 3 || (parts.length === 4 && CONDITION_FIELDS.has(nested));
   }
   if (root === "relaxations") {
-    return /^\d+$/u.test(index) && (parts.length === 2
-      || (parts.length === 3 && ["condition", "from", "to", "reason"].includes(field)));
+    if (!/^\d+$/u.test(index)) return false;
+    if (parts.length === 2) return true;
+    if (parts.length === 3) return ["condition", "from", "to", "reason"].includes(field);
+    return parts.length === 4 && ["from", "to"].includes(field) && /^\d+$/u.test(nested);
   }
   if (root === "missing_criteria") return parts.length === 2 && /^\d+$/u.test(index);
   if (root === "pagination") return parts.length === 2

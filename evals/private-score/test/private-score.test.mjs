@@ -776,6 +776,35 @@ test("JSON Pointer percent escapes remain literal and cannot impersonate approve
   }
 });
 
+test("flat relaxation array leaves are public pointers but nested or named leaves fail closed", () => {
+  const inputs = fixture();
+  const { testCase, poolCase } = findCase(inputs);
+  const baselineSurface = structuredClone(capturedCase(
+    inputs.candidatePredictions, testCase.case_id,
+  ).surfaces.http);
+  const baseline = scorePrivateCase(testCase, baselineSurface, poolCase);
+
+  const publicSurface = structuredClone(baselineSurface);
+  publicSurface.normalized_core_payload_json_pointers.push(
+    "/relaxations/0/from/0", "/relaxations/0/to/1",
+  );
+  const publicScore = scorePrivateCase(testCase, publicSurface, poolCase);
+  assert.equal(publicScore.violations.private_field_violations,
+    baseline.violations.private_field_violations);
+
+  for (const pointer of [
+    "/relaxations/0/from/token",
+    "/relaxations/0/from/0/nested",
+    "/relaxations/0/reason/0",
+  ]) {
+    const unsafeSurface = structuredClone(baselineSurface);
+    unsafeSurface.normalized_core_payload_json_pointers.push(pointer);
+    const unsafeScore = scorePrivateCase(testCase, unsafeSurface, poolCase);
+    assert.ok(unsafeScore.violations.private_field_violations
+      > baseline.violations.private_field_violations, pointer);
+  }
+});
+
 test("credential, PII and internal-host values fail closed even in approved public fields", () => {
   for (const [field, value] of [
     ["description", "Contact customer@example.invalid for access"],

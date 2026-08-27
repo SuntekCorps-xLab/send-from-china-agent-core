@@ -1,6 +1,6 @@
 // Generated from contracts/search-v2-*.schema.json. Do not edit by hand.
 // request-schema-sha256: 069f1eb612575bc7ec42ccb8a675a21181d8075e5cf76bf90ed75330fd4b2d6b
-// response-schema-sha256: 436f6ac0380adc2026a03542f31b36a0a9934e43c7fa0ed857ba3f4ec1ec4859
+// response-schema-sha256: e973b7cd3c5c33c09ac2d706148337be2711d74ddd2318075e3247f583c9e328
 export type SearchConditionSource = "explicit" | "inferred" | "default";
 export type SearchConditionScope = "product" | "session" | "transaction";
 export type SearchConditionHardness = "hard" | "soft" | "informational";
@@ -114,8 +114,8 @@ export interface NormalizedSearchContractV2Request extends SearchContractV2WireR
 
 export interface SearchRelaxation {
   "condition": string;
-  "from"?: unknown;
-  "to"?: unknown;
+  "from"?: SearchConditionValue;
+  "to"?: SearchConditionValue;
   "reason": string;
 }
 

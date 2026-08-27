@@ -28,6 +28,7 @@ function schemaType(schema) {
   if (!schema || Object.keys(schema).length === 0) return "unknown";
   if (schema.$ref) {
     if (schema.$ref.endsWith("#/$defs/condition")) return "SearchCondition";
+    if (schema.$ref.endsWith("#/$defs/condition/properties/value")) return "SearchConditionValue";
     if (schema.$ref.endsWith("#/properties/product_identity")) return "SearchProductIdentityCondition";
     throw new Error(`Unsupported type-generation reference: ${schema.$ref}`);
   }

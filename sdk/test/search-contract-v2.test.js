@@ -6,6 +6,8 @@ import {
   PUBLIC_ATTRIBUTE_NAMES as WORKER_PUBLIC_ATTRIBUTE_NAMES,
   PUBLIC_ATTRIBUTE_POLICY_VERSION as WORKER_PUBLIC_ATTRIBUTE_POLICY_VERSION,
 } from "../../governance-worker/src/field-policy.js";
+import coreWorker from "../../governance-worker/src/index.js";
+import { ALPHA_KEY, ENV as CORE_ENV } from "../../governance-worker/test/test-env.js";
 import {
   adaptSearchContractV1ResponseToV2,
   adaptSearchContractV2RequestToV1,
@@ -118,6 +120,10 @@ test("publishes strict v2 request and response schemas", async () => {
     "./search-v2-request.schema.json#/properties/soft_context");
   assert.equal(responseSchema.$defs.normalizedIntent.properties.transaction_context.$ref,
     "./search-v2-request.schema.json#/properties/transaction_context");
+  assert.equal(responseSchema.$defs.relaxation.properties.from.$ref,
+    "./search-v2-request.schema.json#/$defs/condition/properties/value");
+  assert.equal(responseSchema.$defs.relaxation.properties.to.$ref,
+    "./search-v2-request.schema.json#/$defs/condition/properties/value");
   const noMatchScope = responseSchema.allOf[0].then.properties.search_scope.properties;
   assert.deepEqual(noMatchScope.scan_limit_reached, { const: false });
   assert.equal("source" in responseSchema.$defs.product.properties, false);
@@ -289,6 +295,28 @@ test("v1 adapter retrieves by product identity and maps only supported explicit 
   assert.deepEqual(adapted.relaxations.map((item) => item.condition), ["color", "recipient"]);
 });
 
+test("v1 compatibility preserves flat condition arrays through the public v2 projection", () => {
+  const adapted = adaptSearchContractV2RequestToV1({
+    ...baseRequest,
+    hard_constraints: [
+      { name: "color", value: ["navy", "blue"], source: "explicit", scope: "product", hardness: "hard" },
+    ],
+  });
+  const responseV2 = adaptSearchContractV1ResponseToV2({
+    status: "catalog_match", products: [{ title: "Navy organizer" }],
+    exhaustive: false, search_scope_exhausted: false,
+  }, {
+    request: adapted.request, relaxations: adapted.relaxations, traceId: "trace-array-round-trip",
+  });
+  const projected = projectSearchContractV2Response(responseV2);
+  assert.deepEqual(projected.relaxations, [{
+    condition: "color",
+    from: ["navy", "blue"],
+    reason: "The v1 compatibility path cannot enforce this condition.",
+  }]);
+  assert.equal(Object.isFrozen(projected.relaxations[0].from), true);
+});
+
 test("v1 response becomes no_match only with a complete non-truncated search proof", () => {
   const terminal = adaptSearchContractV1ResponseToV2({
     status: "no_match", products: [], exhaustive: true, search_scope_exhausted: true, truncated: false,
@@ -395,7 +423,10 @@ test("client calls the authenticated Search Contract v2 endpoint", async () => {
           product_identity: called.body.product_identity,
           hard_constraints: [], soft_context: [], transaction_context: [],
         },
-        relaxations: [], missing_criteria: [], internal_trace: "must-not-leave",
+        relaxations: [{
+          condition: "color", from: ["navy", "blue"],
+          reason: "The hosted path retained a public multi-value condition.",
+        }], missing_criteria: [], internal_trace: "must-not-leave",
         results: [{
           title: "Compact Desk", internal_id: "hidden",
           images: [{
@@ -420,6 +451,7 @@ test("client calls the authenticated Search Contract v2 endpoint", async () => {
   assert.equal(called.body.product_identity.value, "compact desk");
   assert.equal(result.contract_version, "2.0");
   assert.equal(result.status, "results");
+  assert.deepEqual(result.relaxations[0].from, ["navy", "blue"]);
   assert.equal("internal_trace" in result, false);
   assert.equal("internal_id" in result.results[0], false);
   assert.deepEqual(result.results[0].images, [{
@@ -456,8 +488,30 @@ test("direct v2 projection rejects nested metadata outside public product fields
   }), /Invalid Search Contract v2/);
   assert.throws(() => projectSearchContractV2Response({
     ...valid,
+    relaxations: [{ condition: "material", from: [["nested-leak"]], reason: "safe reason" }],
+  }), /Invalid Search Contract v2/);
+  assert.throws(() => projectSearchContractV2Response({
+    ...valid,
+    relaxations: [{ condition: "material", from: ["safe", { token: "nested-leak" }], reason: "safe reason" }],
+  }), /Invalid Search Contract v2/);
+  assert.throws(() => projectSearchContractV2Response({
+    ...valid,
     pagination: { ...valid.pagination, cursor: { token: "nested-leak" } },
   }), /Invalid Search Contract v2/);
+});
+
+test("SDK projection accepts the exact Agent Core Search v2 handler response", async () => {
+  const request = normalizeSearchContractV2Request({ ...baseRequest, product_identity: "desk organizer" });
+  const upstream = await coreWorker.fetch(new Request("https://core.contract.invalid/api/search/v2", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${ALPHA_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  }), CORE_ENV);
+  assert.equal(upstream.status, 200);
+  const projected = projectSearchContractV2Response(await upstream.json());
+  assert.equal(projected.contract_version, "2.0");
+  assert.equal(projected.status, "results");
+  assert.ok(projected.results.length > 0);
 });
 
 test("client keeps the explicit v1 compatibility path", async () => {
