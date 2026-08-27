@@ -141,6 +141,7 @@ class PublisherTest(unittest.TestCase):
             build_snapshot(payload, KEY, GENERATED_AT)
 
     def test_url_policy_rejects_credentials_provenance_and_non_public_networks(self):
+        loopback_host = ".".join(("127", "0", "0", "1"))
         unsafe_urls = [
             "https://shop.example/product#access_token=secretvalue123",
             "https://shop.example/product#accesstoken=secretvalue123",
@@ -151,6 +152,21 @@ class PublisherTest(unittest.TestCase):
             "https://catalog.office.corp/product",
             "https://supplierportal.example/product",
             "https://shop.example/sourcereceipt/1",
+            "https://shop.example/%252573ourceReceipt/1",
+            "https://shop.example/sourcereceiptv2/1",
+            "https://supplierportalv2.example/product",
+            "https://shop.example/sourcereceipts/1",
+            "https://suppliersportal.example/product",
+            "https://source.example/product",
+            "https://vendorportal.example/product",
+            f"https://shop.example/proxy?url=http%3A%2F%2F{loopback_host}%2Fprivate",
+            "https://shop.example/proxy?url=https%3A%2F%2Frouter.lan%2Fprivate",
+            "https://shop.example/%ZZ/%73ourceReceipt/1",
+            "https://127.1/product",
+            "https://2130706433/product",
+            "https://0x7f000001/product",
+            "https://0177.0.0.1/product",
+            "https://0x0a000001/product",
             "https://router.localdomain/product",
             "https://router.home.arpa/product",
             "https://[fec0::1]/product",
@@ -175,6 +191,85 @@ class PublisherTest(unittest.TestCase):
         snapshot, _ = build_snapshot(payload, KEY, GENERATED_AT)
         self.assertEqual(snapshot["products"][0]["images"][0]["url"], public_url)
         self.assertEqual(snapshot["products"][0]["attributes"]["voltage"], public_url)
+
+    def test_every_public_text_surface_rejects_sensitive_values(self):
+        loopback_host = ".".join(("127", "0", "0", "1"))
+        unsafe_values = [
+            "Bearer s3cr3t",
+            "Basic dXNlcjpwYXNz",
+            "Basic dXNlcjo+",
+            "Basic Og==",
+            "owner@example.com",
+            f"See http://{loopback_host}/private",
+            "meta/accessToken=secretvalue123",
+            "meta:accessToken=secretvalue123",
+            "meta.accessToken=secretvalue123",
+            "meta-accessToken=secretvalue123",
+            "meta(accessToken=secretvalue123)",
+            "meta,accessToken=secretvalue123",
+            "{accessToken:secretvalue123}",
+            "api.key=secretvalue123",
+            "x api key=secretvalue123",
+            "token secretvalue123",
+            "%252561ccessToken%25253Dsecretvalue123",
+            "%ZZ&%61ccessToken%3Dsecretvalue123",
+            "sourceReceipt=receipt123",
+            "supplierPortal=internal123",
+        ]
+        for value in unsafe_values:
+            mutations = {
+                "title": lambda product: product.update({"title": value}),
+                "description": lambda product: product.update({"description": value}),
+                "category": lambda product: product.update({"category": value}),
+                "tag": lambda product: product.update({"tags": [value]}),
+                "image_alt": lambda product: product.update({
+                    "images": [{"url": "https://www.example.com/images/product.jpg", "alt": value}]
+                }),
+                "price_tier": lambda product: product["price"].update({"tier": value}),
+            }
+            for surface, mutate in mutations.items():
+                with self.subTest(value=value, surface=surface):
+                    payload = self.payload()
+                    mutate(payload["products"][0])
+                    with self.assertRaisesRegex(PublisherError, "SENSITIVE_PUBLIC_VALUE"):
+                        build_snapshot(payload, KEY, GENERATED_AT)
+            with self.subTest(value=value, surface="attribute"):
+                payload = self.payload()
+                payload["products"][0]["attributes"]["material"] = value
+                snapshot, _ = build_snapshot(payload, KEY, GENERATED_AT)
+                self.assertNotIn("material", snapshot["products"][0]["attributes"])
+
+        payload = self.payload()
+        payload["products"][0]["attributes"]["compatibility"] = "Basic QWx1bWludW0="
+        snapshot, _ = build_snapshot(payload, KEY, GENERATED_AT)
+        self.assertEqual(
+            snapshot["products"][0]["attributes"]["compatibility"],
+            "Basic QWx1bWludW0=",
+        )
+
+        payload = self.payload()
+        product = payload["products"][0]
+        product.update({
+            "title": "Session chair with secret compartment",
+            "description": "Token ring motif and password journal cover",
+            "category": "Source code learning cards",
+            "tags": ["open-source", "supplier-friendly"],
+            "images": [{
+                "url": "https://www.example.com/images/product.jpg",
+                "alt": "Basic QWx1bWludW0= aluminum finish",
+            }],
+        })
+        product["price"]["tier"] = "secret compartment edition"
+        product["attributes"]["compatibility"] = "keyboard session stand"
+        snapshot, _ = build_snapshot(payload, KEY, GENERATED_AT)
+        self.assertEqual(
+            snapshot["products"][0]["title"],
+            "Session chair with secret compartment",
+        )
+        self.assertEqual(
+            snapshot["products"][0]["attributes"]["compatibility"],
+            "keyboard session stand",
+        )
 
     def test_non_finite_price_fails_closed(self):
         payload = self.payload()

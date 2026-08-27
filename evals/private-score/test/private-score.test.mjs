@@ -861,6 +861,89 @@ test("ordinary public product URLs remain valid public evidence", () => {
   assert.equal(scored.violations.private_field_violations, 0);
 });
 
+test("every public text surface rejects credential, provenance, and nested private URL values", () => {
+  const unsafeValues = [
+    "Basic dXNlcjpwYXNzd29yZA==",
+    "Bearer abc",
+    "accessToken=abcdefghijklmnop",
+    "access-token: abcdefghijklmnop",
+    "access_token = abcdefghijklmnop",
+    "%252561ccessToken%25253Dabcdefghijklmnop",
+    "access%Token=abcdefghijklmnop",
+    "sourceReceipt=private-record-1",
+    "supplierPortal: private-origin",
+    "https://public.example/redirect?next=https%253A%252F%252F10.0.0.1%252Fprivate",
+    "https://public.example/redirect?next=https%253A%252F%252Fsupplier.example%252Fsourcereceipt%252F1",
+  ];
+  const surfaces = {
+    title: (item, value) => { item.title = value; },
+    description: (item, value) => { item.description = value; },
+    category: (item, value) => { item.category = value; },
+    tags: (item, value) => { item.tags = ["public", value]; },
+    image_alt: (item, value) => {
+      item.images = [{ url: "https://cdn.example.invalid/products/public.png", alt: value }];
+    },
+    price_tier: (item, value) => { item.price.tier = value; },
+    attributes: (item, value) => { item.attributes.material = value; },
+  };
+  for (const [surfaceName, setValue] of Object.entries(surfaces)) {
+    for (const unsafeValue of unsafeValues) {
+      const inputs = fixture();
+      const { testCase, poolCase } = findCase(inputs);
+      const surface = structuredClone(capturedCase(
+        inputs.candidatePredictions, testCase.case_id,
+      ).surfaces.http);
+      const unsafe = product(testCase.expected.relevance[0].public_id, testCase);
+      setValue(unsafe, unsafeValue);
+      replaceResponse(surface, "results", [unsafe]);
+      const scored = scorePrivateCase(testCase, surface, poolCase);
+      assert.ok(scored.violations.private_field_violations >= 1,
+        `${surfaceName}: ${unsafeValue}`);
+    }
+  }
+});
+
+test("public text surfaces do not reject lookalike words or ordinary public URLs", () => {
+  const safeValues = [
+    "Basic QWx1bWludW0=",
+    "Open-source sourcecode documentation",
+    "https://docs.example.com/guides/open-source?topic=sourcecode#overview",
+  ];
+  const surfaces = {
+    title: (item, value) => { item.title = value; },
+    description: (item, value) => { item.description = value; },
+    category: (item, value) => { item.category = value; },
+    tags: (item, value) => { item.tags = ["public", value]; },
+    image_alt: (item, value) => {
+      item.images = [{ url: "https://cdn.example.invalid/products/public.png", alt: value }];
+    },
+    price_tier: (item, value) => { item.price.tier = value; },
+    attributes: (item, value) => { item.attributes.material = value; },
+  };
+  const falsePositives = [];
+  for (const [surfaceName, setValue] of Object.entries(surfaces)) {
+    for (const safeValue of safeValues) {
+      const inputs = fixture();
+      const { testCase, poolCase } = findCase(inputs);
+      const surface = structuredClone(capturedCase(
+        inputs.candidatePredictions, testCase.case_id,
+      ).surfaces.http);
+      const safe = product(testCase.expected.relevance[0].public_id, testCase);
+      setValue(safe, safeValue);
+      replaceResponse(surface, "results", [safe]);
+      const scored = scorePrivateCase(testCase, surface, poolCase);
+      if (scored.violations.private_field_violations !== 0) {
+        falsePositives.push({
+          surface: surfaceName,
+          value: safeValue,
+          violations: scored.violations.private_field_violations,
+        });
+      }
+    }
+  }
+  assert.deepEqual(falsePositives, []);
+});
+
 test("Schema-level title, date and HTTPS URL semantics are enforced at runtime", () => {
   for (const mutate of [
     (unsafe) => { unsafe.title = "   "; },

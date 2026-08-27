@@ -349,15 +349,12 @@ function privateHostname(hostname) {
 }
 
 function decodedSecurityText(value) {
-  let output = String(value || "").replace(/\+/gu, " ");
-  for (let pass = 0; pass < 2; pass += 1) {
-    try {
-      const decoded = decodeURIComponent(output).replace(/\+/gu, " ");
-      if (decoded === output) break;
-      output = decoded;
-    } catch {
-      break;
-    }
+  let output = String(value || "");
+  for (let pass = 0; pass < 32; pass += 1) {
+    const decoded = output.replace(/%([0-9a-f]{2})/giu,
+      (_match, hex) => String.fromCharCode(Number.parseInt(hex, 16)));
+    if (decoded === output) break;
+    output = decoded;
   }
   return output;
 }
@@ -368,41 +365,106 @@ function normalizedSecurityText(value) {
 }
 
 function containsBasicCredential(value) {
-  const match = /\bBasic\s+([A-Za-z0-9+/]{8,}={0,2})(?=$|[^A-Za-z0-9+/=])/iu
+  const match = /\bBasic\s+([A-Za-z0-9+/]{2,}={0,2})(?=$|[^A-Za-z0-9+/=])/iu
     .exec(decodedSecurityText(value));
-  return Boolean(match && /[A-Z]/u.test(match[1]) && /[a-z]/u.test(match[1])
-    && /[0-9+/=]/u.test(match[1]));
+  if (!match) return false;
+  const token = match[1].replace(/=+$/u, "");
+  if (!token || token.length % 4 === 1) return false;
+  try {
+    return globalThis.atob(`${token}${"=".repeat((4 - (token.length % 4)) % 4)}`).includes(":");
+  } catch {
+    return false;
+  }
+}
+
+function containsCredentialMarker(value) {
+  const normalized = normalizedSecurityText(value);
+  return /(?:^|_)(?:access_?token|refresh_?token|id_?token|auth_?token|api_?key|x_?api_?key|authorization|bearer_?token|client_?secret|credential|password|session|signature|token|secret)(?:_|$)/u
+    .test(normalized);
+}
+
+function containsCredentialAssignment(value) {
+  const decoded = decodedSecurityText(value).replace(/([a-z0-9])([A-Z])/gu, "$1 $2");
+  const key = String.raw`(?:access[\s._/-]*token|refresh[\s._/-]*token|id[\s._/-]*token|auth[\s._/-]*token|api[\s._/-]*key|x[\s._/-]*api[\s._/-]*key|authorization|bearer[\s._/-]*token|client[\s._/-]*secret|credential|password|session|signature|token|secret)`;
+  const explicitAssignment = new RegExp(
+    String.raw`(?:^|[^a-z0-9])${key}\s*(?:=|:|=>|->)\s*[^\s,;&]+`, "iu",
+  );
+  return explicitAssignment.test(decoded)
+    || /(?:^|[^a-z0-9])token\s+[A-Za-z0-9._~+/=-]{8,}(?=$|[^A-Za-z0-9._~+/=-])/iu.test(decoded);
+}
+
+const PROVENANCE_ROOTS = Object.freeze([
+  "source", "sources", "sourcing", "supplier", "suppliers", "vendor", "vendors",
+  "warehouse", "warehouses", "receipt", "receipts",
+]);
+
+function provenanceCompactToken(value) {
+  const token = String(value || "").toLowerCase();
+  if (token === "sourcecode") return false;
+  if (/^warehousecode(?:v\d+)?$/u.test(token)) return true;
+  return PROVENANCE_ROOTS.some((root) => {
+    if (!token.startsWith(root) || token === root) return false;
+    const suffix = token.slice(root.length);
+    return /^(?:id|url|record|reference|receipt(?:s)?|portal(?:s)?)(?:v\d+)?$/u.test(suffix);
+  });
+}
+
+function provenanceSegment(value) {
+  const tokens = decodedSecurityText(value).replace(/([a-z0-9])([A-Z])/gu, "$1 $2")
+    .toLowerCase().split(/[^a-z0-9]+/gu).filter(Boolean);
+  if (tokens.length === 1 && PROVENANCE_ROOTS.includes(tokens[0])) return true;
+  const candidates = [...tokens];
+  for (let index = 0; index < tokens.length - 1; index += 1) {
+    candidates.push(`${tokens[index]}${tokens[index + 1]}`);
+    if (index < tokens.length - 2) candidates.push(`${tokens[index]}${tokens[index + 1]}${tokens[index + 2]}`);
+  }
+  return candidates.some(provenanceCompactToken);
+}
+
+function containsProvenanceAssignment(value) {
+  const decoded = decodedSecurityText(value);
+  if (!/[=:]/u.test(decoded)) return false;
+  const normalized = normalizedSecurityText(decoded);
+  return /(?:^|_)(?:source_?(?:id|url|record|reference|receipt)|sourcing_?(?:id|url|record|reference|receipt)|supplier_?(?:id|url|record|reference|receipt|portal)|vendor_?(?:id|url)|warehouse_?code)(?:_|$)/u
+    .test(normalized);
 }
 
 function containsCredentialMaterial(value) {
   const text = decodedSecurityText(value);
   return /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/iu.test(text)
-    || /\bBearer\s+[A-Za-z0-9._~+/=-]{12,}/iu.test(text)
+    || /\bBearer\s+[^\s,;]+/iu.test(text)
     || containsBasicCredential(text)
     || /\b(?:github_pat|ghp|gho|ghu|ghs|ghr|sk_live|shpat|shpca|shppa)_[A-Za-z0-9_-]{12,}\b/iu.test(text)
     || /\bAKIA[0-9A-Z]{16}\b/u.test(text)
     || /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/u.test(text)
-    || /(?:^|[#?&;\s])(?:access[_-]?token|api[_-]?key|x[_-]?api[_-]?key|authorization|client[_-]?secret|credential|password|session|signature|token)\s*[=:]\s*[^#&;\s]{6,}/iu.test(text);
+    || containsCredentialAssignment(text)
+    || containsProvenanceAssignment(text);
 }
 
-function containsSensitiveUrlSemantics(url) {
-  for (const component of [url.hostname, url.pathname, url.search, url.hash]) {
-    const normalized = normalizedSecurityText(component);
-    if (/(?:^|_)(?:access_?token|api_?key|x_?api_?key|authorization|client_?secret|credential|password|session|signature|token)(?:_|$)/u.test(normalized)
-      || /(?:^|_)(?:source_?(?:id|url|record|reference|receipt)|supplier(?:portal)?|vendor_?(?:id|url)|warehouse_?code)(?:_|$)/u.test(normalized)
-      || containsCredentialMaterial(component)) return true;
+function containsSensitiveUrlSemantics(url, depth = 0) {
+  const structuralComponents = [
+    ...url.hostname.split("."), ...url.pathname.split("/"), url.hash,
+  ];
+  if (structuralComponents.some((component) => containsCredentialMarker(component)
+    || containsCredentialMaterial(component)
+    || provenanceSegment(component))) return true;
+  for (const [key, nested] of url.searchParams) {
+    if (containsCredentialMarker(key) || containsCredentialMarker(nested)
+      || containsCredentialMaterial(key) || containsCredentialMaterial(nested)
+      || provenanceSegment(key) || provenanceSegment(nested)) return true;
+    if (depth < 3 && containsPrivateNetworkUrl(decodedSecurityText(nested), depth + 1)) return true;
   }
   return false;
 }
 
-function containsPrivateNetworkUrl(value) {
+function containsPrivateNetworkUrl(value, depth = 0) {
   for (const match of String(value).matchAll(/https?:\/\/[^\s<>"']+/giu)) {
     const candidate = match[0].replace(/[),.;!?]+$/gu, "");
     try {
       const url = new URL(candidate);
       if (["http:", "https:"].includes(url.protocol)
         && (url.username || url.password || privateHostname(url.hostname)
-          || containsSensitiveUrlSemantics(url))) return true;
+          || containsSensitiveUrlSemantics(url, depth))) return true;
     } catch {
       // A field that semantically requires a URL performs stricter validation later.
     }

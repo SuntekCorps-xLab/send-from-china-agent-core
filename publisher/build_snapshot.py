@@ -1,4 +1,6 @@
 import argparse
+import base64
+import binascii
 import hashlib
 import hmac
 import ipaddress
@@ -11,7 +13,7 @@ import sys
 import tempfile
 import unicodedata
 from datetime import datetime, timedelta, timezone
-from urllib.parse import unquote_plus, urlparse
+from urllib.parse import parse_qsl, urlparse
 
 
 BASE62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
@@ -79,6 +81,13 @@ def _text(value, maximum, required=False):
     return cleaned
 
 
+def _public_text(value, maximum, required=False):
+    cleaned = _text(value, maximum, required=required)
+    if cleaned and _sensitive_scalar(cleaned):
+        raise PublisherError("SENSITIVE_PUBLIC_VALUE")
+    return cleaned
+
+
 def _https_url(value):
     text = _text(value, 2048, required=True)
     try:
@@ -130,7 +139,7 @@ def _images(value):
         if not isinstance(item, dict) or set(item) - {"url", "alt"}:
             raise PublisherError("INVALID_IMAGES")
         image = {"url": _https_url(item.get("url"))}
-        alt = _text(item.get("alt"), 300)
+        alt = _public_text(item.get("alt"), 300)
         if alt:
             image["alt"] = alt
         output.append(image)
@@ -144,7 +153,7 @@ def _tags(value):
         raise PublisherError("INVALID_TAGS")
     output = []
     for item in value:
-        tag = _text(item, 100, required=True)
+        tag = _public_text(item, 100, required=True)
         if tag not in output:
             output.append(tag)
     return output
@@ -173,6 +182,11 @@ def _private_hostname(hostname):
         or host.endswith(".home.arpa")
     ):
         return True
+    legacy_ipv4 = _whatwg_ipv4(host)
+    if legacy_ipv4 == "INVALID":
+        return True
+    if legacy_ipv4:
+        host = legacy_ipv4
     try:
         address = ipaddress.ip_address(host)
     except ValueError:
@@ -201,13 +215,42 @@ def _private_hostname(hostname):
     )
 
 
+def _whatwg_ipv4(hostname):
+    parts = str(hostname or "").split(".")
+    if not 1 <= len(parts) <= 4 or any(not part for part in parts):
+        return None
+    if any(not re.fullmatch(r"(?:0[xX][0-9A-Fa-f]+|[0-9]+)", part) for part in parts):
+        return None
+    numbers = []
+    try:
+        for part in parts:
+            if part.lower().startswith("0x"):
+                numbers.append(int(part[2:], 16))
+            elif len(part) > 1 and part.startswith("0"):
+                numbers.append(int(part[1:] or "0", 8))
+            else:
+                numbers.append(int(part, 10))
+    except ValueError:
+        return "INVALID"
+    if any(number > 255 for number in numbers[:-1]):
+        return "INVALID"
+    last_maximum = (256 ** (5 - len(numbers))) - 1
+    if numbers[-1] > last_maximum:
+        return "INVALID"
+    numeric = numbers[-1]
+    for index, number in enumerate(numbers[:-1]):
+        numeric += number * (256 ** (3 - index))
+    return ".".join(str((numeric >> shift) & 255) for shift in (24, 16, 8, 0))
+
+
 def _decoded_security_text(value):
-    output = str(value or "").replace("+", " ")
-    for _ in range(2):
-        try:
-            decoded = unquote_plus(output)
-        except (UnicodeDecodeError, ValueError):
-            break
+    output = str(value or "")
+    for _ in range(32):
+        decoded = re.sub(
+            r"%([0-9A-Fa-f]{2})",
+            lambda match: chr(int(match.group(1), 16)),
+            output,
+        )
         if decoded == output:
             break
         output = decoded
@@ -221,23 +264,108 @@ def _normalized_security_text(value):
 
 def _contains_basic_credential(value):
     match = re.search(
-        r"\bBasic\s+([A-Za-z0-9+/]{8,}={0,2})(?=$|[^A-Za-z0-9+/=])",
+        r"\bBasic\s+([A-Za-z0-9+/]{2,}={0,2})(?=$|[^A-Za-z0-9+/=])",
         _decoded_security_text(value),
         re.IGNORECASE,
     )
-    return bool(
-        match
-        and re.search(r"[A-Z]", match.group(1))
-        and re.search(r"[a-z]", match.group(1))
-        and re.search(r"[0-9+/=]", match.group(1))
+    if not match:
+        return False
+    token = match.group(1).rstrip("=")
+    if not token or len(token) % 4 == 1:
+        return False
+    try:
+        decoded = base64.b64decode(
+            token + ("=" * ((4 - len(token) % 4) % 4)),
+            validate=True,
+        )
+    except (binascii.Error, ValueError):
+        return False
+    return b":" in decoded
+
+
+def _contains_credential_marker(value):
+    normalized = _normalized_security_text(value)
+    return bool(re.search(
+        r"(?:^|_)(?:access_?token|refresh_?token|id_?token|auth_?token|api_?key|x_?api_?key|authorization|bearer_?token|client_?secret|credential|password|session|signature|token|secret)(?:_|$)",
+        normalized,
+    ))
+
+
+def _contains_credential_assignment(value):
+    decoded = re.sub(
+        r"([a-z0-9])([A-Z])",
+        r"\1 \2",
+        _decoded_security_text(value),
     )
+    key = (
+        r"(?:access[\s._/-]*token|refresh[\s._/-]*token|id[\s._/-]*token|"
+        r"auth[\s._/-]*token|api[\s._/-]*key|x[\s._/-]*api[\s._/-]*key|"
+        r"authorization|bearer[\s._/-]*token|client[\s._/-]*secret|credential|"
+        r"password|session|signature|token|secret)"
+    )
+    if re.search(
+        rf"(?:^|[^a-z0-9]){key}\s*(?:=|:|=>|->)\s*[^\s,;&]+",
+        decoded,
+        re.IGNORECASE,
+    ):
+        return True
+    return bool(re.search(
+        r"(?:^|[^a-z0-9])token\s+[A-Za-z0-9._~+/=-]{8,}(?=$|[^A-Za-z0-9._~+/=-])",
+        decoded,
+        re.IGNORECASE,
+    ))
+
+
+PROVENANCE_ROOTS = (
+    "source", "sources", "sourcing", "supplier", "suppliers", "vendor", "vendors",
+    "warehouse", "warehouses", "receipt", "receipts",
+)
+
+
+def _provenance_compact_token(value):
+    token = str(value or "").lower()
+    if token == "sourcecode":
+        return False
+    if re.fullmatch(r"warehousecode(?:v\d+)?", token):
+        return True
+    for root in PROVENANCE_ROOTS:
+        if not token.startswith(root) or token == root:
+            continue
+        suffix = token[len(root):]
+        if re.fullmatch(r"(?:id|url|record|reference|receipt(?:s)?|portal(?:s)?)(?:v\d+)?", suffix):
+            return True
+    return False
+
+
+def _provenance_segment(value):
+    decoded = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", _decoded_security_text(value))
+    tokens = [token for token in re.split(r"[^a-z0-9]+", decoded.lower()) if token]
+    if len(tokens) == 1 and tokens[0] in PROVENANCE_ROOTS:
+        return True
+    candidates = list(tokens)
+    for index in range(len(tokens) - 1):
+        candidates.append(tokens[index] + tokens[index + 1])
+        if index < len(tokens) - 2:
+            candidates.append(tokens[index] + tokens[index + 1] + tokens[index + 2])
+    return any(_provenance_compact_token(candidate) for candidate in candidates)
+
+
+def _contains_provenance_assignment(value):
+    decoded = _decoded_security_text(value)
+    if not re.search(r"[=:]", decoded):
+        return False
+    normalized = _normalized_security_text(decoded)
+    return bool(re.search(
+        r"(?:^|_)(?:source_?(?:id|url|record|reference|receipt)|sourcing_?(?:id|url|record|reference|receipt)|supplier_?(?:id|url|record|reference|receipt|portal)|vendor_?(?:id|url)|warehouse_?code)(?:_|$)",
+        normalized,
+    ))
 
 
 def _credential_material(value):
     text = _decoded_security_text(value)
     return bool(
         re.search(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----", text, re.IGNORECASE)
-        or re.search(r"\bBearer\s+[A-Za-z0-9._~+/=-]{12,}", text, re.IGNORECASE)
+        or re.search(r"\bBearer\s+[^\s,;]+", text, re.IGNORECASE)
         or _contains_basic_credential(text)
         or re.search(
             r"\b(?:github_pat|ghp|gho|ghu|ghs|ghr|sk_live|shpat|shpca|shppa)_[A-Za-z0-9_-]{12,}\b",
@@ -246,48 +374,57 @@ def _credential_material(value):
         )
         or re.search(r"\bAKIA[0-9A-Z]{16}\b", text)
         or re.search(r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b", text)
-        or re.search(
-            r"(?:^|[#?&;\s])(?:access[_-]?token|api[_-]?key|x[_-]?api[_-]?key|authorization|client[_-]?secret|credential|password|session|signature|token)\s*[=:]\s*[^#&;\s]{6,}",
-            text,
-            re.IGNORECASE,
-        )
+        or _contains_credential_assignment(text)
+        or _contains_provenance_assignment(text)
     )
 
 
-def _contains_sensitive_url_semantics(parsed):
-    credential_marker = re.compile(
-        r"(?:^|_)(?:access_?token|api_?key|x_?api_?key|authorization|client_?secret|credential|password|session|signature|token)(?:_|$)"
-    )
-    provenance_marker = re.compile(
-        r"(?:^|_)(?:source_?(?:id|url|record|reference|receipt)|supplier(?:portal)?|vendor_?(?:id|url)|warehouse_?code)(?:_|$)"
-    )
-    for component in (parsed.netloc, parsed.path, parsed.query, parsed.fragment):
-        normalized = _normalized_security_text(component)
-        if credential_marker.search(normalized) or provenance_marker.search(normalized):
+def _contains_sensitive_url_semantics(parsed, depth=0):
+    structural_components = [
+        *str(parsed.hostname or "").split("."),
+        *str(parsed.path or "").split("/"),
+        parsed.fragment,
+    ]
+    for component in structural_components:
+        if (
+            _contains_credential_marker(component)
+            or _credential_material(component)
+            or _provenance_segment(component)
+        ):
             return True
-        if _credential_material(component):
+    for key, nested in parse_qsl(parsed.query, keep_blank_values=True):
+        if (
+            _contains_credential_marker(key)
+            or _contains_credential_marker(nested)
+            or _credential_material(key)
+            or _credential_material(nested)
+            or _provenance_segment(key)
+            or _provenance_segment(nested)
+        ):
+            return True
+        if depth < 3 and _contains_private_network_url(_decoded_security_text(nested), depth + 1):
             return True
     return False
 
 
-def _unsafe_parsed_url(parsed):
+def _unsafe_parsed_url(parsed, depth=0):
     try:
         return bool(
             parsed.username
             or parsed.password
             or _private_hostname(parsed.hostname)
-            or _contains_sensitive_url_semantics(parsed)
+            or _contains_sensitive_url_semantics(parsed, depth)
         )
     except ValueError:
         return True
 
 
-def _contains_private_network_url(value):
+def _contains_private_network_url(value, depth=0):
     for match in re.finditer(r"https?://[^\s<>\"']+", str(value), flags=re.IGNORECASE):
         candidate = match.group(0).rstrip("),.;!?")
         try:
             parsed = urlparse(candidate)
-            if parsed.scheme in {"http", "https"} and _unsafe_parsed_url(parsed):
+            if parsed.scheme in {"http", "https"} and _unsafe_parsed_url(parsed, depth):
                 return True
         except ValueError:
             continue
@@ -352,7 +489,7 @@ def _price(value):
     if not re.fullmatch(r"[A-Z]{3}", currency):
         raise PublisherError("INVALID_PRICE")
     output = {"amount": round(numeric_amount, 2), "currency": currency}
-    tier = _text(value.get("tier"), 80)
+    tier = _public_text(value.get("tier"), 80)
     if tier:
         output["tier"] = tier
     return output
@@ -363,7 +500,7 @@ def normalize_product(value, key, generated_at):
         raise PublisherError("INVALID_PRODUCT")
     source_id = _text(value.get("source_id"), 200, required=True)
     public_id = opaque_public_id(source_id, key)
-    title = _text(value.get("title"), 300, required=True)
+    title = _public_text(value.get("title"), 300, required=True)
     availability = _text(value.get("availability_band"), 30, required=True)
     if availability not in AVAILABILITY_BANDS:
         raise PublisherError("INVALID_AVAILABILITY")
@@ -380,7 +517,7 @@ def normalize_product(value, key, generated_at):
         "category": 200,
     }
     for field, maximum in optional_text.items():
-        cleaned = _text(value.get(field), maximum)
+        cleaned = _public_text(value.get(field), maximum)
         if cleaned:
             product[field] = cleaned
     tags = _tags(value.get("tags"))

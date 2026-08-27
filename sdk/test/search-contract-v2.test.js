@@ -505,6 +505,7 @@ test("direct v2 projection rejects nested metadata outside public product fields
 });
 
 test("direct v2 projection removes unsafe URL semantics and preserves ordinary public URLs", () => {
+  const loopbackHost = ["127", "0", "0", "1"].join(".");
   const responseBase = {
     contract_version: "2.0", trace_id: "trace-url-policy", status: "results",
     normalized_intent: {
@@ -528,6 +529,16 @@ test("direct v2 projection removes unsafe URL semantics and preserves ordinary p
     "https://catalog.office.corp/product",
     "https://supplierportal.example/product",
     "https://shop.example/sourcereceipt/1",
+    "https://shop.example/%252573ourceReceipt/1",
+    "https://shop.example/sourcereceiptv2/1",
+    "https://supplierportalv2.example/product",
+    "https://shop.example/sourcereceipts/1",
+    "https://suppliersportal.example/product",
+    "https://source.example/product",
+    "https://vendorportal.example/product",
+    `https://shop.example/proxy?url=http%3A%2F%2F${loopbackHost}%2Fprivate`,
+    "https://shop.example/proxy?url=https%3A%2F%2Frouter.lan%2Fprivate",
+    "https://shop.example/%ZZ/%73ourceReceipt/1",
     "https://router.localdomain/product",
     "https://router.home.arpa/product",
     "https://[fec0::1]/product",
@@ -559,6 +570,92 @@ test("direct v2 projection removes unsafe URL semantics and preserves ordinary p
     title: "Safe title", product_url: publicUrl, add_to_cart_url: publicUrl,
     images: [{ url: publicUrl, alt: "Public product" }],
     attributes: { material: "basic aluminum", voltage: publicUrl },
+  });
+});
+
+test("direct v2 projection removes sensitive values from every public text surface", () => {
+  const loopbackHost = ["127", "0", "0", "1"].join(".");
+  const responseBase = {
+    contract_version: "2.0", trace_id: "trace-public-text-policy", status: "results",
+    normalized_intent: {
+      product_identity: baseRequest.product_identity,
+      hard_constraints: [], soft_context: [], transaction_context: [],
+    },
+    relaxations: [], missing_criteria: [],
+    pagination: { limit: 20, cursor: null, next_cursor: null, has_more: false },
+    search_scope: {
+      plan_complete: false, scope_exhausted: false, global_catalog_exhaustive: false,
+      scan_limit_reached: false, degraded: false, degraded_reason: null,
+    },
+  };
+  const unsafeValues = [
+    "Bearer s3cr3t",
+    "Basic dXNlcjpwYXNz",
+    "Basic dXNlcjo+",
+    "Basic Og==",
+    "owner@example.com",
+    `See http://${loopbackHost}/private`,
+    "meta/accessToken=secretvalue123",
+    "meta:accessToken=secretvalue123",
+    "meta.accessToken=secretvalue123",
+    "meta-accessToken=secretvalue123",
+    "meta(accessToken=secretvalue123)",
+    "meta,accessToken=secretvalue123",
+    "{accessToken:secretvalue123}",
+    "api.key=secretvalue123",
+    "x api key=secretvalue123",
+    "token secretvalue123",
+    "%252561ccessToken%25253Dsecretvalue123",
+    "%ZZ&%61ccessToken%3Dsecretvalue123",
+    "sourceReceipt=receipt123",
+    "supplierPortal=internal123",
+  ];
+  const publicImage = "https://www.example.com/images/product.jpg";
+  for (const value of unsafeValues) {
+    const projected = projectSearchContractV2Response({
+      ...responseBase,
+      results: [{
+        title: "Safe title", description: value, category: value, tags: [value],
+        images: [{ url: publicImage, alt: value }],
+        price: { amount: 1, currency: "USD", tier: value },
+        attributes: { material: value, width_cm: 24 },
+      }],
+    });
+    assert.deepEqual(projected.results[0], {
+      title: "Safe title", attributes: { width_cm: 24 },
+    }, value);
+    const unsafeTitle = projectSearchContractV2Response({
+      ...responseBase, results: [{ title: value }],
+    });
+    assert.equal(unsafeTitle.results.length, 0, value);
+  }
+
+  const safe = projectSearchContractV2Response({
+    ...responseBase,
+    results: [{
+      title: "Session chair with secret compartment",
+      description: "Token ring motif and password journal cover",
+      category: "Source code learning cards",
+      tags: ["open-source", "supplier-friendly"],
+      images: [{
+        url: "https://www.example.com/images/product.jpg",
+        alt: "Basic QWx1bWludW0= aluminum finish",
+      }],
+      price: { amount: 1, currency: "USD", tier: "secret compartment edition" },
+      attributes: { material: "basic aluminum", compatibility: "keyboard session stand" },
+    }],
+  });
+  assert.deepEqual(safe.results[0], {
+    title: "Session chair with secret compartment",
+    description: "Token ring motif and password journal cover",
+    category: "Source code learning cards",
+    tags: ["open-source", "supplier-friendly"],
+    images: [{
+      url: "https://www.example.com/images/product.jpg",
+      alt: "Basic QWx1bWludW0= aluminum finish",
+    }],
+    price: { amount: 1, currency: "USD", tier: "secret compartment edition" },
+    attributes: { material: "basic aluminum", compatibility: "keyboard session stand" },
   });
 });
 
