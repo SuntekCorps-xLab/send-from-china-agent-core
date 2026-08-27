@@ -71,3 +71,29 @@ claim that the current tree has been deployed or reviewed by GitHub Actions.
 
 The destination GitHub repository must run `.github/workflows/ci.yml` on the
 exact release commit before the `v1.0.0` tag is created.
+
+## 2026-08-27 Green Gate baseline freeze
+
+Before the recipe and starter work began, the release baseline was frozen at
+`main@e618626f47a837380eff6a8fd91583f6a5911c96`.
+
+- [CI run 32950132068](https://github.com/SuntekCorps-xLab/send-from-china-agent-core/actions/runs/32950132068) completed successfully on that exact SHA.
+- [CodeQL run 32950132098](https://github.com/SuntekCorps-xLab/send-from-china-agent-core/actions/runs/32950132098) was skipped because the repository was private. This is recorded
+  as `N/A (private)`, not as a passing security scan.
+- CodeQL now supports an explicit `workflow_dispatch`. It must be run and pass
+  after the repository becomes public and before the public Green Gate closes.
+
+This baseline evidence remains immutable. New recipes and the JavaScript
+starter require their own exact-commit CI result before release.
+
+### Current candidate local verification
+
+On 2026-08-27, `npm run verify`, `npm audit --audit-level=high`, and
+`git diff --check` passed for the recipe/starter candidate. The run included 46
+Worker tests, 8 sandbox tests, executable curl/MCP/JavaScript recipe checks, 1
+JavaScript starter integration test, 2 Python recipe tests, 21 SDK tests, 2 key
+generator tests, 4 ETL tests, and 11 publisher tests. The dependency audit
+reported zero vulnerabilities and the public safety scan reported no finding.
+
+This is local candidate evidence only. The commit created from this tree must
+receive a successful remote CI result before the Green Gate is marked complete.

@@ -4,6 +4,11 @@ All notable changes to the public reference implementation are documented here.
 
 ## Unreleased
 
+- Added tested curl, MCP, JavaScript, and Python sandbox recipes plus a
+  dependency-free Agent Core JavaScript starter.
+- Made CodeQL manually triggerable while retaining the documented private-repo
+  skip and public-repository enforcement boundary.
+
 - Added a loopback-only, zero-account HTTP and MCP sandbox that invokes the
   real Worker with a process-only ephemeral tenant credential and the synthetic
   published snapshot.

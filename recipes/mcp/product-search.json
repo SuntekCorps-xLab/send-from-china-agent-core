@@ -1,0 +1,16 @@
+{
+  "jsonrpc": "2.0",
+  "id": "recipe-product-search",
+  "method": "tools/call",
+  "params": {
+    "name": "product_search",
+    "arguments": {
+      "query": "desk organizer",
+      "criteria": {
+        "price_max": 40
+      },
+      "operation": "search",
+      "limit": 3
+    }
+  }
+}

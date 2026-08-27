@@ -96,6 +96,13 @@ and purchase or external URL evidence is removed. Sandbox discovery points MCP
 clients to `/sandbox/mcp`; canonical deployments still require bearer auth.
 See the [sandbox boundary and MCP setup](docs/SANDBOX.md).
 
+### Copy a working first call
+
+The tested [`recipes/`](recipes/README.md) directory provides curl, MCP,
+JavaScript, and Python paths against the same zero-account sandbox. To start
+from an editable application instead of a single call, use the dependency-free
+[`Agent Core JavaScript starter`](starters/agent-core-js/README.md).
+
 ## From private input to a public snapshot
 
 Publishing is a local build step, not a runtime sync. User-selected catalog input

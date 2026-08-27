@@ -1,0 +1,31 @@
+{
+  "contract_version": "2.0",
+  "product_identity": {
+    "name": "product_identity",
+    "value": "desk organizer",
+    "source": "explicit",
+    "scope": "product",
+    "hardness": "hard"
+  },
+  "hard_constraints": [
+    {
+      "name": "price_max",
+      "value": 40,
+      "source": "explicit",
+      "scope": "product",
+      "hardness": "hard"
+    }
+  ],
+  "soft_context": [],
+  "transaction_context": [
+    {
+      "name": "ship_to",
+      "value": "US",
+      "source": "explicit",
+      "scope": "transaction",
+      "hardness": "hard"
+    }
+  ],
+  "limit": 3,
+  "cursor": null
+}
