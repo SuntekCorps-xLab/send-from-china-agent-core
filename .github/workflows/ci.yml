@@ -90,9 +90,10 @@ jobs:
         run: |
           mkdir -p artifacts
           npm --prefix hosted-sandbox run verify 2>&1 | tee artifacts/hosted-sandbox-verify.log
-      - name: Build deployment candidate without deploying
+      - name: Build default and staging candidates without deploying
         run: |
-          node governance-worker/node_modules/wrangler/bin/wrangler.js deploy --dry-run --config hosted-sandbox/wrangler.toml --outdir hosted-sandbox/.wrangler/hosted-dry-run 2>&1 | tee artifacts/hosted-sandbox-dry-run.log
+          node governance-worker/node_modules/wrangler/bin/wrangler.js deploy --dry-run --env="" --config hosted-sandbox/wrangler.toml --outdir hosted-sandbox/.wrangler/hosted-dry-run 2>&1 | tee artifacts/hosted-sandbox-dry-run.log
+          node governance-worker/node_modules/wrangler/bin/wrangler.js deploy --dry-run --env staging --config hosted-sandbox/wrangler.toml --outdir hosted-sandbox/.wrangler/hosted-staging-dry-run 2>&1 | tee artifacts/hosted-sandbox-staging-dry-run.log
       - name: Upload hosted sandbox evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

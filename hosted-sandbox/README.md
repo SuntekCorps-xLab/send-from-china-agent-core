@@ -59,7 +59,7 @@ npm --prefix hosted-sandbox ci --offline --ignore-scripts --no-audit --no-fund
 npm --prefix hosted-sandbox run verify
 npm --prefix governance-worker ci
 node governance-worker/node_modules/wrangler/bin/wrangler.js deploy \
-  --dry-run --config hosted-sandbox/wrangler.toml \
+  --dry-run --env="" --config hosted-sandbox/wrangler.toml \
   --outdir hosted-sandbox/.wrangler/hosted-dry-run
 ```
 
@@ -74,3 +74,36 @@ bundle, asset manifest, secret scan, route allowlist, rate-limit binding, custom
 route protection, development-store identity, and read-only smoke receipt.
 Deployment must stop if any binding or secret is missing. There is no synthetic
 fallback in the hosted Shopify mode.
+
+## Temporary staging only
+
+The only authorized hosted target is the isolated
+`send-from-china-hosted-shopify-sandbox-staging` environment. It may use its
+temporary `workers.dev` endpoint for an invite-only review cohort. The default
+configuration remains disabled on `workers.dev`, has no route or custom domain,
+and is not an authorized production deployment target.
+
+Use only a dedicated Shopify development store. Never connect this candidate to
+an operating merchant store, production catalog, customer account, order, or
+payment environment. Staging remains catalog-read-only and invite-protected.
+
+From the repository root, enter each secret through Wrangler's interactive
+prompt. The commands reference secret names only; never place their values in a
+command, file, log, issue, or CI variable:
+
+```powershell
+node governance-worker/node_modules/wrangler/bin/wrangler.js secret put SHOPIFY_STORE_DOMAIN --env staging --config hosted-sandbox/wrangler.toml
+node governance-worker/node_modules/wrangler/bin/wrangler.js secret put SHOPIFY_STOREFRONT_ACCESS_TOKEN --env staging --config hosted-sandbox/wrangler.toml
+node governance-worker/node_modules/wrangler/bin/wrangler.js secret put SANDBOX_INVITE_SHA256 --env staging --config hosted-sandbox/wrangler.toml
+```
+
+After independent review of the exact commit and development-store identity,
+the explicitly authorized staging-only deployment command is:
+
+```powershell
+node governance-worker/node_modules/wrangler/bin/wrangler.js deploy --env staging --config hosted-sandbox/wrangler.toml
+```
+
+Do not remove `--env staging`. Do not add a default or production deploy script,
+route, custom domain, preview URL, or production secret. Do not record the
+resulting staging URL in this repository.
