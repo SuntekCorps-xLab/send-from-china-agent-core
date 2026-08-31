@@ -1,7 +1,16 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { after, before, test } from "node:test";
 
 import { createSandboxServer, startSandbox } from "../server.mjs";
+import {
+  SANDBOX_STATUS_CONTRACT,
+  SHOPIFY_SANDBOX_API_VERSION,
+  shopifySandboxStatus,
+  syntheticSandboxStatus,
+  validateSandboxStatus,
+} from "../status-contract.mjs";
+import { projectSearchContractV2Response } from "../../sdk/src/search-contract-v2.js";
 
 let sandbox;
 
@@ -37,6 +46,31 @@ async function sandboxTool(id, name, args) {
   });
 }
 
+test("the sandbox status contract is closed at every public object boundary", async () => {
+  const schema = JSON.parse(await readFile(
+    new URL("../../contracts/shopify-live-sandbox-status.v1.schema.json", import.meta.url),
+    "utf8",
+  ));
+  assert.equal(schema.additionalProperties, false);
+  assert.equal(schema.properties.quota.additionalProperties, false);
+  assert.equal(schema.properties.capabilities.additionalProperties, false);
+  assert.deepEqual([...schema.required].sort(), Object.keys(syntheticSandboxStatus(new Date().toISOString())).sort());
+  assert.equal(schema.properties.api_version.oneOf[1].const, SHOPIFY_SANDBOX_API_VERSION);
+  assert.equal(validateSandboxStatus({
+    ...syntheticSandboxStatus(new Date().toISOString()),
+    checked_at: "0",
+  }), false);
+  assert.throws(() => syntheticSandboxStatus("0"), /Invalid synthetic sandbox status/);
+  assert.throws(() => shopifySandboxStatus({
+    verified: false,
+    credential_state: "authentication_failed",
+    api_version: SHOPIFY_SANDBOX_API_VERSION,
+    quota: { limit: 1, remaining: 1, window_seconds: 60, concurrency_limit: 1, reset_at: null },
+    checked_at: new Date().toISOString(),
+    error_code: "CREDENTIAL_MISSING",
+  }), /Invalid Shopify sandbox status/);
+});
+
 test("the server factory refuses missing and non-loopback listen addresses", () => {
   const missingHost = createSandboxServer();
   assert.throws(() => missingHost.listen(0), /explicit loopback/);
@@ -62,14 +96,19 @@ test("the page and status expose boundaries but never the ephemeral token", asyn
   const statusResponse = await fetch(`${sandbox.baseUrl}/sandbox/status`);
   const statusText = await statusResponse.text();
   const status = JSON.parse(statusText);
-  assert.deepEqual(status, {
-    mode: "synthetic_local_sandbox",
-    data_source: "synthetic_fixture",
-    purchasable: false,
-    shipping_rates: false,
-    commerce_writes: false,
-    credential_exposed: false,
-  });
+  assert.equal(validateSandboxStatus(status), true);
+  assert.equal(status.contract, SANDBOX_STATUS_CONTRACT);
+  assert.equal(status.mode, "synthetic_local_sandbox");
+  assert.equal(status.verified, true);
+  assert.equal(status.credential_state, "mock_ready");
+  assert.equal(status.data_source, "synthetic_fixture");
+  assert.equal(status.api_version, null);
+  assert.equal(status.writes, false);
+  assert.equal(status.non_transactional, true);
+  assert.equal(status.purchasable, false);
+  assert.equal(status.shipping_rates, false);
+  assert.equal(status.commerce_writes, false);
+  assert.equal(status.credential_exposed, false);
   assert.equal(statusResponse.headers.get("x-send-from-china-sandbox-mode"), "synthetic_local_sandbox");
   assert.doesNotMatch(statusText, new RegExp(sandbox.token, "u"));
 });
@@ -104,6 +143,11 @@ test("the browser-safe HTTP wrapper injects scope and applies a conservative pro
   assert.equal(search.body.items[0].availability_band, "demo_only");
   assert.equal(search.body.items[0].purchasable, false);
   assert.equal(search.body.items[0].available, false);
+  assert.equal(search.body.items[0].availableForSale, false);
+  assert.equal(search.body.items[0].handle, "modular-desk-organizer");
+  assert.equal(search.body.items[0].shopify_verified_at, null);
+  assert.equal(search.body.items[0].non_transactional, true);
+  assert.equal(search.body.items[0].writes, false);
   assert.deepEqual(search.body.items[0].images, []);
   assert.equal(search.response.headers.get("x-send-from-china-sandbox-mode"), "synthetic_local_sandbox");
   assert.match(search.response.headers.get("x-send-from-china-sandbox-boundary"), /no-commerce-writes/);
@@ -131,13 +175,21 @@ test("the browser-safe HTTP wrapper injects scope and applies a conservative pro
   assert.equal(v2.body.mode, "synthetic_local_sandbox");
   assert.equal(v2.body.results[0].availability_band, "demo_only");
   assert.equal(v2.body.results[0].purchasable, false);
+  assert.equal(v2.body.results[0].availableForSale, false);
+  assert.equal(v2.body.results[0].handle, "modular-desk-organizer");
+  assert.equal(v2.body.results[0].shopify_verified_at, null);
+  assert.equal(v2.body.results[0].non_transactional, true);
   assert.doesNotMatch(JSON.stringify(v2.body), new RegExp(sandbox.token, "u"));
+  assert.equal(projectSearchContractV2Response(v2.body).mode, "synthetic_local_sandbox");
 
   const product = await json("/sandbox/api/products/modular-desk-organizer");
   assert.equal(product.response.status, 200);
   assert.equal(product.body.product.availability_band, "demo_only");
   assert.equal(product.body.product.purchasable, false);
   assert.equal(product.body.product.available, false);
+  assert.equal(product.body.product.availableForSale, false);
+  assert.equal(product.body.product.handle, "modular-desk-organizer");
+  assert.equal(product.body.product.shopify_verified_at, null);
   assert.deepEqual(product.body.product.images, []);
 
   const quote = await json("/sandbox/api/quote", {

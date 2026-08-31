@@ -5,6 +5,38 @@ From China deployment can add durable sourcing, governed product publication,
 and customer-facing purchase handoffs without moving supplier data or merchant
 credentials into the agent.
 
+## Optional local Reference Store adapter
+
+A Reference Store can evaluate the catalog contract against either local
+sandbox mode without receiving a tenant or Shopify credential. Point its
+server/browser adapter only at the loopback sandbox origin and use these three
+routes:
+
+| Method | Route | Use |
+| --- | --- | --- |
+| `GET` | `/sandbox/status` | Validate `shopify-live-sandbox-status/v1` |
+| `POST` | `/sandbox/api/search/v2` | Search through Search Contract v2 |
+| `GET` | `/sandbox/api/products/:handle` | Read one public product |
+
+Call status first and enable catalog reads only when the closed contract
+validates and `verified` is true. Never infer Shopify mode from a URL, DNS,
+environment variable, browser query, or header.
+
+For a zero-egress integration test, run `npm run sandbox`. For published
+development-store data, set `SHOPIFY_STORE_DOMAIN` and
+`SHOPIFY_STOREFRONT_ACCESS_TOKEN` only in the server environment, run
+`npm run doctor:shopify -- --json`, and then run
+`npm run sandbox:shopify`. Do not continue after a failed doctor. The server
+independently repeats both readiness checks and refuses to start on failure; it
+never falls back to synthetic data.
+
+The Reference Store must make requests only to its local sandbox origin, send no
+Shopify credential or Cookie, use no local/session storage for credentials or
+catalog payloads, and treat every result as non-transactional. Price,
+`availableForSale`, handle, product URL, and `shopify_verified_at` are
+point-in-time Storefront facts, not authority to create a cart, checkout, order,
+payment, inventory change, publication, or product mutation.
+
 ## 1. Configure the client
 
 Install the package from `sdk/` (or use that workspace package directly while

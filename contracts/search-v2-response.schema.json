@@ -77,6 +77,15 @@
         "degraded_reason": { "type": ["string", "null"], "maxLength": 200 }
       }
     },
+    "mode": { "enum": ["synthetic_local_sandbox", "shopify_read_only"] },
+    "data_source": { "enum": ["synthetic_fixture", "shopify_storefront_graphql"] },
+    "illustrative_only": { "type": "boolean" },
+    "purchasable": { "const": false },
+    "available": { "const": false },
+    "writes": { "const": false },
+    "non_transactional": { "const": true },
+    "transaction_boundary": { "const": "catalog_read_only_non_transactional" },
+    "shopify_verified_at": { "type": ["string", "null"], "format": "date-time" },
     "compatibility": {
       "type": "object",
       "additionalProperties": false,
@@ -220,6 +229,16 @@
         "lead_time_days": { "type": "integer", "minimum": 0 },
         "as_of": { "type": "string", "format": "date-time" },
         "purchasable": { "type": "boolean" },
+        "handle": { "type": "string", "pattern": "^[a-z0-9-]{1,100}$" },
+        "availableForSale": { "type": "boolean" },
+        "shopify_verified_at": { "type": ["string", "null"], "format": "date-time" },
+        "non_transactional": { "const": true },
+        "transaction_boundary": { "const": "catalog_read_only_non_transactional" },
+        "writes": { "const": false },
+        "mode": { "enum": ["synthetic_local_sandbox", "shopify_read_only"] },
+        "data_source": { "enum": ["synthetic_fixture", "shopify_storefront_graphql"] },
+        "illustrative_only": { "type": "boolean" },
+        "available": { "type": "boolean" },
         "product_url": { "type": "string", "format": "uri", "pattern": "^https://", "maxLength": 2048 },
         "add_to_cart_url": { "type": "string", "format": "uri", "pattern": "^https://", "maxLength": 2048 }
       }

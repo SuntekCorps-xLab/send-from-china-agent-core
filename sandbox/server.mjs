@@ -5,18 +5,29 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import worker from "../governance-worker/src/index.js";
+import { syntheticSandboxStatus } from "./status-contract.mjs";
 
 const LOOPBACK = ["127", "0", "0", "1"].join(".");
 const DEFAULT_PORT = 8787;
 const MAX_BODY_BYTES = 32 * 1024;
 const SANDBOX_PREFIX = "/sandbox";
 const root = path.dirname(fileURLToPath(import.meta.url));
+const SANDBOX_MODES = new Set(["synthetic_local_sandbox", "shopify_read_only"]);
+const LIVE_PUBLIC_ERROR_CODES = new Set([
+  "CREDENTIAL_MISSING",
+  "AUTHENTICATION_FAILED",
+  "PERMISSION_REQUIRED",
+  "QUOTA_EXCEEDED",
+  "SERVICE_UNAVAILABLE",
+]);
 
 const STATIC_ASSETS = new Map([
   ["/", ["index.html", "text/html; charset=utf-8"]],
   ["/sandbox", ["index.html", "text/html; charset=utf-8"]],
   ["/sandbox/", ["index.html", "text/html; charset=utf-8"]],
   ["/sandbox/app.js", ["app.js", "text/javascript; charset=utf-8"]],
+  ["/sandbox/browser-client.mjs", ["browser-client.mjs", "text/javascript; charset=utf-8"]],
+  ["/sandbox/status-contract.mjs", ["status-contract.mjs", "text/javascript; charset=utf-8"]],
   ["/sandbox/styles.css", ["styles.css", "text/css; charset=utf-8"]],
 ]);
 
@@ -33,6 +44,15 @@ const SAFE_EXACT_ROUTES = new Map([
 const HOP_BY_HOP_HEADERS = new Set([
   "connection", "content-length", "host", "keep-alive", "proxy-authenticate",
   "proxy-authorization", "te", "trailer", "transfer-encoding", "upgrade",
+]);
+
+const SENSITIVE_FORWARD_HEADERS = new Set([
+  "cookie",
+  "set-cookie",
+  "x-shopify-storefront-access-token",
+  "x-shopify-access-token",
+  "x-sandbox-mode",
+  "x-shopify-sandbox-mode",
 ]);
 
 function localOrigin(server, host = LOOPBACK) {
@@ -86,10 +106,13 @@ function securityHeaders(contentType) {
   };
 }
 
-function sandboxBoundaryHeaders() {
+function sandboxBoundaryHeaders(mode = "synthetic_local_sandbox") {
+  const boundary = mode === "shopify_read_only"
+    ? "shopify-storefront-read-only; published-products; no-commerce-writes"
+    : "synthetic-fixture; no-shipping-rates; no-commerce-writes";
   return {
-    "x-send-from-china-sandbox-mode": "synthetic_local_sandbox",
-    "x-send-from-china-sandbox-boundary": "synthetic-fixture; no-shipping-rates; no-commerce-writes",
+    "x-send-from-china-sandbox-mode": mode,
+    "x-send-from-china-sandbox-boundary": boundary,
   };
 }
 
@@ -105,6 +128,10 @@ function sandboxDescriptor() {
     illustrative_only: true,
     purchasable: false,
     available: false,
+    writes: false,
+    non_transactional: true,
+    transaction_boundary: "catalog_read_only_non_transactional",
+    shopify_verified_at: null,
   };
 }
 
@@ -132,7 +159,11 @@ function conservativeSandboxProjection(value) {
     projected[key] = conservativeSandboxProjection(child);
   }
   if (isProduct(value)) {
-    Object.assign(projected, sandboxDescriptor(), { availability_band: "demo_only" });
+    Object.assign(projected, sandboxDescriptor(), {
+      handle: typeof value.slug === "string" ? value.slug : null,
+      availableForSale: false,
+      availability_band: "demo_only",
+    });
   }
   if (isQuote(value)) {
     Object.assign(projected, sandboxDescriptor(), { availability: "demo_only", binding: false });
@@ -211,7 +242,8 @@ async function readBody(request) {
 function requestHeaders(request, token = "") {
   const headers = new Headers();
   for (const [name, value] of Object.entries(request.headers)) {
-    if (value === undefined || HOP_BY_HOP_HEADERS.has(name.toLowerCase())) continue;
+    const lowerName = name.toLowerCase();
+    if (value === undefined || HOP_BY_HOP_HEADERS.has(lowerName) || SENSITIVE_FORWARD_HEADERS.has(lowerName)) continue;
     headers.set(name, Array.isArray(value) ? value.join(", ") : value);
   }
   if (token) headers.set("authorization", `Bearer ${token}`);
@@ -221,9 +253,10 @@ function requestHeaders(request, token = "") {
 async function sendWorkerResponse(response, workerResponse, sandboxMode = false, pathname = "") {
   const headers = {};
   for (const [name, value] of workerResponse.headers) {
-    if (!HOP_BY_HOP_HEADERS.has(name.toLowerCase())) headers[name] = value;
+    const lowerName = name.toLowerCase();
+    if (!HOP_BY_HOP_HEADERS.has(lowerName) && !SENSITIVE_FORWARD_HEADERS.has(lowerName)) headers[name] = value;
   }
-  if (sandboxMode) Object.assign(headers, sandboxBoundaryHeaders());
+  if (sandboxMode) Object.assign(headers, sandboxBoundaryHeaders("synthetic_local_sandbox"));
   const contents = Buffer.from(await workerResponse.arrayBuffer());
   if (sandboxMode && String(headers["content-type"] || "").includes("application/json")) {
     try {
@@ -268,11 +301,75 @@ async function serveStatic(response, asset) {
   }
 }
 
+function validShopifyProvider(provider) {
+  return provider && typeof provider === "object"
+    && provider.mode === "shopify_read_only"
+    && typeof provider.getStatus === "function"
+    && typeof provider.search === "function"
+    && typeof provider.getProduct === "function";
+}
+
+function liveFailure(error) {
+  if (error && LIVE_PUBLIC_ERROR_CODES.has(error.publicCode)) {
+    return { code: error.publicCode, status: Number(error.httpStatus) || 503 };
+  }
+  if (error instanceof TypeError) return { code: "INVALID_REQUEST", status: 400 };
+  return { code: "SERVICE_UNAVAILABLE", status: 503 };
+}
+
+async function handleShopifyRoute({ method, sourceUrl, body, provider, response }) {
+  const headers = sandboxBoundaryHeaders("shopify_read_only");
+  if (method === "POST" && sourceUrl.pathname === "/sandbox/api/search/v2") {
+    if (sourceUrl.search) {
+      sendJson(response, { error: { code: "INVALID_REQUEST" } }, 400, headers);
+      return;
+    }
+    let requestValue;
+    try { requestValue = JSON.parse(body.toString("utf8")); }
+    catch {
+      sendJson(response, { error: { code: "INVALID_REQUEST" } }, 400, headers);
+      return;
+    }
+    try {
+      sendJson(response, await provider.search(requestValue), 200, headers);
+    } catch (error) {
+      const publicFailure = liveFailure(error);
+      sendJson(response, { error: { code: publicFailure.code } }, publicFailure.status, headers);
+    }
+    return;
+  }
+  const match = method === "GET" && !sourceUrl.search
+    ? sourceUrl.pathname.match(/^\/sandbox\/api\/products\/([a-z0-9-]{1,100})$/u)
+    : null;
+  if (match) {
+    try {
+      const result = await provider.getProduct(match[1]);
+      if (!result) {
+        sendJson(response, { error: { code: "PRODUCT_NOT_FOUND" } }, 404, headers);
+        return;
+      }
+      sendJson(response, result, 200, headers);
+    } catch (error) {
+      const publicFailure = liveFailure(error);
+      sendJson(response, { error: { code: publicFailure.code } }, publicFailure.status, headers);
+    }
+    return;
+  }
+  sendJson(response, { error: { code: "SANDBOX_ROUTE_NOT_ALLOWED" } }, 404, headers);
+}
+
 export function createSandboxServer(options = {}) {
+  const mode = String(options.mode || "synthetic_local_sandbox");
+  if (!SANDBOX_MODES.has(mode)) throw new TypeError("The sandbox mode is invalid.");
+  const shopifyProvider = options.shopifyProvider;
+  if (mode === "shopify_read_only" && !validShopifyProvider(shopifyProvider)) {
+    throw new TypeError("Shopify read-only mode requires a server-side provider.");
+  }
   const token = String(options.token || randomBytes(32).toString("base64url"));
   if (token.length < 24) throw new TypeError("The sandbox token must contain at least 24 characters.");
   const environment = sandboxEnvironment(token);
   const configuredHost = String(options.host || LOOPBACK);
+  const syntheticStatus = syntheticSandboxStatus(new Date().toISOString());
 
   const server = createServer(async (request, response) => {
     try {
@@ -287,20 +384,31 @@ export function createSandboxServer(options = {}) {
       }
 
       if (method === "GET" && sourceUrl.pathname === "/sandbox/status") {
-        sendJson(response, {
-          mode: "synthetic_local_sandbox",
-          data_source: "synthetic_fixture",
-          purchasable: false,
-          shipping_rates: false,
-          commerce_writes: false,
-          credential_exposed: false,
-        }, 200, sandboxBoundaryHeaders());
+        let status = syntheticStatus;
+        if (mode === "shopify_read_only") {
+          try { status = await shopifyProvider.getStatus(); }
+          catch { status = null; }
+        }
+        if (!status) {
+          sendJson(response, { error: { code: "SERVICE_UNAVAILABLE" } }, 503, sandboxBoundaryHeaders(mode));
+          return;
+        }
+        sendJson(response, status, 200, sandboxBoundaryHeaders(mode));
         return;
       }
 
       const body = await readBody(request);
       if (body.tooLarge) {
-        sendJson(response, { error: { code: "PAYLOAD_TOO_LARGE" } }, 413, browserSandbox ? sandboxBoundaryHeaders() : {});
+        sendJson(response, { error: { code: "PAYLOAD_TOO_LARGE" } }, 413, browserSandbox ? sandboxBoundaryHeaders(mode) : {});
+        return;
+      }
+
+      if (mode === "shopify_read_only") {
+        if (!browserSandbox) {
+          sendJson(response, { error: { code: "NOT_FOUND" } }, 404);
+          return;
+        }
+        await handleShopifyRoute({ method, sourceUrl, body: body.body, provider: shopifyProvider, response });
         return;
       }
 
@@ -331,14 +439,20 @@ export function createSandboxServer(options = {}) {
       await sendWorkerResponse(response, workerResponse, sandboxMode, targetPath);
     } catch {
       const sandboxMode = String(request.url || "").startsWith(`${SANDBOX_PREFIX}/`);
-      sendJson(response, { error: { code: "SANDBOX_INTERNAL_ERROR" } }, 500, sandboxMode ? sandboxBoundaryHeaders() : {});
+      const code = mode === "shopify_read_only" ? "SERVICE_UNAVAILABLE" : "SANDBOX_INTERNAL_ERROR";
+      const status = mode === "shopify_read_only" ? 503 : 500;
+      sendJson(response, { error: { code } }, status, sandboxMode ? sandboxBoundaryHeaders(mode) : {});
     }
   });
   guardServerListen(server);
 
   Object.defineProperties(server, {
     sandboxToken: { value: token, enumerable: false },
-    sandboxMode: { value: "synthetic_local_sandbox", enumerable: true },
+    sandboxMode: { value: mode, enumerable: true },
+    getSandboxStatus: {
+      value: () => mode === "shopify_read_only" ? shopifyProvider.getStatus() : Promise.resolve(syntheticStatus),
+      enumerable: false,
+    },
   });
   return server;
 }
@@ -379,9 +493,10 @@ export async function startSandbox(options = {}) {
   return Object.freeze({
     server,
     baseUrl,
-    token: server.sandboxToken,
+    token: server.sandboxMode === "synthetic_local_sandbox" ? server.sandboxToken : null,
     mode: server.sandboxMode,
     browserCredentialExposed: false,
+    getStatus: server.getSandboxStatus,
     close,
   });
 }

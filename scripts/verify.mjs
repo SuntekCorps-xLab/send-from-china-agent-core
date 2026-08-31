@@ -26,7 +26,7 @@ function run(command, args, options = {}) {
 const temporary = await mkdtemp(join(tmpdir(), "agent-core-"));
 try {
   run(npm, [...npmArgs, "--prefix", "governance-worker", "run", "verify"]);
-  run(process.execPath, ["--test", "sandbox/tests/sandbox.test.mjs"]);
+  run(npm, [...npmArgs, "run", "test:sandbox"]);
   run(process.execPath, ["scripts/verify-recipes.mjs"]);
   run(process.execPath, ["--test", "starters/agent-core-js/test/starter.test.mjs"]);
   run(python, ["-m", "unittest", "discover", "-s", "recipes/python", "-p", "test_*.py", "-v"]);

@@ -18,8 +18,12 @@ const V1_CRITERIA = new Set([
 const PUBLIC_SEARCH_PRODUCT_FIELDS = Object.freeze([
   "public_id", "slug", "title", "description", "category", "tags", "images", "attributes",
   "price", "availability_band", "lead_time_days", "as_of", "purchasable",
-  "product_url", "add_to_cart_url",
+  "product_url", "add_to_cart_url", "handle", "availableForSale", "shopify_verified_at",
+  "non_transactional", "transaction_boundary", "writes", "mode", "data_source",
+  "illustrative_only", "available",
 ]);
+const SANDBOX_MODES = new Set(["synthetic_local_sandbox", "shopify_read_only"]);
+const SANDBOX_DATA_SOURCES = new Set(["synthetic_fixture", "shopify_storefront_graphql"]);
 const PRIVATE_ATTRIBUTE_NAMES = new Set([
   "api_key", "competitor_price", "cost", "cost_price", "credential", "credentials",
   "internal_id", "internal_product_id", "margin", "margin_rate", "platform_listing_id",
@@ -581,6 +585,9 @@ function publicProduct(value) {
     } else if (field === "slug") {
       const slug = publicString(value.slug, 100, { pattern: /^[a-z0-9-]{1,100}$/u });
       if (slug !== undefined) output.slug = slug;
+    } else if (field === "handle") {
+      const handle = publicString(value.handle, 100, { pattern: /^[a-z0-9-]{1,100}$/u });
+      if (handle !== undefined) output.handle = handle;
     } else if (field === "title") {
       const title = publicString(value.title, 300, { nonEmpty: true });
       if (title !== undefined) output.title = title;
@@ -604,6 +611,24 @@ function publicProduct(value) {
       }
     } else if (field === "purchasable" && typeof value.purchasable === "boolean") {
       output.purchasable = value.purchasable;
+    } else if (field === "availableForSale" && typeof value.availableForSale === "boolean") {
+      output.availableForSale = value.availableForSale;
+    } else if (field === "shopify_verified_at") {
+      if (value.shopify_verified_at === null) output.shopify_verified_at = null;
+      else if (typeof value.shopify_verified_at === "string" && value.shopify_verified_at.length <= 40
+        && Number.isFinite(Date.parse(value.shopify_verified_at))) output.shopify_verified_at = value.shopify_verified_at;
+    } else if (field === "non_transactional" && value.non_transactional === true) {
+      output.non_transactional = true;
+    } else if (field === "transaction_boundary" && value.transaction_boundary === "catalog_read_only_non_transactional") {
+      output.transaction_boundary = value.transaction_boundary;
+    } else if (field === "writes" && value.writes === false) {
+      output.writes = false;
+    } else if (field === "mode" && SANDBOX_MODES.has(value.mode)) {
+      output.mode = value.mode;
+    } else if (field === "data_source" && SANDBOX_DATA_SOURCES.has(value.data_source)) {
+      output.data_source = value.data_source;
+    } else if (["illustrative_only", "available"].includes(field) && typeof value[field] === "boolean") {
+      output[field] = value[field];
     }
   }
   return typeof output.title === "string" && output.title.trim() ? Object.freeze(output) : null;
@@ -727,6 +752,36 @@ export function projectSearchContractV2Response(value) {
       degraded_reason: degradedReason,
     }),
   };
+  const sandboxFields = [
+    "mode", "data_source", "illustrative_only", "purchasable", "available", "writes",
+    "non_transactional", "transaction_boundary", "shopify_verified_at",
+  ];
+  if (sandboxFields.some((field) => Object.hasOwn(value, field))) {
+    if (!sandboxFields.every((field) => Object.hasOwn(value, field))
+      || !SANDBOX_MODES.has(value.mode)
+      || !SANDBOX_DATA_SOURCES.has(value.data_source)
+      || typeof value.illustrative_only !== "boolean"
+      || value.purchasable !== false
+      || value.available !== false
+      || value.writes !== false
+      || value.non_transactional !== true
+      || value.transaction_boundary !== "catalog_read_only_non_transactional"
+      || !(value.shopify_verified_at === null || (typeof value.shopify_verified_at === "string"
+        && value.shopify_verified_at.length <= 40 && Number.isFinite(Date.parse(value.shopify_verified_at))))) {
+      return invalidResponse();
+    }
+    Object.assign(output, {
+      mode: value.mode,
+      data_source: value.data_source,
+      illustrative_only: value.illustrative_only,
+      purchasable: false,
+      available: false,
+      writes: false,
+      non_transactional: true,
+      transaction_boundary: "catalog_read_only_non_transactional",
+      shopify_verified_at: value.shopify_verified_at,
+    });
+  }
   if (value.compatibility !== undefined) {
     const compatibility = value.compatibility;
     if (!compatibility || typeof compatibility !== "object" || Array.isArray(compatibility)

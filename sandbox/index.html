@@ -15,18 +15,19 @@
     </a>
     <div class="topbar-meta">
       <span><i class="status-dot"></i> Local process</span>
-      <strong>HTTP + MCP</strong>
+      <strong>Guarded local HTTP</strong>
     </div>
   </header>
 
   <main>
     <section class="hero" aria-labelledby="sandbox-title">
       <div class="hero-copy">
-        <p class="eyebrow">ZERO-ACCOUNT · SYNTHETIC SNAPSHOT</p>
-        <h1 id="sandbox-title">Run the real guarded contract.<br>Keep real systems out.</h1>
-        <p class="lede">Exercise Agent Core through HTTP and MCP with the checked-in public fixture. A temporary tenant credential stays inside this local process and is never sent to the browser.</p>
+        <p class="eyebrow">EXPLICIT MODE · SERVER-CONTROLLED</p>
+        <h1 id="sandbox-title">Run the real guarded contract.<br>Keep write systems out.</h1>
+        <p class="lede">Use the default zero-account synthetic fixture, or explicitly start the Shopify development-store read-only mode. Credentials remain in the local server process and are never sent to the browser.</p>
         <div class="boundary-row" aria-label="Sandbox boundaries">
-          <span>🧪 Synthetic products</span>
+          <span>🧪 Synthetic by default</span>
+          <span>👁 Optional Shopify read-only</span>
           <span>🚫 No carrier rates</span>
           <span>🔒 No cart, order, or payment</span>
         </div>
@@ -35,9 +36,9 @@
         <div class="runtime-card-head"><span>RUNTIME CHECK</span><i class="status-dot"></i></div>
         <strong data-runtime-title>Starting local sandbox…</strong>
         <dl>
-          <div><dt>Published fixture</dt><dd data-product-count>—</dd></div>
+          <div><dt>Catalog</dt><dd data-product-count>—</dd></div>
           <div><dt>Browser credential</dt><dd>None</dd></div>
-          <div><dt>Outbound fetch</dt><dd>Disabled</dd></div>
+          <div><dt>Outbound fetch</dt><dd>Mode-controlled</dd></div>
           <div><dt>Commerce writes</dt><dd>Disabled</dd></div>
         </dl>
       </aside>
@@ -103,7 +104,7 @@
           </header>
           <div class="response-summary" data-response-summary>
             <span>Choose a recipe, then run it.</span>
-            <small>The response comes from the same Worker used by the HTTP and MCP contract tests.</small>
+            <small>The response comes from the server-selected, contract-tested read provider.</small>
           </div>
           <div class="result-cards" data-result-cards hidden></div>
           <div class="response-code">
@@ -118,14 +119,14 @@
 
     <section class="truth-strip" aria-label="Sandbox truth labels">
       <div><span>🧱</span><p><strong>Same policy</strong>Every product is rebuilt through the positive public-field allowlist.</p></div>
-      <div><span>🪪</span><p><strong>Scoped fixture</strong>The local wrapper injects one ephemeral tenant identity on the server side.</p></div>
+      <div><span>🪪</span><p><strong>Server-held scope</strong>Credentials and runtime mode stay inside the local server process.</p></div>
       <div><span>🛑</span><p><strong>Hard boundary</strong>Unknown proxy routes, enumeration, publication, and commerce writes are unavailable.</p></div>
     </section>
   </main>
 
   <footer>
-    <strong>Local synthetic sandbox</strong>
-    <span>For a deployment, use the canonical endpoints with a deployment-issued bearer credential.</span>
+    <strong>Local read-only sandbox</strong>
+    <span>Mode is fixed by the server command; browser input cannot enable Shopify access.</span>
   </footer>
   <script type="module" src="/sandbox/app.js"></script>
 </body>

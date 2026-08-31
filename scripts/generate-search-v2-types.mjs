@@ -255,6 +255,15 @@ export interface SearchContractV2Response {
   results: SearchProduct[];
   pagination: SearchPagination;
   search_scope: SearchScope;
+  mode?: ${schemaType(responseSchema.properties.mode)};
+  data_source?: ${schemaType(responseSchema.properties.data_source)};
+  illustrative_only?: boolean;
+  purchasable?: false;
+  available?: false;
+  writes?: false;
+  non_transactional?: true;
+  transaction_boundary?: ${schemaType(responseSchema.properties.transaction_boundary)};
+  shopify_verified_at?: string | null;
   compatibility?: SearchCompatibility;
 }
 `;

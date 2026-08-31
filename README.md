@@ -11,7 +11,7 @@ surface—without connecting the runtime to your private systems.
 [![Node.js 22](https://img.shields.io/badge/Node.js-22-142b2f)](governance-worker/package.json)
 [![MCP](https://img.shields.io/badge/MCP-2025--06--18-c64b1a)](contracts/openapi.yaml)
 [![Release](https://img.shields.io/badge/release-v1.1.0-e85d16)](CHANGELOG.md)
-[![Runtime egress](https://img.shields.io/badge/runtime%20egress-none-87927a)](docs/SECURITY_MODEL.md)
+[![Worker egress](https://img.shields.io/badge/Worker%20egress-none-87927a)](docs/SECURITY_MODEL.md)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-6b7c70)](LICENSE)
 
 <br>
@@ -58,10 +58,14 @@ surface. An application, shopping assistant, or automation can:
 - 🪪 **Tenant scope:** inspect its own scopes and explicit non-transactional permissions;
 - 🧭 **Sourcing preview:** run an idempotent fixture preview after a catalog miss.
 
-The gateway has no connection to a private catalog, supplier system, store,
-customer account, payment provider, or order system. It makes no outbound
-runtime network request. The included local publisher turns your JSON or JSONL
-catalog into a validated build-time snapshot without sending it anywhere.
+The Governance Worker and the default `npm run sandbox` path have no connection
+to a private catalog, supplier system, store, customer account, payment
+provider, or order system, and make zero outbound runtime requests. The
+explicit Shopify doctor, read-only server, and opt-in smoke commands are the
+only exceptions: they send fixed read-only Storefront GraphQL queries to one
+configured Shopify development store. They do not change the Governance
+Worker's no-egress invariant. The included local publisher turns your JSON or
+JSONL catalog into a validated build-time snapshot without sending it anywhere.
 
 <table>
   <tr>
@@ -95,6 +99,57 @@ every product and estimate is illustrative, unavailable, and non-purchasable,
 and purchase or external URL evidence is removed. Sandbox discovery points MCP
 clients to `/sandbox/mcp`; canonical deployments still require bearer auth.
 See the [sandbox boundary and MCP setup](docs/SANDBOX.md).
+
+### Explicit Shopify read-only mode
+
+The sandbox has two explicit modes:
+
+| Command | Mode | Data source | External requests |
+| --- | --- | --- | --- |
+| `npm run sandbox` | `synthetic_local_sandbox` | Checked-in synthetic fixture | Zero |
+| `npm run sandbox:shopify` | `shopify_read_only` | Published products from one Shopify development store | Fixed server-side Storefront GraphQL only |
+
+Live mode is never selected by a browser query parameter or header. Create a
+Storefront API token for a Shopify development store, publish only the products
+intended for storefront visibility, and keep both settings in the server
+environment:
+
+```bash
+export SHOPIFY_STORE_DOMAIN="your-development-store.myshopify.com"
+export SHOPIFY_STOREFRONT_ACCESS_TOKEN="<storefront-access-token>"
+npm run doctor:shopify -- --json
+npm run sandbox:shopify
+```
+
+The doctor reports `verified: true` only after both the fixed health query and
+the fixed catalog query succeed against Storefront API `2026-07`. A domain,
+successful DNS lookup, or present environment variable is not readiness.
+Missing or rejected credentials fail closed; Shopify mode never falls back to
+synthetic data.
+
+The live route surface is limited to `GET /sandbox/status`,
+`POST /sandbox/api/search/v2`, and
+`GET /sandbox/api/products/:handle`. Results include only published storefront
+products and the allowlisted Storefront fields needed for title, description,
+handle, minimum price, `availableForSale`, and the public product URL. Each
+result includes `shopify_verified_at` and the
+`catalog_read_only_non_transactional` boundary. Vendor, cost, internal IDs,
+metafields, customers, orders, and raw Shopify responses are never returned.
+
+Cart, checkout, order, payment, inventory, publication, and product mutation
+capabilities are always `false`. The Storefront token remains server-side and
+does not enter browser code, logs, status, errors, or result payloads. See the
+[Local Sandbox](docs/SANDBOX.md) for quotas, response limits, and the closed
+status contract.
+
+A real-store smoke command exists only for deliberate operator use:
+
+```bash
+SHOPIFY_LIVE_SMOKE=1 npm run smoke:shopify:live
+```
+
+It is opt-in, excluded from default CI, and must never be used with a
+production store for this sandbox.
 
 ### Copy a working first call
 
@@ -287,9 +342,9 @@ The snapshot contract contains:
 - per-tenant product scopes and price tiers.
 
 Snapshot validation is atomic: one invalid record rejects the whole snapshot.
-The gateway never reads a local file or remote service at runtime. A production
-build should treat its input, identifier key, tenant configuration, generated
-snapshot, and deployment bundle as private artifacts. See
+The Governance Worker never reads a local file or remote service at runtime. A
+production build should treat its input, identifier key, tenant configuration,
+generated snapshot, and deployment bundle as private artifacts. See
 [the identifier contract](publisher/id-mapping.md) and
 [architecture](docs/ARCHITECTURE.md).
 

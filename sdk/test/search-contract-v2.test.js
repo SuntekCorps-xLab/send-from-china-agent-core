@@ -591,6 +591,50 @@ test("direct v2 projection removes unsafe URL semantics and preserves ordinary p
   }
 });
 
+test("direct v2 projection preserves the closed read-only sandbox truth fields", () => {
+  const verifiedAt = "2026-08-31T00:00:00.000Z";
+  const response = adaptSearchContractV1ResponseToV2({
+    status: "catalog_match",
+    products: [{
+      public_id: "A1b2C3d4E5f6G7h8J9k0Lm",
+      slug: "public-item",
+      handle: "public-item",
+      title: "Public item",
+      price: { amount: 19.95, currency: "USD" },
+      purchasable: false,
+      availableForSale: true,
+      shopify_verified_at: verifiedAt,
+      non_transactional: true,
+      transaction_boundary: "catalog_read_only_non_transactional",
+      writes: false,
+      mode: "shopify_read_only",
+      data_source: "shopify_storefront_graphql",
+      illustrative_only: false,
+      available: false,
+    }],
+    exhaustive: true,
+    search_scope_exhausted: true,
+  }, { request: baseRequest });
+  const projected = projectSearchContractV2Response({
+    ...response,
+    mode: "shopify_read_only",
+    data_source: "shopify_storefront_graphql",
+    illustrative_only: false,
+    purchasable: false,
+    available: false,
+    writes: false,
+    non_transactional: true,
+    transaction_boundary: "catalog_read_only_non_transactional",
+    shopify_verified_at: verifiedAt,
+  });
+  assert.equal(projected.mode, "shopify_read_only");
+  assert.equal(projected.shopify_verified_at, verifiedAt);
+  assert.equal(projected.results[0].handle, "public-item");
+  assert.equal(projected.results[0].availableForSale, true);
+  assert.equal(projected.results[0].writes, false);
+  assert.equal(projected.results[0].non_transactional, true);
+});
+
 test("direct v2 projection removes sensitive values from every public text surface", () => {
   const loopbackHost = ["127", "0", "0", "1"].join(".");
   const responseBase = {
