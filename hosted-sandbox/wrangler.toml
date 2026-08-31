@@ -1,0 +1,29 @@
+name = "send-from-china-hosted-shopify-sandbox"
+main = "src/index.js"
+compatibility_date = "2026-08-31"
+workers_dev = false
+preview_urls = false
+
+[vars]
+SANDBOX_DEPLOYMENT_MODE = "public"
+SANDBOX_ACCESS_MODE = "protected"
+SANDBOX_RATE_LIMIT_LIMIT = "60"
+SANDBOX_RATE_LIMIT_PERIOD = "60"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = true
+html_handling = "none"
+not_found_handling = "none"
+
+[[ratelimits]]
+name = "SANDBOX_RATE_LIMITER"
+namespace_id = "26083101"
+
+  [ratelimits.simple]
+  limit = 60
+  period = 60
+
+[limits]
+cpu_ms = 50

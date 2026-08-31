@@ -37,17 +37,21 @@ test("browser client is loopback-only and forces credentialless no-store request
   assert.equal(calls[0].init.headers.get("cookie"), null);
 });
 
-test("browser client rejects external, private-network, cross-origin, and non-sandbox targets before fetch", async () => {
+test("browser client allows hosted HTTPS but rejects public HTTP, cross-origin, and non-sandbox targets", async () => {
   let calls = 0;
-  const fetchImpl = async () => { calls += 1; return jsonResponse({}); };
+  const fetchImpl = async () => { calls += 1; return jsonResponse(syntheticSandboxStatus("2026-08-31T00:00:00.000Z")); };
   for (const origin of [
-    "https://example.com",
+    "http://example.com",
     `http://${["10", "0", "0", "8"].join(".")}:8787`,
     "ftp://localhost:8787",
   ]) {
     const client = createSandboxBrowserClient({ origin, fetchImpl });
-    await assert.rejects(client.getStatus(), /loopback/);
+    await assert.rejects(client.getStatus(), /loopback HTTP or hosted HTTPS/);
   }
+
+  const hosted = createSandboxBrowserClient({ origin: "https://sandbox.example", fetchImpl });
+  await hosted.getStatus();
+  assert.equal(calls, 1);
 
   const local = createSandboxBrowserClient({ origin: "http://localhost:8787", fetchImpl });
   for (const target of [
@@ -58,7 +62,24 @@ test("browser client rejects external, private-network, cross-origin, and non-sa
   ]) {
     await assert.rejects(local.requestJson(target), /local sandbox/);
   }
-  assert.equal(calls, 0);
+  assert.equal(calls, 1);
+});
+
+test("hosted browser client keeps an invite proof in memory and sends it only same-origin", async () => {
+  const calls = [];
+  const client = createSandboxBrowserClient({
+    origin: "https://sandbox.example",
+    inviteToken: "invite-proof-with-enough-entropy-123456",
+    fetchImpl: async (url, init) => {
+      calls.push({ url, init });
+      return jsonResponse(syntheticSandboxStatus("2026-08-31T00:00:00.000Z"));
+    },
+  });
+  await client.getStatus();
+  assert.equal(calls[0].url, "https://sandbox.example/sandbox/status");
+  assert.equal(calls[0].init.headers.get("x-sandbox-invite"), "invite-proof-with-enough-entropy-123456");
+  await assert.rejects(client.requestJson("https://other.example/sandbox/status"), /local sandbox/);
+  assert.equal(calls.length, 1);
 });
 
 test("browser client rejects all credential and mode authority headers before fetch", async () => {
@@ -75,6 +96,7 @@ test("browser client rejects all credential and mode authority headers before fe
     "x-shopify-storefront-access-token",
     "x-sandbox-mode",
     "x-shopify-sandbox-mode",
+    "x-sandbox-invite",
   ]) {
     await assert.rejects(client.requestJson("/sandbox/status", {
       headers: { [header]: "browser-secret" },

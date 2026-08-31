@@ -35,6 +35,8 @@
     "smoke:shopify:live": "node sandbox/shopify-live-smoke.mjs",
     "tenant:key": "node scripts/generate-tenant-key.mjs",
     "test:sandbox": "node --test sandbox/tests/*.test.mjs",
+    "test:hosted-sandbox": "npm --prefix hosted-sandbox test",
+    "check:hosted-sandbox": "npm --prefix hosted-sandbox run check",
     "types:check": "node scripts/generate-search-v2-types.mjs",
     "types:generate": "node scripts/generate-search-v2-types.mjs --write",
     "test": "node scripts/verify.mjs",

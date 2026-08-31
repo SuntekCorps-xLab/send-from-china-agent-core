@@ -151,6 +151,21 @@ SHOPIFY_LIVE_SMOKE=1 npm run smoke:shopify:live
 It is opt-in, excluded from default CI, and must never be used with a
 production store for this sandbox.
 
+### Invite-only hosted Shopify sandbox candidate
+
+The independent [`hosted-sandbox/`](hosted-sandbox/README.md) Cloudflare Worker
+subproject turns the same read-only provider boundary into a deployable,
+same-origin browser and BFF candidate. It publishes only an explicit three-file
+static asset allowlist and exposes only status, Search Contract v2, and product
+detail reads. The Governance Worker remains a separate zero-egress runtime.
+
+The hosted candidate is protected and fail closed: it requires an invite hash,
+the Cloudflare rate-limit binding, a deliberately attached HTTPS route, and
+server-side Shopify configuration. No credential or token is checked in, the
+browser stores no invite, and the repository does not enable a public
+deployment. Independent review and a development-store read-only smoke are
+required before an operator may deploy it.
+
 ### Copy a working first call
 
 The tested [`recipes/`](recipes/README.md) directory provides curl, MCP,

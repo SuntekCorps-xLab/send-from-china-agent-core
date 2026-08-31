@@ -192,14 +192,16 @@ canonical `/mcp` route and a deployment-issued bearer credential.
 | --- | --- | --- | --- | --- |
 | Local zero-account demo | Process-only ephemeral tenant | Checked-in synthetic fixture | Learn, inspect, and test the contract | None |
 | Local Shopify read-only sandbox | Server-only Storefront credential | Published products in one development store | Validate public catalog integration | None |
-| Hosted self-service sandbox | Individual, short-lived, revocable credential | Isolated sandbox data and quotas | External integration testing | Only separately designed sandbox scopes |
+| Hosted invite-only preview candidate | In-memory invite proof with server-side digest and rate limit | Published development-store catalog | Protected external catalog-read testing | None |
 | Reviewed production | Operator-provisioned tenant and policy | Authorized deployment snapshot | Production read integration | Not included in this repository |
 
-The two local states are implemented here. A hosted self-service sandbox is a
-separate product capability and must add identity verification, short-lived
-credentials, tenant isolation, rotation and revocation, quotas, rate limits,
-usage logs, abuse controls, and budget limits. A shared public production key is
-not an acceptable substitute.
+The two local states and an independent hosted invite-only candidate are
+implemented here. The hosted candidate lives in `hosted-sandbox/`, keeps the
+Shopify credential server-side, requires a hashed invite proof and Cloudflare
+rate-limit binding, and has no write route. It is not a self-service production
+platform. Broader access would still require identity verification, individual
+short-lived credentials, tenant isolation, rotation, revocation, abuse
+controls, and budget limits. A shared public production key is not acceptable.
 
 ## Security properties
 

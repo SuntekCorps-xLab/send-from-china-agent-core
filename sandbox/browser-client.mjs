@@ -9,12 +9,15 @@ const FORBIDDEN_HEADER_NAMES = new Set([
   "x-shopify-storefront-access-token",
   "x-sandbox-mode",
   "x-shopify-sandbox-mode",
+  "x-sandbox-invite",
 ]);
 
 function sandboxUrl(pathname, origin) {
   const base = new URL(origin);
-  if (!["http:", "https:"].includes(base.protocol) || !LOOPBACK_HOSTS.has(base.hostname)) {
-    throw new TypeError("The browser sandbox origin must be loopback.");
+  const localHttp = base.protocol === "http:" && LOOPBACK_HOSTS.has(base.hostname);
+  const hostedHttps = base.protocol === "https:" && Boolean(base.hostname);
+  if (!localHttp && !hostedHttps) {
+    throw new TypeError("The browser sandbox origin must be loopback HTTP or hosted HTTPS.");
   }
   const target = new URL(pathname, base.origin);
   if (target.origin !== base.origin
@@ -36,6 +39,11 @@ export function createSandboxBrowserClient(options = {}) {
   const fetchImpl = options.fetchImpl || globalThis.fetch;
   const origin = options.origin || globalThis.location?.origin;
   if (typeof fetchImpl !== "function" || !origin) throw new TypeError("The browser sandbox client is unavailable.");
+  const inviteToken = options.inviteToken === undefined ? "" : String(options.inviteToken);
+  if (inviteToken && (inviteToken.length < 20 || inviteToken.length > 256
+    || /[\s\u0000-\u001f\u007f]/u.test(inviteToken))) {
+    throw new TypeError("The sandbox invite token is invalid.");
+  }
 
   async function requestJson(pathname, init = {}) {
     const target = sandboxUrl(pathname, origin);
@@ -44,7 +52,11 @@ export function createSandboxBrowserClient(options = {}) {
       credentials: "omit",
       cache: "no-store",
       redirect: "error",
-      headers: safeHeaders(init.headers),
+      headers: (() => {
+        const headers = safeHeaders(init.headers);
+        if (inviteToken) headers.set("x-sandbox-invite", inviteToken);
+        return headers;
+      })(),
     });
     let payload;
     try { payload = await response.json(); }
