@@ -38,7 +38,7 @@
           {
             "type": "object",
             "properties": {
-              "name": { "enum": ["price_min", "price_max", "material", "color", "must_have", "exclude"] },
+              "name": { "enum": ["price_min", "price_max", "material", "color", "model", "must_have", "exclude"] },
               "source": { "const": "explicit" },
               "scope": { "const": "product" },
               "hardness": { "const": "hard" }
@@ -57,7 +57,7 @@
           },
           {
             "if": {
-              "properties": { "name": { "enum": ["material", "color", "must_have", "exclude"] } },
+              "properties": { "name": { "enum": ["material", "color", "model", "must_have", "exclude"] } },
               "required": ["name"]
             },
             "then": {

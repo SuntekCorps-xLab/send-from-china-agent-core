@@ -14,6 +14,18 @@ function setStatus(message, state = "idle") {
   statusDot.dataset.state = state;
 }
 
+function invalidateReadiness() {
+  inviteProof = "";
+  source.textContent = "Not connected";
+  document.querySelector(".boundary").lastChild.textContent = "Invite-only · readiness unverified";
+  document.querySelector(".truth-card > span").textContent = "Readiness not yet verified";
+  const reads = document.querySelector(".truth-row b");
+  reads.textContent = "UNAVAILABLE";
+  reads.className = "off";
+  renderProducts([], "Catalog reads are unavailable until the protected connection is verified.");
+  inviteInput.focus();
+}
+
 async function request(pathname, init = {}) {
   const target = new URL(pathname, window.location.origin);
   if (target.origin !== window.location.origin || !target.pathname.startsWith("/sandbox/")) {
@@ -40,29 +52,71 @@ function money(value) {
   return new Intl.NumberFormat(undefined, { style: "currency", currency: value.currency }).format(value.amount);
 }
 
-function renderProducts(products) {
+function productImage(product) {
+  const image = Array.isArray(product.images) ? product.images[0] : null;
+  if (image && typeof image.url === "string") {
+    try {
+      const url = new URL(image.url);
+      if (url.protocol === "https:" && url.hostname === "cdn.shopify.com"
+        && !url.username && !url.password && !url.port && !url.hash) {
+        const element = document.createElement("img");
+        element.className = "product-image";
+        element.src = url.href;
+        element.alt = typeof image.alt === "string" && image.alt ? image.alt : product.title;
+        element.width = 160;
+        element.height = 160;
+        element.loading = "lazy";
+        element.referrerPolicy = "no-referrer";
+        return element;
+      }
+    } catch { /* An invalid image must not create a browser request. */ }
+  }
+  const placeholder = document.createElement("div");
+  placeholder.className = "product-icon";
+  placeholder.setAttribute("aria-hidden", "true");
+  placeholder.textContent = "✦";
+  return placeholder;
+}
+
+function publicAttributes(product) {
+  const list = document.createElement("dl");
+  list.className = "product-attributes";
+  for (const [name, value] of Object.entries(product.attributes || {})) {
+    if (typeof value !== "string") continue;
+    const row = document.createElement("div");
+    const term = document.createElement("dt");
+    const description = document.createElement("dd");
+    term.textContent = name.replaceAll("_", " ");
+    description.textContent = value;
+    row.append(term, description);
+    list.append(row);
+  }
+  return list;
+}
+
+function renderProducts(products, emptyMessage = "No published match was returned for this request.") {
   results.replaceChildren();
   resultCount.textContent = `${products.length} result${products.length === 1 ? "" : "s"}`;
   if (!products.length) {
     const empty = document.createElement("div");
     empty.className = "empty";
-    empty.textContent = "No published match was returned for this request.";
+    empty.textContent = emptyMessage;
     results.append(empty);
     return;
   }
   for (const product of products) {
     const card = document.createElement("article");
     card.className = "product-card";
-    const icon = document.createElement("div");
-    icon.className = "product-icon";
-    icon.setAttribute("aria-hidden", "true");
-    icon.textContent = "✦";
+    const icon = productImage(product);
     const body = document.createElement("div");
     const label = document.createElement("p");
     label.className = "step";
     label.textContent = product.availableForSale ? "PUBLISHED · AVAILABLE" : "PUBLISHED · UNAVAILABLE";
     const title = document.createElement("h3");
     title.textContent = product.title;
+    const handle = document.createElement("p");
+    handle.className = "product-handle";
+    handle.textContent = `Handle: ${product.handle}`;
     const description = document.createElement("p");
     description.className = "description";
     description.textContent = product.description || "No public description.";
@@ -73,17 +127,19 @@ function renderProducts(products) {
     const detail = document.createElement("button");
     detail.type = "button";
     detail.textContent = "Verify detail";
+    detail.setAttribute("aria-label", `Verify details for ${product.title}`);
     detail.addEventListener("click", async () => {
       detail.disabled = true;
       try {
         const verified = await request(`/sandbox/api/products/${product.handle}`);
         setStatus(`${verified.product.title} was verified through the read-only BFF.`, "ready");
       } catch (error) {
+        invalidateReadiness();
         setStatus(`Detail unavailable: ${error.message}`, "error");
       } finally { detail.disabled = false; }
     });
     meta.append(price, detail);
-    body.append(label, title, description, meta);
+    body.append(label, title, handle, description, publicAttributes(product), meta);
     card.append(icon, body);
     results.append(card);
   }
@@ -103,11 +159,15 @@ accessForm.addEventListener("submit", async (event) => {
     const status = await request("/sandbox/status");
     if (!status.verified || status.writes !== false) throw new Error("SANDBOX_STATUS_INVALID");
     source.textContent = "Shopify published catalog";
+    document.querySelector(".boundary").lastChild.textContent = "Invite-only · readiness verified";
+    document.querySelector(".truth-card > span").textContent = "Readiness verified";
+    const reads = document.querySelector(".truth-row b");
+    reads.textContent = "READY";
+    reads.className = "";
     setStatus("Connected. Published catalog reads are ready; all writes remain disabled.", "ready");
     queryInput.focus();
   } catch (error) {
-    inviteProof = "";
-    source.textContent = "Not connected";
+    invalidateReadiness();
     setStatus(`Connection unavailable: ${error.message}`, "error");
   }
 });
@@ -136,10 +196,16 @@ searchForm.addEventListener("submit", async (event) => {
         cursor: null,
       }),
     });
-    renderProducts(Array.isArray(response.results) ? response.results : []);
-    setStatus("Search complete. Results are read-only and non-transactional.", "ready");
+    const incomplete = response.status === "degraded" || response.search_scope?.degraded === true;
+    renderProducts(Array.isArray(response.results) ? response.results : [], incomplete
+      ? "Search incomplete. No conclusion about matching products is available."
+      : undefined);
+    setStatus(incomplete
+      ? "Search incomplete. Some conditions or catalog pages could not be verified."
+      : "Search complete. Results are read-only and non-transactional.", incomplete ? "idle" : "ready");
   } catch (error) {
-    renderProducts([]);
+    invalidateReadiness();
+    renderProducts([], "Search unavailable. Try again after the connection is verified.");
     setStatus(`Search unavailable: ${error.message}`, "error");
   }
 });

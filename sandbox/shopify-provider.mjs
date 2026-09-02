@@ -1,3 +1,5 @@
+import { applyShopifyHardConstraints } from "./shopify-constraints.mjs";
+import { PUBLIC_ATTRIBUTE_NAMES, toPublicProduct } from "../governance-worker/src/field-policy.js";
 import { createHash, randomUUID } from "node:crypto";
 import { isIP } from "node:net";
 
@@ -24,6 +26,9 @@ export const SHOPIFY_CATALOG_QUERY = `query ShopifySandboxCatalog($query: String
       description
       onlineStoreUrl
       availableForSale
+      productType
+      images(first: 8) { nodes { url altText } }
+      options(first: 20) { name values }
       priceRange {
         minVariantPrice {
           amount
@@ -45,6 +50,9 @@ export const SHOPIFY_PRODUCT_QUERY = `query ShopifySandboxProduct($handle: Strin
     description
     onlineStoreUrl
     availableForSale
+    productType
+    images(first: 8) { nodes { url altText } }
+    options(first: 20) { name values }
     priceRange {
       minVariantPrice {
         amount
@@ -82,6 +90,9 @@ const PRODUCT_NODE_FIELDS = new Set([
   "onlineStoreUrl",
   "availableForSale",
   "priceRange",
+  "productType",
+  "images",
+  "options",
 ]);
 
 const PUBLIC_CODE_BY_STATE = Object.freeze({
@@ -366,12 +377,50 @@ function parseMoney(value) {
   return Object.freeze({ amount, currency: value.currencyCode });
 }
 
+const PUBLIC_OPTION_NAMES = new Set(PUBLIC_ATTRIBUTE_NAMES);
+
+function parseImages(value) {
+  if (!exactFields(value, new Set(["nodes"])) || !Array.isArray(value.nodes)
+    || value.nodes.length > 8) throw failure("service_unavailable");
+  return Object.freeze(value.nodes.map((image) => {
+    if (!exactFields(image, new Set(["url", "altText"]))
+      || !(image.altText === null || (typeof image.altText === "string" && image.altText.length <= 300))) {
+      throw failure("service_unavailable");
+    }
+    const url = publicProductUrl(image.url);
+    if (!url || new URL(url).hostname !== "cdn.shopify.com") throw failure("service_unavailable");
+    return Object.freeze({ url, alt: image.altText || "" });
+  }));
+}
+
+function parsePublicOptions(value) {
+  if (!Array.isArray(value) || value.length > 20) throw failure("service_unavailable");
+  const attributes = {};
+  for (const option of value) {
+    if (!exactFields(option, new Set(["name", "values"]))
+      || typeof option.name !== "string" || !option.name.trim() || option.name.length > 80
+      || !Array.isArray(option.values) || option.values.length > 50
+      || option.values.some((item) => typeof item !== "string" || !item.trim() || item.length > 300)) {
+      throw failure("service_unavailable");
+    }
+    const name = option.name.trim().toLowerCase().replace(/[^a-z0-9]+/gu, "_").replace(/^_+|_+$/gu, "");
+    if (!PUBLIC_OPTION_NAMES.has(name)) continue;
+    const values = [...new Set(option.values.map((item) => item.trim()))];
+    const joined = values.join(", ");
+    if (!joined || joined.length > 300) throw failure("service_unavailable");
+    if (Object.hasOwn(attributes, name)) throw failure("service_unavailable");
+    attributes[name] = joined;
+  }
+  return Object.freeze(attributes);
+}
+
 function parseProductNode(value) {
   if (!exactFields(value, PRODUCT_NODE_FIELDS)
     || typeof value.handle !== "string" || !/^[a-z0-9-]{1,100}$/u.test(value.handle)
     || typeof value.title !== "string" || !value.title.trim() || value.title.length > 300
     || typeof value.description !== "string" || value.description.length > 5000
     || typeof value.availableForSale !== "boolean"
+    || typeof value.productType !== "string" || value.productType.length > 200
     || !exactFields(value.priceRange, new Set(["minVariantPrice"]))) throw failure("service_unavailable");
   const productUrl = value.onlineStoreUrl === null ? null : publicProductUrl(value.onlineStoreUrl);
   if (value.onlineStoreUrl !== null && productUrl === null) throw failure("service_unavailable");
@@ -382,6 +431,10 @@ function parseProductNode(value) {
     productUrl,
     availableForSale: value.availableForSale,
     price: parseMoney(value.priceRange.minVariantPrice),
+    category: value.productType.trim(),
+    images: parseImages(value.images),
+    attributes: parsePublicOptions(value.options),
+    hasVariantChoices: value.options.some((option) => option.values.length > 1),
   });
 }
 
@@ -420,20 +473,31 @@ function createPublicId(storeDomain, handle) {
 }
 
 function projectProduct(node, storeDomain, verifiedAt, forbiddenToken) {
-  if ([node.title, node.description, node.productUrl].some((value) => (
-    typeof value === "string" && value.includes(forbiddenToken)
-  ))) throw failure("service_unavailable");
+  if ([node.title, node.description, node.productUrl]
+    .some((value) => typeof value === "string" && value.includes(forbiddenToken))) throw failure("service_unavailable");
+  let publicProduct;
+  try {
+    const base = {
+      public_id: createPublicId(storeDomain, node.handle),
+      slug: node.handle,
+      title: node.title,
+      description: node.description,
+      images: node.images,
+      attributes: node.attributes,
+      ...(node.category ? { category: node.category } : {}),
+      price: node.price,
+      availability_band: node.availableForSale ? "in_stock" : "out_of_stock",
+      as_of: verifiedAt,
+      purchasable: false,
+    };
+    publicProduct = toPublicProduct(base);
+    if (node.productUrl) toPublicProduct({ ...base, images: [{ url: node.productUrl }] });
+  } catch {
+    throw failure("service_unavailable");
+  }
   return Object.freeze({
-    public_id: createPublicId(storeDomain, node.handle),
-    slug: node.handle,
+    ...publicProduct,
     handle: node.handle,
-    title: node.title,
-    description: node.description,
-    images: Object.freeze([]),
-    price: node.price,
-    availability_band: node.availableForSale ? "in_stock" : "out_of_stock",
-    as_of: verifiedAt,
-    purchasable: false,
     ...(node.productUrl ? { product_url: node.productUrl } : {}),
     availableForSale: node.availableForSale,
     shopify_verified_at: verifiedAt,
@@ -444,6 +508,21 @@ function projectProduct(node, storeDomain, verifiedAt, forbiddenToken) {
     data_source: "shopify_storefront_graphql",
     illustrative_only: false,
     available: false,
+  });
+}
+
+function constraintOutcome(core, degraded) {
+  if (!degraded) return core;
+  return Object.freeze({
+    ...core,
+    status: "degraded",
+    search_scope: Object.freeze({
+      ...core.search_scope,
+      plan_complete: false,
+      scope_exhausted: false,
+      degraded: true,
+      degraded_reason: "The read-only Shopify catalog cannot verify every hard constraint.",
+    }),
   });
 }
 
@@ -609,15 +688,14 @@ export function createShopifyReadOnlyProvider(options = {}) {
     if (!readiness.verified) throw statusError(readiness);
     const effectiveLimit = Math.min(request.limit, MAX_LIVE_RESULTS);
     const effectiveRequest = effectiveLimit === request.limit ? request : { ...request, limit: effectiveLimit };
-    const relaxations = [...adapted.relaxations];
-    for (const condition of request.hard_constraints) {
-      if (!relaxations.some((entry) => entry.condition === condition.name)) {
-        relaxations.push({
-          condition: condition.name,
-          from: condition.value,
-          reason: "The read-only Shopify catalog query does not enforce this condition.",
-        });
-      }
+    const hardNames = new Set(request.hard_constraints.map((condition) => condition.name));
+    const relaxations = adapted.relaxations.filter((entry) => !hardNames.has(entry.condition));
+    for (const condition of request.transaction_context.filter((entry) => entry.name === "ship_to")) {
+      relaxations.push({
+        condition: condition.name,
+        from: condition.value,
+        reason: "The read-only Shopify catalog does not evaluate shipping destinations.",
+      });
     }
     if (effectiveLimit !== request.limit) {
       relaxations.push({
@@ -641,10 +719,17 @@ export function createShopifyReadOnlyProvider(options = {}) {
       throw safe;
     }
     const verifiedAt = checkedAt(now);
-    const products = catalog.products
+    const candidates = catalog.products
       .filter((product) => product.productUrl !== null)
       .map((product) => projectProduct(product, storeDomain, verifiedAt, accessToken));
-    const terminal = !catalog.hasNextPage;
+    const variantChoiceHandles = new Set(catalog.products
+      .filter((product) => product.hasVariantChoices).map((product) => product.handle));
+    const evaluated = applyShopifyHardConstraints(candidates, request, {
+      hasVariantChoices: (product) => variantChoiceHandles.has(product.handle),
+    });
+    const products = evaluated.products;
+    relaxations.push(...evaluated.relaxations);
+    const terminal = !catalog.hasNextPage && !evaluated.degraded;
     const legacy = {
       status: products.length ? "catalog_match" : (terminal ? "no_match" : "searching"),
       products,
@@ -660,7 +745,7 @@ export function createShopifyReadOnlyProvider(options = {}) {
       relaxations,
       traceId: `shopify-sandbox-${randomUUID()}`,
     });
-    return liveEnvelope(core, verifiedAt);
+    return liveEnvelope(constraintOutcome(core, evaluated.degraded), verifiedAt);
   }
 
   async function getProduct(handle) {

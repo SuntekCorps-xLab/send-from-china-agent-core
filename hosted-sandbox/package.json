@@ -5,6 +5,7 @@
   "type": "module",
   "engines": { "node": "22.x" },
   "scripts": {
+    "qa:browser": "node scripts/browser-qa.mjs",
     "check": "node scripts/check.mjs",
     "test": "node --test test/*.test.mjs",
     "verify": "npm run check && npm test"

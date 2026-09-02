@@ -4,7 +4,7 @@ const CONDITION_SOURCES = new Set(["explicit", "inferred", "default"]);
 const CONDITION_SCOPES = new Set(["product", "session", "transaction"]);
 const CONDITION_HARDNESS = new Set(["hard", "soft", "informational"]);
 const PRICE_HARD_CONSTRAINTS = new Set(["price_min", "price_max"]);
-const TEXT_HARD_CONSTRAINTS = new Set(["material", "color", "must_have", "exclude"]);
+const TEXT_HARD_CONSTRAINTS = new Set(["material", "color", "model", "must_have", "exclude"]);
 const PRODUCT_HARD_CONSTRAINTS = new Set([...PRICE_HARD_CONSTRAINTS, ...TEXT_HARD_CONSTRAINTS]);
 const TRANSACTION_CONDITIONS = new Set(["ship_to", "quantity", "delivery_days_max"]);
 const WIRE_REQUEST_FIELDS = new Set([
@@ -119,7 +119,7 @@ function assertTextCriterionValue(value, name) {
 
 function assertHardConstraintValue(condition) {
   if (!PRODUCT_HARD_CONSTRAINTS.has(condition.name)) {
-    invalid("hard_constraints supports only price_min, price_max, material, color, must_have, and exclude");
+    invalid("hard_constraints supports only price_min, price_max, material, color, model, must_have, and exclude");
   }
   if (PRICE_HARD_CONSTRAINTS.has(condition.name)) {
     if (typeof condition.value !== "number" || !Number.isFinite(condition.value) || condition.value < 0) {
@@ -881,14 +881,16 @@ export function adaptSearchContractV1ResponseToV2(value, context = {}) {
   const results = Object.freeze((Array.isArray(legacy.products) ? legacy.products : [])
     .map(publicProduct).filter(Boolean).slice(0, request.limit));
   const legacyStatus = String(legacy.status || "").toLowerCase();
-  const exhaustive = legacy.exhaustive === true;
-  const scopeExhausted = legacy.search_scope_exhausted === true;
+  const explicitDegraded = legacyStatus === "degraded" || legacy.degraded === true;
+  const exhaustive = legacy.exhaustive === true && !explicitDegraded;
+  const scopeExhausted = legacy.search_scope_exhausted === true && !explicitDegraded;
   const scanLimitReached = legacy.scan_limit_reached === true || legacy.truncated === true;
   const nextCursor = wrapCursor(legacy.next_cursor, request);
   const missingCriteria = Object.freeze((Array.isArray(legacy.missing_criteria) ? legacy.missing_criteria : [])
     .map((item) => String(item).trim().toLowerCase()).filter((item) => /^[a-z][a-z0-9_]{0,63}$/.test(item)));
   let status = "degraded";
-  if (results.length) status = "results";
+  if (explicitDegraded) status = "degraded";
+  else if (results.length) status = "results";
   else if (legacyStatus === "needs_clarification" || missingCriteria.length) status = "needs_clarification";
   else if (legacyStatus === "no_match" && exhaustive && scopeExhausted && !scanLimitReached) status = "no_match";
   const relaxations = Object.freeze([
@@ -923,7 +925,9 @@ export function adaptSearchContractV1ResponseToV2(value, context = {}) {
       global_catalog_exhaustive: legacy.global_catalog_exhaustive === true,
       scan_limit_reached: scanLimitReached,
       degraded,
-      degraded_reason: degraded ? "The v1 response did not prove a complete terminal search outcome." : null,
+      degraded_reason: degraded ? (explicitDegraded
+        ? "The v1 response reported degraded catalog evaluation."
+        : "The v1 response did not prove a complete terminal search outcome.") : null,
     }),
     compatibility: Object.freeze({ adapter: "product_search_v1", legacy_status: publicLegacyStatus }),
   });

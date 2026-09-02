@@ -43,9 +43,22 @@ npm run sandbox:shopify
 not start a synthetic server and does not label a failed Shopify connection as
 successful.
 
-The optional `SHOPIFY_LIVE_SMOKE=1 npm run smoke:shopify:live` command is for
-explicit operator verification only. Default tests and CI use injected fetch
-implementations and synthetic Shopify fixtures and make zero external requests.
+The optional `npm run smoke:shopify:live` command runs the read-only doctor and
+exactly 20 distinct known-query cases. It requires both `SHOPIFY_LIVE_SMOKE=1`
+and `SHOPIFY_DEVELOPMENT_STORE_CONFIRMED=1`, plus an operator-selected JSON file
+in `SHOPIFY_KNOWN_QUERY_MANIFEST`. Only set the confirmation after checking that
+the configured token belongs to the dedicated development store. A missing
+configuration or failed doctor stops the smoke without synthetic fallback.
+
+The manifest is an array of exactly 20 objects, each with `query`, a nonempty
+`expected_handles` array, and optional Search Contract v2 `hard_constraints`.
+Each case requests up to 20 products and must find every expected handle with
+zero relaxations and no degraded state. The report contains only numbered case
+outcomes and aggregate counts; it never prints queries, handles, domains,
+credentials, raw responses, or upstream error messages. Keep private manifests
+outside version control. No credential value belongs in shell arguments or logs.
+Default tests and CI use injected fetch implementations and synthetic Shopify
+fixtures and make zero external requests.
 
 ## What the synthetic wrapper does
 
@@ -148,12 +161,24 @@ IP literals, localhost/private-style hostnames, redirects, changed response
 URLs, non-JSON responses, malformed envelopes, and unknown response fields fail
 closed.
 
-Only products with a valid public `onlineStoreUrl` are returned. Shopify-derived
-fields are limited to `handle`, `title`, `description`, `onlineStoreUrl`,
-`availableForSale`, and `priceRange.minVariantPrice`. Public projection adds an
-opaque `public_id`, `shopify_verified_at`, `writes: false`, and the
-`catalog_read_only_non_transactional` boundary. It excludes vendor, cost,
-internal Shopify IDs, metafields, customer/order data, and raw responses.
+Only products with a valid public `onlineStoreUrl` are returned. Fixed queries
+select `handle`, `title`, `description`, `onlineStoreUrl`, `availableForSale`,
+`priceRange.minVariantPrice`, `productType`, up to eight image URL/alt pairs,
+and up to 20 public product options. The image host is restricted to HTTPS
+`cdn.shopify.com`; redirects and credential-bearing or private URLs fail closed.
+Option names pass the positive public-attribute allowlist, with bounded strings
+and values; unknown/private option names are discarded. Unknown nested fields
+in the upstream product, image, and option shape are rejected. Every public
+product passes the Governance Worker field policy before the read-only envelope
+adds an opaque `public_id`, `shopify_verified_at`, `writes: false`, and the
+`catalog_read_only_non_transactional` boundary. Vendor, cost, internal Shopify
+IDs, metafields, customer/order data, and raw responses are never projected.
+
+The hosted and local providers share deterministic checks for supported hard
+constraints over public catalog facts. Missing evidence or an unsupported
+condition produces an explicit relaxation and degraded scope, never a terminal
+`no_match`. An empty filtered page with a next cursor remains nonterminal.
+See [Search Contract v2](SEARCH_CONTRACT_V2.md) for constraint semantics.
 
 Default server controls are a 5-second upstream timeout, a 256 KiB response
 limit, 60 Storefront GraphQL operations per 60-second window, four concurrent

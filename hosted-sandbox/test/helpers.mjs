@@ -15,6 +15,13 @@ export function productNode(overrides = {}) {
     description: "A published Storefront fixture.",
     onlineStoreUrl: "https://shop.example/products/public-demo-product",
     availableForSale: true,
+    productType: "Demo accessories",
+    images: { nodes: [{ url: "https://cdn.shopify.com/s/files/1/demo-product.jpg", altText: "Public demo product" }] },
+    options: [
+      { name: "Material", values: ["Stainless steel"] },
+      { name: "Model", values: ["DEMO-20"] },
+      { name: "Color", values: ["Silver"] },
+    ],
     priceRange: { minVariantPrice: { amount: "19.95", currencyCode: "USD" } },
     ...overrides,
   };

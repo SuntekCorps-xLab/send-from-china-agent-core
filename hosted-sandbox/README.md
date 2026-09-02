@@ -107,3 +107,7 @@ node governance-worker/node_modules/wrangler/bin/wrangler.js deploy --env stagin
 Do not remove `--env staging`. Do not add a default or production deploy script,
 route, custom domain, preview URL, or production secret. Do not record the
 resulting staging URL in this repository.
+
+
+See [Hosted Sandbox browser QA](BROWSER_QA.md) for the offline three-browser,
+two-viewport runner, screenshot instrumentation scope, and verified results.

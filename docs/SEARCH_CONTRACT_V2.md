@@ -151,6 +151,31 @@ from `sdk/src/index.d.ts`; the contract types are generated from the JSON
 Schemas. Run `npm run types:generate` after a schema change and
 `npm run types:check` in review or CI.
 
+### Deterministic Shopify hard constraints
+
+Shopify catalog checks support numeric `price_min` and `price_max`, public
+`material`, `color`, and exact `model` attributes, and literal `must_have` and
+`exclude` phrases. Arrays and separate conditions are conjunctive. Model values
+match complete published model names or list entries; `PB-100` does not match
+`PB-1000` or `PB-100 Pro`. The v1 adapter preserves the additive `model` condition
+as an explicit relaxation when its backend cannot evaluate it.
+
+Prices are the Storefront minimum variant price in the returned currency, not
+shipping, tax, currency conversion, or a quote for a selected variant. Independent
+product option lists do not prove a selectable variant combination or the price
+of that combination. Such requests are degraded when multiple option choices
+prevent verification. Material, color, and model checks require their respective
+public attributes; marketing text alone does not establish those attributes.
+
+Text checks use complete literal token phrases from public title, description,
+category, tags, and allowlisted attributes. Simple English `no`, `not`, `without`,
+`non-`, and `-free` negations are handled deterministically; Boolean operators,
+ambiguous double negatives, semantic claims, and other unsupported syntax are not
+inferred. A missing field or unexecutable condition appears in `relaxations`.
+Unverified candidates are omitted for missing data, and the search is explicitly
+`degraded` even on the last upstream page. An explicit degraded v1 response also
+remains degraded through SDK adaptation; it cannot become terminal `no_match`.
+
 ## v1 compatibility adapter
 
 The reference Worker exposes authenticated `POST /api/search/v2` and also keeps

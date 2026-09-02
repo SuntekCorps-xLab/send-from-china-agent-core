@@ -92,7 +92,7 @@ const transactionNames = requestSchema.properties.transaction_context.items.allO
 const unknownTransactionNames = transactionNames.filter((name) => (
   !["ship_to", "quantity", "delivery_days_max"].includes(name)
 ));
-const canonicalHardConstraintNames = ["price_min", "price_max", "material", "color", "must_have", "exclude"];
+const canonicalHardConstraintNames = ["price_min", "price_max", "material", "color", "model", "must_have", "exclude"];
 const unknownHardConstraintNames = hardConstraintNames.filter((name) => !canonicalHardConstraintNames.includes(name));
 if (hardConstraintNames.length !== canonicalHardConstraintNames.length || unknownHardConstraintNames.length
   || canonicalHardConstraintNames.some((name) => !hardConstraintNames.includes(name))
