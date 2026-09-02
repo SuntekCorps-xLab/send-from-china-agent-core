@@ -11,19 +11,19 @@
   <main class="shell">
     <header class="topbar">
       <a class="brand" href="/sandbox" aria-label="Send From China sandbox home"><span class="mark" aria-hidden="true">✦</span><span>SEND FROM CHINA</span></a>
-      <div class="boundary"><span></span>Invite-only · read-only</div>
+      <div class="boundary"><span></span>Invite-only · readiness unverified</div>
     </header>
 
     <section class="hero" aria-labelledby="hero-title">
       <div>
         <p class="eyebrow">HOSTED SHOPIFY SANDBOX</p>
-        <h1 id="hero-title">Search published products.<br>Keep every credential server-side.</h1>
-        <p class="lede">A protected, non-transactional preview. No cart, checkout, order, payment, inventory, publication, or product writes.</p>
+        <h1 id="hero-title">Verify the protected catalog path.<br>Keep every credential server-side.</h1>
+        <p class="lede">Catalog connection and readiness are not verified until the protected status check succeeds. Catalog reads are unavailable until then. No cart, checkout, order, payment, inventory, publication, or product writes.</p>
       </div>
       <aside class="truth-card" aria-label="Sandbox capability boundary">
-        <strong>Live catalog facts</strong>
-        <span>Shopify Storefront GraphQL</span>
-        <div class="truth-row"><span>Catalog reads</span><b>ON</b></div>
+        <strong>Catalog connection</strong>
+        <span>Readiness not yet verified</span>
+        <div class="truth-row"><span>Catalog reads</span><b class="off">UNAVAILABLE</b></div>
         <div class="truth-row"><span>Commerce writes</span><b class="off">OFF</b></div>
       </aside>
     </section>
@@ -31,7 +31,7 @@
     <section class="access-panel" aria-labelledby="access-title">
       <div>
         <p class="step">01 · ACCESS</p>
-        <h2 id="access-title">Use your short-lived preview invite</h2>
+        <h2 id="access-title">Use your invite to verify readiness</h2>
         <p>The invite stays in this tab's memory and is sent only to this HTTPS origin. It is never stored in a cookie or browser storage.</p>
       </div>
       <form id="access-form">
@@ -46,7 +46,7 @@
     <section class="workspace" aria-labelledby="search-title">
       <div class="search-panel">
         <p class="step">02 · SEARCH</p>
-        <h2 id="search-title">Ask the published catalog</h2>
+        <h2 id="search-title">Search after readiness is verified</h2>
         <form id="search-form">
           <label for="query">Product request</label>
           <div class="field-row">
@@ -70,7 +70,7 @@
           <span id="result-count">0 results</span>
         </div>
         <div id="results" class="results" aria-live="polite">
-          <div class="empty"><span aria-hidden="true">⌕</span><p>Connect, then search to inspect live public product fields.</p></div>
+          <div class="empty"><span aria-hidden="true">⌕</span><p>Catalog reads are unavailable until the protected connection is verified.</p></div>
         </div>
       </div>
     </section>
