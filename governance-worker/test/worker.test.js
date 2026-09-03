@@ -119,13 +119,23 @@ test("Search Contract v2 validates requests and requires authentication", async 
     method: "POST", headers: { ...authorization(ALPHA_KEY), "Content-Type": "application/json" }, body: "{}",
   });
   assert.equal(invalid.status, 400);
-  assert.equal((await invalid.json()).error.code, "INVALID_SEARCH_CONTRACT");
+  assert.deepEqual((await invalid.json()).error, {
+    code: "INVALID_SEARCH_CONTRACT", field: "contract_version", reason: "missing_required",
+  });
   const shorthand = await call("/api/search/v2", {
     method: "POST", headers: { ...authorization(ALPHA_KEY), "Content-Type": "application/json" },
-    body: JSON.stringify({ product_identity: "desk organizer", unexpected: "must not be ignored" }),
+    body: JSON.stringify({
+      product_identity: "desk organizer",
+      supplier_secret_field: "private-value-that-must-not-be-reflected",
+    }),
   });
   assert.equal(shorthand.status, 400);
-  assert.equal((await shorthand.json()).error.code, "INVALID_SEARCH_CONTRACT");
+  const shorthandText = await shorthand.text();
+  assert.deepEqual(JSON.parse(shorthandText).error, {
+    code: "INVALID_SEARCH_CONTRACT", field: "request", reason: "unknown_field",
+  });
+  assert.equal(shorthandText.includes("supplier_secret_field"), false);
+  assert.equal(shorthandText.includes("private-value-that-must-not-be-reflected"), false);
   const oversized = await call("/api/search/v2", {
     method: "POST",
     headers: {
@@ -163,7 +173,9 @@ test("Search Contract v2 cursors are bound to the normalized intent", async () =
     method: "POST", headers, body: JSON.stringify(request("desk organizer", first.pagination.next_cursor)),
   });
   assert.equal(wrongIntent.status, 400);
-  assert.equal((await wrongIntent.json()).error.code, "INVALID_SEARCH_CONTRACT");
+  assert.deepEqual((await wrongIntent.json()).error, {
+    code: "INVALID_SEARCH_CONTRACT", field: "cursor", reason: "cursor_mismatch",
+  });
 });
 
 test("Search Contract v2 reports global scope only for full-catalog tenants", async () => {

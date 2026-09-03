@@ -18,6 +18,7 @@ import {
   PUBLIC_ATTRIBUTE_NAMES,
   PUBLIC_ATTRIBUTE_POLICY_VERSION,
   SEARCH_CONTRACT_VERSION,
+  SearchContractValidationError,
 } from "../src/index.js";
 
 test("Worker and SDK use one versioned public attribute schema", async () => {
@@ -36,6 +37,22 @@ const baseRequest = {
   },
   hard_constraints: [], soft_context: [], transaction_context: [], limit: 20, cursor: null,
 };
+
+test("validation errors expose only stable field and reason categories", () => {
+  const rawValue = "supplier_secret_field";
+  assert.throws(() => parseSearchContractV2Request({ ...baseRequest, [rawValue]: "not-public" }), (error) => {
+    assert.ok(error instanceof SearchContractValidationError);
+    assert.equal(error.field, "request");
+    assert.equal(error.reason, "unknown_field");
+    assert.equal(JSON.stringify({ field: error.field, reason: error.reason }).includes(rawValue), false);
+    return true;
+  });
+  assert.throws(() => parseSearchContractV2Request(null), (error) => {
+    assert.equal(error.field, "request");
+    assert.equal(error.reason, "invalid_type");
+    return true;
+  });
+});
 
 function response(value) {
   return new Response(JSON.stringify(value), { status: 200, headers: { "content-type": "application/json" } });

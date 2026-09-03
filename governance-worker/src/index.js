@@ -8,6 +8,7 @@ import {
   adaptSearchContractV1ResponseToV2,
   adaptSearchContractV2RequestToV1,
   parseSearchContractV2Request,
+  SearchContractValidationError,
 } from "../../sdk/src/search-contract-v2.js";
 
 function lastUserQuery(messages) {
@@ -95,7 +96,16 @@ async function route(request, env, id, corsHeaders) {
     let adapted;
     try { adapted = adaptSearchContractV2RequestToV1(parseSearchContractV2Request(parsed.value)); }
     catch (error) {
-      if (error instanceof TypeError) return errorResponse("INVALID_SEARCH_CONTRACT", 400, id, corsHeaders);
+      if (error instanceof SearchContractValidationError) {
+        return errorResponse("INVALID_SEARCH_CONTRACT", 400, id, corsHeaders, {
+          field: error.field, reason: error.reason,
+        });
+      }
+      if (error instanceof TypeError) {
+        return errorResponse("INVALID_SEARCH_CONTRACT", 400, id, corsHeaders, {
+          field: "request", reason: "invalid_value",
+        });
+      }
       throw error;
     }
     const effectiveLimit = Math.min(adapted.request.limit, tenant.max_page_size);

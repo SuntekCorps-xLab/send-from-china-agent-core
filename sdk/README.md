@@ -61,6 +61,27 @@ customer confirmation. See the
 [Hosted Platform quickstart](../docs/HOSTED_PLATFORM_QUICKSTART.md) for the
 complete flow.
 
+## Safe error handling
+
+SDK failures use `SendFromChinaError`. Branch on the stable `code` property;
+known HTTP, JSON-RPC, and tool codes also receive stable public messages. An
+unknown or malformed upstream code remains a generic request, MCP, or tool
+failure and upstream error text is never reflected.
+
+An `INVALID_SEARCH_CONTRACT` response may include the optional, allowlisted
+`field` and `reason` properties. These identify categories such as `limit` plus
+`out_of_range`, never the rejected value or an unknown/private field name.
+
+```js
+try {
+  await client.searchContractV2(request);
+} catch (error) {
+  if (error instanceof SendFromChinaError && error.code === "INVALID_SEARCH_CONTRACT") {
+    console.error(error.field, error.reason);
+  }
+}
+```
+
 ## Development
 
 ```bash

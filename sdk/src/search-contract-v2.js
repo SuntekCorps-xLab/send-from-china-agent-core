@@ -46,8 +46,58 @@ export const PUBLIC_ATTRIBUTE_NAMES = Object.freeze([
 ]);
 const PUBLIC_ATTRIBUTE_NAME_SET = new Set(PUBLIC_ATTRIBUTE_NAMES);
 
+export const SEARCH_VALIDATION_FIELDS = Object.freeze([
+  "request", "contract_version", "product_identity", "hard_constraints", "soft_context",
+  "transaction_context", "limit", "cursor", "condition",
+]);
+export const SEARCH_VALIDATION_REASONS = Object.freeze([
+  "invalid_type", "missing_required", "unknown_field", "unsupported_value", "invalid_format",
+  "out_of_range", "not_normalized", "cursor_mismatch", "invalid_value",
+]);
+const SEARCH_VALIDATION_FIELD_SET = new Set(SEARCH_VALIDATION_FIELDS);
+
+function validationDetails(message) {
+  const missing = /^request is missing ([a-z_]+)$/u.exec(message);
+  if (missing) {
+    return {
+      field: SEARCH_VALIDATION_FIELD_SET.has(missing[1]) ? missing[1] : "request",
+      reason: "missing_required",
+    };
+  }
+  const field = [
+    "contract_version", "product_identity", "hard_constraints", "soft_context",
+    "transaction_context", "limit", "cursor",
+  ].find((candidate) => message.includes(candidate))
+    || (message.includes("condition") ? "condition" : "request");
+  let reason = "invalid_value";
+  if (message.includes("unknown field")) reason = "unknown_field";
+  else if (message.includes("does not belong")) reason = "cursor_mismatch";
+  else if (message.includes("not normalized")) reason = "not_normalized";
+  else if (message.includes("lower_snake_case")) reason = "invalid_format";
+  else if (message.includes("unsupported") || message.includes("supports only")) reason = "unsupported_value";
+  else if (message.includes("too long") || /\b(?:at most|from 1 to|1 to 20|1 to 50)\b/u.test(message)) {
+    reason = "out_of_range";
+  } else if (message.includes("must be an object") || message.includes("must be objects")
+    || message.includes("must be an array") || message.includes("must be a string")
+    || message.includes("must be a positive integer") || message.includes("must be a non-negative")
+    || message.includes("must be a string, number, boolean")) {
+    reason = "invalid_type";
+  }
+  return { field, reason };
+}
+
+export class SearchContractValidationError extends TypeError {
+  constructor(message) {
+    super(`Invalid Search Contract v2 request: ${message}`);
+    this.name = "SearchContractValidationError";
+    const details = validationDetails(message);
+    this.field = details.field;
+    this.reason = details.reason;
+  }
+}
+
 function invalid(message) {
-  throw new TypeError(`Invalid Search Contract v2 request: ${message}`);
+  throw new SearchContractValidationError(message);
 }
 
 function hasExactFields(value, fields) {
@@ -202,6 +252,7 @@ export function normalizeSearchContractV2Request(value = {}) {
 // SDK callers may continue to use normalizeSearchContractV2Request() with its
 // documented ergonomic defaults before sending the request.
 export function parseSearchContractV2Request(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) invalid("request must be an object");
   if (!hasExactFields(value, WIRE_REQUEST_FIELDS)) invalid("request contains an unknown field");
   for (const field of [
     "contract_version", "product_identity", "hard_constraints", "soft_context",

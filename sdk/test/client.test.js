@@ -55,7 +55,68 @@ test("returns safe tool errors without reflecting credentials or upstream messag
   await assert.rejects(client.createSourcingTask({}), (error) => {
     assert.ok(error instanceof SendFromChinaError);
     assert.equal(error.code, "FREE_PREVIEW_DAILY_LIMIT");
+    assert.equal(error.message, "The non-billable preview quota has been reached");
     assert.equal(String(error).includes(token), false);
+    return true;
+  });
+});
+
+test("maps HTTP search validation diagnostics to stable safe SDK fields", async () => {
+  const rawValue = "private-value-that-must-not-leak";
+  const client = createSendFromChinaClient({
+    baseUrl: "https://agent.example.test", token: "tenant_test_token",
+    fetch: async () => response({
+      error: {
+        code: "INVALID_SEARCH_CONTRACT", field: "limit", reason: "out_of_range",
+        message: `limit rejected: ${rawValue}`,
+      },
+      request_id: "request-safe",
+    }, { status: 400, headers: { "x-request-id": "request-safe" } }),
+  });
+  await assert.rejects(client.searchContractV2({ product_identity: "desk organizer", limit: 20 }), (error) => {
+    assert.ok(error instanceof SendFromChinaError);
+    assert.equal(error.code, "INVALID_SEARCH_CONTRACT");
+    assert.equal(error.status, 400);
+    assert.equal(error.requestId, "request-safe");
+    assert.equal(error.message, "The search request is invalid");
+    assert.equal(error.field, "limit");
+    assert.equal(error.reason, "out_of_range");
+    assert.equal(String(error).includes(rawValue), false);
+    return true;
+  });
+});
+
+test("drops unallowlisted search diagnostics and unknown upstream text", async () => {
+  const rawValue = "supplier_secret=not-public";
+  const client = createSendFromChinaClient({
+    baseUrl: "https://agent.example.test", token: "tenant_test_token",
+    fetch: async () => response({
+      error: {
+        code: "INVALID_SEARCH_CONTRACT", field: rawValue, reason: "raw_upstream_reason", message: rawValue,
+      },
+    }, { status: 400 }),
+  });
+  await assert.rejects(client.searchContractV2({ product_identity: "desk organizer" }), (error) => {
+    assert.equal(error.code, "INVALID_SEARCH_CONTRACT");
+    assert.equal(error.field, null);
+    assert.equal(error.reason, null);
+    assert.equal(error.message, "The search request is invalid");
+    assert.equal(JSON.stringify(error).includes(rawValue), false);
+    return true;
+  });
+});
+
+test("maps known JSON-RPC errors without reflecting server messages", async () => {
+  const rawValue = "upstream detail that must not leak";
+  const client = createSendFromChinaClient({
+    baseUrl: "https://agent.example.test",
+    fetch: async () => response({ jsonrpc: "2.0", id: "request-1", error: { code: -32602, message: rawValue } }),
+  });
+  await assert.rejects(client.listTools(), (error) => {
+    assert.ok(error instanceof SendFromChinaError);
+    assert.equal(error.code, "-32602");
+    assert.equal(error.message, "The MCP request parameters are invalid");
+    assert.equal(String(error).includes(rawValue), false);
     return true;
   });
 });

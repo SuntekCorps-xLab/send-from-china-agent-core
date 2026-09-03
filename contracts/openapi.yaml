@@ -417,11 +417,19 @@ components:
         product_count: { type: integer, minimum: 0 }
     Error:
       type: object
+      additionalProperties: false
       required: [error, request_id]
       properties:
         error:
           type: object
+          additionalProperties: false
           required: [code]
           properties:
             code: { type: string }
+            field:
+              description: Safe field category included only for INVALID_SEARCH_CONTRACT.
+              enum: [request, contract_version, product_identity, hard_constraints, soft_context, transaction_context, limit, cursor, condition]
+            reason:
+              description: Safe reason category included only for INVALID_SEARCH_CONTRACT.
+              enum: [invalid_type, missing_required, unknown_field, unsupported_value, invalid_format, out_of_range, not_normalized, cursor_mismatch, invalid_value]
         request_id: { type: string }
