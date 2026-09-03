@@ -151,6 +151,25 @@ and explains that the client supplies no tenant credential. Both responses also
 state that a canonical deployment uses `/mcp` with a bearer tenant key, so an
 automatic client does not accidentally switch from sandbox to canonical auth.
 
+Before accepting a sandbox UI candidate, run the real click-through matrix:
+
+```bash
+npm run qa:sandbox-browser
+```
+
+The offline runner uses existing `playwright-core` and `axe-core` tooling from
+`SANDBOX_QA_NODE_MODULES`; it never installs or downloads a browser. It starts
+the synthetic server on an ephemeral loopback port, clicks all five recipes in
+Chrome, Firefox, and WebKit at desktop and mobile sizes, and fails on a blank
+page, invalid JSON presentation, horizontal document overflow, browser error,
+or non-loopback request. The evidence report also records accessibility
+findings for the wider release-quality gate without turning this focused
+interaction regression into an unrelated visual redesign. CI provisions the
+exact pinned QA tools and runs all three browser engines. A local environment
+that cannot launch one installed engine may explicitly set
+`AGENT_CORE_SANDBOX_QA_BROWSERS=chrome,webkit` to collect a partial diagnostic;
+that partial run does not replace the required CI matrix.
+
 ## Shopify provider boundary
 
 The provider constructs one HTTPS endpoint from a validated

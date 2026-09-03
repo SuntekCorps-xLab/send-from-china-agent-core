@@ -3,6 +3,18 @@
 A dependency-free JavaScript client for the public Agent Core contract and
 compatible Send From China hosted deployments.
 
+This workspace package is intentionally not published to the npm registry.
+Install it from a checked-out repository before using the package-name import:
+
+```bash
+npm install --save file:../send-from-china-agent-core/sdk
+```
+
+The local package exports `src/index.js`, so consumers should use the scoped
+package name below after that install. They should not import a nonexistent
+`sdk/index.js` file. Repository-local examples may instead import
+`../sdk/src/index.js` directly.
+
 ```js
 import { createSendFromChinaClient } from "@send-from-china/agent-sdk";
 

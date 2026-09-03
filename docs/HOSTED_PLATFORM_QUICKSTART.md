@@ -39,8 +39,10 @@ payment, inventory change, publication, or product mutation.
 
 ## 1. Configure the client
 
-Install the package from `sdk/` (or use that workspace package directly while
-developing), then keep all configuration in the server environment:
+Install the package from `sdk/` using the exact
+[local installation instructions](../sdk/README.md), or use that workspace
+package directly while developing. Keep all configuration in the server
+environment:
 
 ```js
 import { createSendFromChinaClient } from "@send-from-china/agent-sdk";
@@ -70,6 +72,14 @@ integrations may continue to call `productSearch()` through the stable v1 API.
 `searchContractV2()` uses the authenticated v2 endpoint. The SDK's explicit
 `searchContractV2ViaV1()` adapter supports a v1-only deployment without
 changing Worker search behavior. See [Search Contract v2](SEARCH_CONTRACT_V2.md).
+
+Dynamic sourcing requires the MCP v1 `product_search` path. Only
+`productSearch({ operation: "confirm_search" })` can return the short-lived
+`search_id` proof used by `create_sourcing_task`. The HTTP
+`POST /api/search/v2` response and SDK `searchContractV2()` response do not
+contain that proof and cannot begin a sourcing task. Use Search Contract v2 for
+catalog discovery; switch to the explicit MCP confirmation flow only after the
+customer chooses to continue beyond a terminal catalog miss.
 
 Call the search method with the buyer's actual constraints. A missing budget is
 not a catalog miss. Continue pagination when `has_more` is true. Create a

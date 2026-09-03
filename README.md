@@ -47,6 +47,17 @@ explicit hard constraints, soft ranking context, and transaction context
 separate. The additive SDK 1.1 API includes an explicit compatibility adapter
 for the stable `product_search` v1 tool.
 
+### Reference Store compatibility
+
+| Agent Core | Send From China Reference Store | Integration status |
+| --- | --- | --- |
+| `1.1.x` | `1.0.x` | Contract-compatible candidate for the closed sandbox status, Search Contract v2, and product-detail routes documented in the [hosted quickstart](docs/HOSTED_PLATFORM_QUICKSTART.md). |
+
+Compatibility is a contract target, not a deployment claim. Before release,
+the Reference Store must pin an exact Agent Core commit and pass its paired
+verification against that commit. A version pair without that exact-SHA
+evidence is not release-certified.
+
 ## What you can build with it
 
 Agent Core turns a pre-published product snapshot into a guarded HTTP and MCP
@@ -184,7 +195,9 @@ fields, and the key never enter the snapshot or publisher report.
 
 ## 60-second local run
 
-Requirements: Node.js 22+ and npm.
+Requirements: Node.js 22+, npm, and Python 3.11+. Python is used by the full
+verification command and by the optional local snapshot publisher; the
+runtime Worker and JavaScript SDK do not invoke Python.
 
 ```bash
 git clone https://github.com/SuntekCorps-xLab/send-from-china-agent-core.git

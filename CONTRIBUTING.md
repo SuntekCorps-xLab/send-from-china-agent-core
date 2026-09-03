@@ -39,6 +39,15 @@ python etl-pipeline/scripts/validate_import.py \
 node scripts/scan-public.mjs .
 ```
 
+The public scan reports every finding as `path:line: category`. Private
+network values remain blocked. The Agent Core sandbox loopback origin is the
+only repository-wide loopback exception; the Reference Store development
+origin is accepted only in files classified as tests. Han text remains blocked
+from public code and documentation. A test-only fixture may carry Han text only
+when the same source line contains the explicit
+`public-scan: allow-han-test-fixture` marker. These narrow classifications do
+not suppress credential, private-host, private-network, or integration scans.
+
 The ETL commands write local files only. They must never make a network call or
 publish a product.
 

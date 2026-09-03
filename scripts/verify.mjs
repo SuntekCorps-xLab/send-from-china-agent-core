@@ -41,6 +41,7 @@ try {
   run(process.execPath, ["--test", "evals/adversarial-v1/test/adversarial.test.mjs"]);
   run(process.execPath, ["evals/v0/run.mjs", "--suite", "smoke"]);
   run(process.execPath, ["--test", "scripts/generate-tenant-key.test.mjs"]);
+  run(process.execPath, ["--test", "scripts/scan-public.test.mjs"]);
   run(python, ["-m", "unittest", "discover", "-s", "etl-pipeline/tests", "-p", "test_*.py", "-v"]);
   run(python, ["-m", "unittest", "discover", "-s", "publisher/tests", "-p", "test_*.py", "-v"]);
   const snapshot = join(temporary, "published-catalog.json");

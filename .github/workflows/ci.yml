@@ -101,6 +101,30 @@ jobs:
           name: hosted-sandbox-verification
           path: artifacts/
 
+  sandbox-browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+      - name: Install pinned browser QA tooling
+        run: npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.59.1 axe-core@4.13.0
+      - name: Install Firefox and WebKit runtimes
+        run: node node_modules/playwright-core/cli.js install --with-deps firefox webkit
+      - name: Run the synthetic sandbox real-click matrix
+        env:
+          SANDBOX_QA_NODE_MODULES: ${{ github.workspace }}/node_modules
+        run: |
+          mkdir -p artifacts/sandbox-browser
+          AGENT_CORE_SANDBOX_QA_ARTIFACT_ROOT="$PWD/artifacts/sandbox-browser" npm run qa:sandbox-browser
+      - name: Upload browser QA evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sandbox-browser-verification
+          path: artifacts/sandbox-browser/
+
   python:
     runs-on: ubuntu-latest
     steps:
