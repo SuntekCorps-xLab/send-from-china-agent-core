@@ -79,8 +79,8 @@ test("maps HTTP search validation diagnostics to stable safe SDK fields", async 
     assert.equal(error.status, 400);
     assert.equal(error.requestId, "request-safe");
     assert.equal(error.message, "The search request is invalid");
-    assert.equal(error.field, "limit");
-    assert.equal(error.reason, "out_of_range");
+    assert.equal(error.searchField, "limit");
+    assert.equal(error.searchReason, "out_of_range");
     assert.equal(String(error).includes(rawValue), false);
     return true;
   });
@@ -98,8 +98,8 @@ test("drops unallowlisted search diagnostics and unknown upstream text", async (
   });
   await assert.rejects(client.searchContractV2({ product_identity: "desk organizer" }), (error) => {
     assert.equal(error.code, "INVALID_SEARCH_CONTRACT");
-    assert.equal(error.field, null);
-    assert.equal(error.reason, null);
+    assert.equal(error.searchField, null);
+    assert.equal(error.searchReason, null);
     assert.equal(error.message, "The search request is invalid");
     assert.equal(JSON.stringify(error).includes(rawValue), false);
     return true;

@@ -424,6 +424,9 @@ components:
           type: object
           additionalProperties: false
           required: [code]
+          dependentRequired:
+            field: [reason]
+            reason: [field]
           properties:
             code: { type: string }
             field:

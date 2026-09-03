@@ -81,8 +81,8 @@ export class SendFromChinaError extends Error {
     this.status = Number.isInteger(options.status) ? options.status : null;
     this.requestId = String(options.requestId || "");
     this.retryAfter = String(options.retryAfter || "");
-    this.field = SEARCH_ERROR_FIELDS.has(options.field) ? options.field : null;
-    this.reason = SEARCH_ERROR_REASONS.has(options.reason) ? options.reason : null;
+    this.searchField = SEARCH_ERROR_FIELDS.has(options.searchField) ? options.searchField : null;
+    this.searchReason = SEARCH_ERROR_REASONS.has(options.searchReason) ? options.searchReason : null;
   }
 }
 
@@ -121,12 +121,12 @@ function publicErrorMessage(code, fallback) {
 
 function safeSearchErrorDetails(value, code) {
   if (code !== "INVALID_SEARCH_CONTRACT" || !value || typeof value !== "object" || Array.isArray(value)) {
-    return { field: null, reason: null };
+    return { searchField: null, searchReason: null };
   }
-  return {
-    field: SEARCH_ERROR_FIELDS.has(value.field) ? value.field : null,
-    reason: SEARCH_ERROR_REASONS.has(value.reason) ? value.reason : null,
-  };
+  if (!SEARCH_ERROR_FIELDS.has(value.field) || !SEARCH_ERROR_REASONS.has(value.reason)) {
+    return { searchField: null, searchReason: null };
+  }
+  return { searchField: value.field, searchReason: value.reason };
 }
 
 function wait(ms, signal) {

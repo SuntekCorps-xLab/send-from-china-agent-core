@@ -70,14 +70,16 @@ failure and upstream error text is never reflected.
 
 An `INVALID_SEARCH_CONTRACT` response may include the optional, allowlisted
 `field` and `reason` properties. These identify categories such as `limit` plus
-`out_of_range`, never the rejected value or an unknown/private field name.
+`out_of_range`, never the rejected value or an unknown/private field name. The
+SDK exposes the pair as `searchField` and `searchReason`; both are `null` when
+the response omits either category or sends an unknown value.
 
 ```js
 try {
   await client.searchContractV2(request);
 } catch (error) {
   if (error instanceof SendFromChinaError && error.code === "INVALID_SEARCH_CONTRACT") {
-    console.error(error.field, error.reason);
+    console.error(error.searchField, error.searchReason);
   }
 }
 ```

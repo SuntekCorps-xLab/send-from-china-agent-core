@@ -106,8 +106,8 @@ export declare class SendFromChinaError extends Error {
   status: number | null;
   requestId: string;
   retryAfter: string;
-  field: SearchValidationField | null;
-  reason: SearchValidationReason | null;
+  searchField: SearchValidationField | null;
+  searchReason: SearchValidationReason | null;
 }
 
 export declare function resolvePurchaseHandoff(product: Record<string, unknown>, options?: {
