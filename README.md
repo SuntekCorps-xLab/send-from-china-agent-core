@@ -23,6 +23,7 @@ adding a transaction path.
   <a href="#1-try-live-read-only-mcp"><strong>🌐 Try live read-only MCP</strong></a> ·
   <a href="#2-run-the-zero-account-local-sandbox"><strong>⚡ Run local sandbox</strong></a> ·
   <a href="#3-self-host-with-your-own-catalog"><strong>📦 Self-host</strong></a> ·
+  <a href="docs/WHAT_IT_IS.md"><strong>🎯 Scope</strong></a> ·
   <a href="#connect-an-mcp-client"><strong>🔌 MCP setup</strong></a> ·
   <a href="docs/SECURITY_MODEL.md"><strong>🛡️ Security model</strong></a> ·
   <a href="docs/ARCHITECTURE.md"><strong>🏗️ Architecture</strong></a> ·
@@ -50,6 +51,10 @@ External agents can use the versioned
 explicit hard constraints, soft ranking context, and transaction context
 separate. The additive SDK 1.2 API includes an explicit compatibility adapter
 for the stable `product_search` v1 tool.
+
+Read [What it is / What it is not](docs/WHAT_IT_IS.md) for the shortest
+capability boundary, including what a real Shopify product-page link proves—and
+what it does not yet prove about checkout, orders, or channel attribution.
 
 ### Reference Store compatibility
 
@@ -379,7 +384,10 @@ destination.
 ## Connect an MCP client
 
 MCP discovery is public so clients can call `initialize` and `tools/list`
-before a key is configured. Every `tools/call` requires a tenant credential.
+before a key is configured. In the bundled local and self-hosted Worker
+profiles, every `tools/call` requires a tenant credential. The managed public
+endpoint described in section 1 separately allows the five named catalog-read
+tools without a credential.
 
 Use this server definition in an MCP client that supports custom headers:
 
@@ -420,11 +428,13 @@ tools in this repository.
 
 ### One guarded runtime, two protocols
 
-HTTP and MCP can discover the service anonymously, but every product request or
-`tools/call` crosses the same deployment-held credential check, tenant scope,
-quota, published snapshot, and positive response policy. This reference does not
-issue keys or provide a self-service OAuth or registration flow; deployment
-operators configure tenant credentials outside the repository.
+In the bundled local and self-hosted Worker profiles, HTTP and MCP can discover
+the service anonymously, but every product request or `tools/call` crosses the
+same deployment-held credential check, tenant scope, quota, published snapshot,
+and positive response policy. The managed endpoint's five anonymous read tools
+use its own public-read policy instead. This reference does not issue keys or
+provide a self-service OAuth or registration flow; deployment operators
+configure tenant credentials outside the repository.
 
 <img src="docs/images/agent-core-runtime-boundary-live.svg" alt="Animated Agent Core runtime showing HTTP and MCP clients sharing authentication, tenant scope, a published snapshot, and a positive public-field policy" width="100%">
 
@@ -433,8 +443,10 @@ operators configure tenant credentials outside the repository.
 The repository includes an installable example under
 [`skills/send-from-china-catalog`](skills/send-from-china-catalog). It teaches a
 compatible coding agent the catalog-first flow, catalog-estimate boundary, and
-confirmed sourcing-preview discipline. The skill does not contain an endpoint
-or tenant key; configure the MCP server separately.
+confirmed sourcing-preview discipline. The skill names the managed public MCP
+endpoint for its five anonymous read tools, but contains no tenant key or other
+credential. Configure a different endpoint and its operator-issued credential
+separately for local or self-hosted profiles.
 
 ## 3. Self-host with your own catalog
 
