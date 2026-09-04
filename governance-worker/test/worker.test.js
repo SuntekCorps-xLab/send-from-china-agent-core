@@ -11,6 +11,40 @@ function call(path, options = {}, env = ENV) {
   return worker.fetch(new Request(`https://worker.example${path}`, options), env);
 }
 
+function schemaMatches(schema, value) {
+  if (schema.anyOf && !schema.anyOf.some((candidate) => schemaMatches(candidate, value))) return false;
+  if (schema.type === "object" || schema.required || schema.properties || schema.additionalProperties === false) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+    if (schema.required?.some((name) => !Object.hasOwn(value, name))) return false;
+    if (schema.additionalProperties === false
+        && Object.keys(value).some((name) => !Object.hasOwn(schema.properties || {}, name))) return false;
+    return Object.entries(schema.properties || {}).every(([name, property]) => (
+      !Object.hasOwn(value, name) || schemaMatches(property, value[name])
+    ));
+  }
+  if (schema.type === "array" || schema.minItems !== undefined || schema.maxItems !== undefined
+      || schema.items || schema.contains) {
+    if (!Array.isArray(value)) return false;
+    if (schema.minItems !== undefined && value.length < schema.minItems) return false;
+    if (schema.maxItems !== undefined && value.length > schema.maxItems) return false;
+    if (schema.items && !value.every((item) => schemaMatches(schema.items, item))) return false;
+    if (schema.contains && !value.some((item) => schemaMatches(schema.contains, item))) return false;
+    return true;
+  }
+  if (schema.type === "string" || schema.minLength !== undefined || schema.maxLength !== undefined
+      || schema.pattern) {
+    return typeof value === "string"
+      && (schema.minLength === undefined || value.length >= schema.minLength)
+      && (schema.maxLength === undefined || value.length <= schema.maxLength)
+      && (!schema.pattern || new RegExp(schema.pattern, "u").test(value));
+  }
+  if (Array.isArray(schema.type)) {
+    return schema.type.some((type) => schemaMatches({ ...schema, type }, value));
+  }
+  if (schema.type === "number") return typeof value === "number" && Number.isFinite(value);
+  return true;
+}
+
 test("health exposes snapshot freshness without requiring a credential", async () => {
   const response = await call("/health");
   const body = await response.json();
@@ -288,6 +322,21 @@ test("MCP discovery is public and catalog calls are tenant-scoped", async () => 
     "product_search", "search_catalog", "get_product", "get_quote", "get_agent_access",
     "create_sourcing_task", "get_sourcing_task", "list_sourcing_results",
   ]);
+  const sourcingSchema = listBody.result.tools.find((tool) => tool.name === "create_sourcing_task").inputSchema;
+  const criteriaSchema = sourcingSchema.properties.criteria;
+  assert.deepEqual(criteriaSchema.required, ["ship_to"]);
+  assert.deepEqual(criteriaSchema.anyOf.map((candidate) => candidate.required[0]), [
+    "category", "use_case", "materials", "must_have", "keywords",
+  ]);
+  assert.equal(schemaMatches(criteriaSchema, {}), false);
+  assert.equal(schemaMatches(criteriaSchema, { ship_to: "US" }), false);
+  assert.equal(schemaMatches(criteriaSchema, { ship_to: "US", category: "office" }), true);
+  assert.equal(schemaMatches(criteriaSchema, { ship_to: "US", use_case: "small-space storage" }), true);
+  assert.equal(schemaMatches(criteriaSchema, { ship_to: "US", materials: ["walnut"] }), true);
+  assert.equal(schemaMatches(criteriaSchema, { ship_to: "US", must_have: ["cable management"] }), true);
+  assert.equal(schemaMatches(criteriaSchema, { ship_to: "US", keywords: ["organizer"] }), true);
+  assert.equal(schemaMatches(criteriaSchema, { ship_to: "US", keywords: ["   "] }), false);
+  assert.equal(schemaMatches(criteriaSchema, { ship_to: "US", private_supplier_id: "hidden" }), false);
   const search = await call("/mcp", {
     method: "POST", headers: { ...authorization(ALPHA_KEY), "Content-Type": "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "search_catalog", arguments: { query: "garden" } } }),
