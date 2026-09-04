@@ -488,11 +488,11 @@ export function aggregateAssessments({
 
 function normalizeForComparison(value) {
   const normalized = path.resolve(value);
-  return process.platform === "win32" ? normalized.toLowerCase() : normalized;
+  return process.platform === "win32" ? path.toNamespacedPath(normalized).toLowerCase() : normalized;
 }
 
 function inside(parent, child) {
-  const relative = path.relative(parent, child);
+  const relative = path.relative(normalizeForComparison(parent), normalizeForComparison(child));
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
 
@@ -526,12 +526,46 @@ async function regularSingleLinkMetadata(file, label) {
   return metadata;
 }
 
+async function realNonSymbolicPath(file, label) {
+  const physical = await realpath(file);
+  const message = `${label} cannot traverse a symbolic path`;
+  if (process.platform !== "win32") {
+    invariant(normalizeForComparison(physical) === normalizeForComparison(file), message);
+    return physical;
+  }
+
+  // A Windows 8.3 alias changes spelling without creating a symbolic link.
+  // Inspect every component with lstat; stat-only identity would follow junctions.
+  const entries = [];
+  const namespaced = path.toNamespacedPath(file);
+  // Walk ordinary drive/share roots: dirname of a namespace UNC root would
+  // otherwise walk above the share into invalid \\?\UNC\server components.
+  let current = namespaced.slice(0, 8).toLowerCase() === "\\\\?\\unc\\"
+    ? `\\\\${namespaced.slice(8)}`
+    : namespaced.startsWith("\\\\?\\") ? namespaced.slice(4) : file;
+  while (true) {
+    const metadata = await lstat(current, { bigint: true });
+    invariant(!metadata.isSymbolicLink(), message);
+    entries.push({ file: current, metadata });
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  const physicalMetadata = await lstat(physical, { bigint: true });
+  invariant(!physicalMetadata.isSymbolicLink() && sameObjectIdentity(entries[0].metadata, physicalMetadata), message);
+  for (const entry of entries) {
+    const metadata = await lstat(entry.file, { bigint: true });
+    invariant(!metadata.isSymbolicLink() && sameObjectIdentity(entry.metadata, metadata), message);
+  }
+  invariant(normalizeForComparison(physical) === normalizeForComparison(await realpath(file)), message);
+  return physical;
+}
+
 async function realParentIdentity(file) {
   const parent = path.dirname(file);
   const metadata = await lstat(parent, { bigint: true });
   invariant(metadata.isDirectory() && !metadata.isSymbolicLink(), "Eval output parent must be a real directory");
-  const physical = await realpath(parent);
-  invariant(normalizeForComparison(physical) === normalizeForComparison(parent), "Eval output cannot traverse a symbolic path");
+  const physical = await realNonSymbolicPath(parent, "Eval output");
   return { parent, physical, metadata };
 }
 
@@ -554,8 +588,7 @@ export async function externalInputPath(raw) {
   invariant(!inside(repositoryRoot, file), "Eval input must remain outside the repository");
   const metadata = await regularSingleLinkMetadata(file, "Eval input");
   invariant(metadata.size <= BigInt(MAX_EXTERNAL_JSON_BYTES), "Eval input exceeds the size limit");
-  const physical = await realpath(file);
-  invariant(normalizeForComparison(physical) === normalizeForComparison(file), "Eval input cannot traverse a symbolic path");
+  const physical = await realNonSymbolicPath(file, "Eval input");
   invariant(!inside(physicalRoot, physical), "Eval input must remain physically outside the repository");
   return file;
 }
@@ -597,7 +630,7 @@ export async function readExternalJson(raw) {
     await handle.close();
   }
   const pathAfter = await regularSingleLinkMetadata(file, "Eval input");
-  const physicalAfter = await realpath(file);
+  const physicalAfter = await realNonSymbolicPath(file, "Eval input");
   invariant(sameStatIdentity(pathBefore, pathAfter), "Eval input path changed while it was read");
   invariant(normalizeForComparison(physicalBefore) === normalizeForComparison(physicalAfter), "Eval input physical path changed while it was read");
   return { file, bytes, value: parseStrictJson(bytes.toString("utf8")) };
@@ -623,8 +656,11 @@ export async function writeExternalJson(raw, value) {
   }
   const metadata = await regularSingleLinkMetadata(file, "Eval output");
   invariant(sameStatIdentity(handleAfter, metadata), "Eval output changed after it was written");
-  const physicalFile = await realpath(file);
-  invariant(normalizeForComparison(physicalFile) === normalizeForComparison(file), "Eval output physical target changed after it was written");
+  const physicalFile = await realNonSymbolicPath(file, "Eval output");
+  invariant(
+    normalizeForComparison(physicalFile) === normalizeForComparison(path.join(parentBefore.physical, path.basename(file))),
+    "Eval output physical target changed after it was written",
+  );
   const parentAfter = await realParentIdentity(file);
   invariant(
     normalizeForComparison(parentBefore.physical) === normalizeForComparison(parentAfter.physical)
