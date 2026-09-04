@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/SuntekCorps-xLab/send-from-china-agent-core/contracts/paired-release-evidence.v1.schema.json",
+  "title": "Agent Core and Reference Store paired release evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "agent_core", "reference_store", "execution", "gates"],
+  "properties": {
+    "schema_version": { "const": "agent-core-reference-store-paired-e2e/v1" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "agent_core": { "$ref": "#/$defs/agent_core_component" },
+    "reference_store": { "$ref": "#/$defs/reference_store_component" },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "journeys", "passed", "failed"],
+      "properties": {
+        "mode": { "enum": ["synthetic", "shopify_app_proxy"] },
+        "journeys": { "type": "integer", "minimum": 10 },
+        "passed": { "type": "integer", "minimum": 10 },
+        "failed": { "const": 0 }
+      }
+    },
+    "gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "same_origin_bff", "browser_credentials", "commerce_writes", "credential_exposure", "app_proxy_live_verified"],
+      "properties": {
+        "status": { "const": "PASS" },
+        "same_origin_bff": { "const": true },
+        "browser_credentials": { "const": 0 },
+        "commerce_writes": { "const": 0 },
+        "credential_exposure": { "const": 0 },
+        "app_proxy_live_verified": { "type": "boolean" }
+      }
+    }
+  },
+  "$defs": {
+    "agent_core_component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "version", "commit", "tree"],
+      "properties": {
+        "repository": { "const": "send-from-china-agent-core" },
+        "version": { "const": "1.2.0" },
+        "commit": { "$ref": "#/$defs/git_object" },
+        "tree": { "$ref": "#/$defs/git_object" }
+      }
+    },
+    "reference_store_component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "version", "commit", "tree"],
+      "properties": {
+        "repository": { "const": "send-from-china-reference-store" },
+        "version": { "const": "1.1.0" },
+        "commit": { "$ref": "#/$defs/git_object" },
+        "tree": { "$ref": "#/$defs/git_object" }
+      }
+    },
+    "git_object": { "type": "string", "pattern": "^[0-9a-f]{40}$" }
+  }
+}

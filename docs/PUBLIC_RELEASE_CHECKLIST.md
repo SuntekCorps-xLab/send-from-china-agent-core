@@ -24,3 +24,6 @@ Record the completed settings and links in the release review.
 11. Run `npm run eval:full` and `npm run eval:security` on the exact release
     commit and retain their sanitized artifacts. Treat Eval v0 as public
     synthetic regression evidence, never as production relevance evidence.
+12. Validate the exact-SHA Agent Core and Reference Store paired E2E artifact,
+    then use `npm run release:evidence -- ...` to bind the release commit, tree,
+    CI, CodeQL, SBOM, browser, security, and paired artifact identities.

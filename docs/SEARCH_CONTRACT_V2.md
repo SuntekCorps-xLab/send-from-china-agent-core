@@ -208,7 +208,7 @@ The search contract and SDK follow Semantic Versioning independently:
 - adding optional conditions or response metadata is backward-compatible;
 - changing status meaning, required fields, or condition semantics requires a
   new contract major version;
-- SDK `1.1.0` adds v2 helpers without removing the v1 `productSearch()` method;
+- SDK `1.2.0` retains the v2 helpers without removing the v1 `productSearch()` method;
 - removal of the v1 adapter or `productSearch()` would require SDK `2.0.0`.
 
 Callers should branch on `contract_version`, not on the SDK package version.
