@@ -112,6 +112,16 @@ test("preview input requires destination, structured intent, stable key, and fre
   const proof = "search_demo_12345678901234567890";
   assert.equal((await mcp("create_sourcing_task", request({ plan_id: "focused", search_id: proof, confirmed: true }))).body.result.structuredContent.error, "DEMO_PREVIEW_ONLY");
   assert.equal((await mcp("create_sourcing_task", request({ criteria: { category: "office" }, idempotency_key: "fixture-request:no-destination", search_id: proof, confirmed: true }))).body.result.structuredContent.error, "SOURCING_DESTINATION_REQUIRED");
+  const privateField = "supplier_private_reference";
+  const missingIntent = await mcp("create_sourcing_task", request({
+    criteria: { ship_to: "US", [privateField]: "must-not-be-reflected" },
+    idempotency_key: "fixture-request:no-intent-001",
+    search_id: proof,
+    confirmed: true,
+  }));
+  assert.equal(missingIntent.body.result.structuredContent.error, "SOURCING_INTENT_REQUIRED");
+  assert.equal(JSON.stringify(missingIntent.body).includes(privateField), false);
+  assert.equal(JSON.stringify(missingIntent.body).includes("must-not-be-reflected"), false);
   assert.equal((await mcp("create_sourcing_task", request({ search_id: proof, confirmed: false }))).body.result.structuredContent.error, "USER_CONFIRMATION_REQUIRED");
 });
 

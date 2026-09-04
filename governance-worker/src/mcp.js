@@ -19,6 +19,23 @@ const CRITERIA_PROPERTIES = {
   keywords: { type: "array", items: { type: "string" }, maxItems: 20 },
 };
 
+const SOURCING_CRITERIA_SCHEMA = {
+  type: "object",
+  properties: {
+    ...CRITERIA_PROPERTIES,
+    ship_to: { ...CRITERIA_PROPERTIES.ship_to, pattern: "^[A-Za-z]{2}$" },
+  },
+  required: ["ship_to"],
+  anyOf: [
+    { required: ["category"], properties: { category: { minLength: 1, pattern: "\\S" } } },
+    { required: ["use_case"], properties: { use_case: { minLength: 1, pattern: "\\S" } } },
+    { required: ["materials"], properties: { materials: { minItems: 1, contains: { type: "string", pattern: "\\S" } } } },
+    { required: ["must_have"], properties: { must_have: { minItems: 1, contains: { type: "string", pattern: "\\S" } } } },
+    { required: ["keywords"], properties: { keywords: { minItems: 1, contains: { type: "string", pattern: "\\S" } } } },
+  ],
+  additionalProperties: false,
+};
+
 const TOOLS = [
   {
     name: "product_search",
@@ -57,7 +74,7 @@ const TOOLS = [
     description: "Create an idempotent, non-billable fixture preview after a terminal catalog miss. No commerce write occurs.",
     inputSchema: { type: "object", properties: {
       query: { type: "string", minLength: 3, maxLength: 300 },
-      criteria: { type: "object", properties: CRITERIA_PROPERTIES, additionalProperties: false },
+      criteria: SOURCING_CRITERIA_SCHEMA,
       search_id: { type: "string", pattern: "^search_demo_[A-Za-z0-9-]{20,}$" },
       confirmed: { type: "boolean", const: true },
       plan_id: { type: "string", enum: ["preview"] }, idempotency_key: { type: "string", minLength: 12, maxLength: 128 },
