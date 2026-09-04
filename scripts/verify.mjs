@@ -4,12 +4,20 @@ import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
+import { resolvePythonRuntime } from "./python-runtime.mjs";
+
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const npm = process.platform === "win32" ? process.execPath : "npm";
 const npmArgs = process.platform === "win32"
   ? [join(dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js")]
   : [];
-const python = process.env.PYTHON || "python";
+let python;
+try {
+  python = resolvePythonRuntime().executable;
+} catch (error) {
+  console.error(error.message);
+  process.exit(1);
+}
 
 function run(command, args, options = {}) {
   console.log(`\n> ${command} ${args.join(" ")}`);
@@ -30,6 +38,7 @@ try {
   run(npm, [...npmArgs, "--prefix", "hosted-sandbox", "run", "verify"]);
   run(process.execPath, ["scripts/verify-recipes.mjs"]);
   run(process.execPath, ["--test", "scripts/mcp-client-docs.test.mjs"]);
+  run(process.execPath, ["--test", "scripts/python-runtime.test.mjs"]);
   run(process.execPath, ["--test", "scripts/mcp-stdio-bridge.test.mjs"]);
   run(process.execPath, ["--test", "starters/agent-core-js/test/starter.test.mjs"]);
   run(python, ["-m", "unittest", "discover", "-s", "recipes/python", "-p", "test_*.py", "-v"]);

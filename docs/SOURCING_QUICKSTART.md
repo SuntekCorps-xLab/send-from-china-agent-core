@@ -54,7 +54,9 @@ start `create_sourcing_task`. SDK callers must use
 Only proceed when the server returns `status=no_match`,
 `search_scope_exhausted=true`, `dynamic_request_recommended=true`, and a
 non-empty `search_id`. The `search_id` is a short-lived, tenant-bound proof from
-`operation=confirm_search`. A client must not turn an incomplete search or its
+`operation=confirm_search`. In this reference it expires after 15 minutes and
+is held only in the current Worker isolate; restart, deployment, or isolate
+replacement invalidates it. A client must not turn an incomplete search or its
 own judgment into a sourcing write.
 
 ## 4. Create one idempotent preview
@@ -84,6 +86,11 @@ Repeat the identical call to verify it returns the same `task.id` with
 `idempotent=true`. Reusing the key with changed input must fail with
 `IDEMPOTENCY_CONFLICT`. A search proof can create only one task; using a
 different idempotency key must not duplicate the confirmed request.
+
+Criteria objects are normalized before comparison, so JSON object key order is
+not significant. Values and list order remain significant. A proof mismatch
+returns only the stable `SEARCH_PROOF_MISMATCH` code; it does not reflect a
+field name or rejected value.
 
 ## 5. Read status and results
 

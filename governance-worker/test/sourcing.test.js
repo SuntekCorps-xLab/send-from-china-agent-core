@@ -44,6 +44,13 @@ test("product search reaches a truthful terminal catalog miss", async () => {
   assert.equal(result.exhaustive, true);
   assert.equal(result.dynamic_request_recommended, true);
   assert.match(result.search_id, /^search_demo_/);
+  const canSource = Boolean(
+    result.status === "no_match"
+    && result.exhaustive === true
+    && result.search_scope_exhausted === true
+    && result.search_id,
+  );
+  assert.equal(canSource, true);
 });
 
 test("product search enforces structured criteria instead of returning approximate violations", async () => {
@@ -116,4 +123,49 @@ test("sourcing rejects missing, mismatched, and reused catalog-miss proofs", asy
   assert.equal((await mcp("create_sourcing_task", value)).body.result.structuredContent.idempotent, false);
   const reuse = await mcp("create_sourcing_task", { ...value, idempotency_key: "fixture-request:second-task:001" });
   assert.equal(reuse.body.result.structuredContent.error, "SEARCH_PROOF_ALREADY_USED");
+});
+
+test("sourcing proof comparison ignores object key order", async () => {
+  const criteria = {
+    category: "office storage",
+    materials: ["walnut"],
+    must_have: ["cable management"],
+    price_max: 40,
+    ship_to: "US",
+  };
+  const search = await mcp("product_search", {
+    query: "a walnut desk organizer with cable management",
+    criteria,
+    operation: "confirm_search",
+  });
+  const proof = search.body.result.structuredContent;
+  const reordered = {
+    ship_to: criteria.ship_to,
+    price_max: criteria.price_max,
+    must_have: criteria.must_have,
+    materials: criteria.materials,
+    category: criteria.category,
+  };
+  const created = await mcp("create_sourcing_task", {
+    query: "a walnut desk organizer with cable management",
+    criteria: reordered,
+    search_id: proof.search_id,
+    confirmed: true,
+    plan_id: "preview",
+    idempotency_key: "fixture-request:reordered-criteria",
+  });
+  assert.equal(created.body.result.structuredContent.error, undefined);
+  assert.equal(created.body.result.structuredContent.task.status, "RESULTS_READY");
+});
+
+test("search proof mismatch stays stable and never reflects unknown input fields", async () => {
+  const value = await confirmedRequest();
+  const privateField = "supplier_secret_not_public";
+  const mismatch = await mcp("create_sourcing_task", {
+    ...value,
+    criteria: { ...value.criteria, category: "Garden", [privateField]: "do-not-reflect" },
+  });
+  assert.equal(mismatch.body.result.structuredContent.error, "SEARCH_PROOF_MISMATCH");
+  assert.equal(JSON.stringify(mismatch.body).includes(privateField), false);
+  assert.equal(JSON.stringify(mismatch.body).includes("do-not-reflect"), false);
 });

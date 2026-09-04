@@ -62,6 +62,22 @@ function normalizeCriteria(value = {}) {
   };
 }
 
+function criteriaEqual(left, right) {
+  const scalarKeys = ["category", "use_case", "ship_to", "price_max"];
+  const listKeys = ["materials", "must_have", "exclude", "keywords"];
+  if (!left || !right || typeof left !== "object" || typeof right !== "object") return false;
+  for (const key of scalarKeys) {
+    if (!Object.is(left[key], right[key])) return false;
+  }
+  for (const key of listKeys) {
+    const leftItems = left[key];
+    const rightItems = right[key];
+    if (!Array.isArray(leftItems) || !Array.isArray(rightItems) || leftItems.length !== rightItems.length) return false;
+    if (leftItems.some((item, index) => item !== rightItems[index])) return false;
+  }
+  return true;
+}
+
 function normalizeCreateRequest(value = {}) {
   const query = cleanText(value.query, 300);
   const idempotencyKey = cleanText(value.idempotency_key, 128);
@@ -179,7 +195,7 @@ function requireSearchProof(request, agent) {
   if (!proof || proof.agent_id !== agent.id) {
     throw new DemoSourcingError("SEARCH_PROOF_NOT_FOUND", "The catalog miss proof is missing, expired, or belongs to another tenant.");
   }
-  if (proof.query !== request.query || JSON.stringify(proof.criteria) !== JSON.stringify(request.criteria)) {
+  if (proof.query !== request.query || !criteriaEqual(proof.criteria, request.criteria)) {
     throw new DemoSourcingError("SEARCH_PROOF_MISMATCH", "The sourcing request must reuse the confirmed search query and criteria exactly.");
   }
   return proof;
