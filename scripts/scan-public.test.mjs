@@ -31,13 +31,22 @@ test("reports every blocked finding with an exact line number", async () => {
   });
 });
 
-test("allows only the two explicit loopback development cases", async () => {
+test("allows only the explicit Worker, sandbox, and test-only reference-store ports", async () => {
   await withFixture({
-    "docs/sandbox.md": "http://127.0.0.1:8787/sandbox",
+    "docs/worker.md": "http://127.0.0.1:8787/health",
+    "docs/sandbox.md": "http://127.0.0.1:8790/sandbox",
+    "docs/other-port.md": `http://${["127", "0", "0", "1"].join(".")}:8791/sandbox`,
+    "docs/no-port.md": `http://${["127", "0", "0", "1"].join(".")}/sandbox`,
+    "docs/private-network.md": `http://${["10", "0", "0", "8"].join(".")}:8790/sandbox`,
     "test/reference-store.test.mjs": "const origin = 'http://127.0.0.1:4173';",
     "test/private-network.test.mjs": `const origin = 'http://${["10", "0", "0", "8"].join(".")}:4173';`,
   }, async (root) => {
-    assert.deepEqual(await scanPublic(root), ["test/private-network.test.mjs:1: private network"]);
+    assert.deepEqual(await scanPublic(root), [
+      "docs/no-port.md:1: private network",
+      "docs/other-port.md:1: private network",
+      "docs/private-network.md:1: private network",
+      "test/private-network.test.mjs:1: private network",
+    ]);
   });
 });
 
@@ -47,5 +56,29 @@ test("requires an explicit marker for Han-only test fixture values", async () =>
     "test/unmarked.test.mjs": String.fromCodePoint(0x6587),
   }, async (root) => {
     assert.deepEqual(await scanPublic(root), ["test/unmarked.test.mjs:1: Han character"]);
+  });
+});
+
+test("allows the exact Worker dev loopback assignment only in its Wrangler configuration", async () => {
+  const loopback = ["127", "0", "0", "1"].join(".");
+  await withFixture({
+    "governance-worker/wrangler.toml": `[dev]\nip = "${loopback}"\n`,
+    "docs/config.md": `ip = "${loopback}"`,
+    "other/wrangler.toml": `ip = "${loopback}"`,
+    "arbitrary.txt": `ip = "${loopback}"`,
+  }, async (root) => {
+    assert.deepEqual(await scanPublic(root), [
+      "arbitrary.txt:1: private network",
+      "docs/config.md:1: private network",
+      "other/wrangler.toml:1: private network",
+    ]);
+  });
+  await withFixture({
+    "governance-worker/wrangler.toml": `host = "${loopback}"\nip = "${loopback}" # another assignment`,
+  }, async (root) => {
+    assert.deepEqual(await scanPublic(root), [
+      "governance-worker/wrangler.toml:1: private network",
+      "governance-worker/wrangler.toml:2: private network",
+    ]);
   });
 });

@@ -1,5 +1,5 @@
 function safeBaseUrl(value) {
-  const url = new URL(String(value || "http://127.0.0.1:8787"));
+  const url = new URL(String(value || "http://127.0.0.1:8790"));
   const loopback = [["127", "0", "0", "1"].join("."), "localhost", "[::1]"].includes(url.hostname);
   if (url.protocol !== "http:" || !loopback || url.username || url.password || url.search || url.hash) {
     throw new TypeError("This starter accepts only a loopback HTTP sandbox URL.");

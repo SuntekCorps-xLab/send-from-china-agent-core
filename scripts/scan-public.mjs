@@ -30,7 +30,9 @@ function isTestOnlyPath(path) {
 
 function allowedFinding(label, match, relativePath, line) {
   if (label === "private network") {
-    if (match === "127.0.0.1:8787") return true;
+    if (match === "127.0.0.1:8787" || match === "127.0.0.1:8790") return true;
+    if (match === "127.0.0.1" && relativePath === "governance-worker/wrangler.toml"
+      && line === 'ip = "127.0.0.1"') return true;
     if (match === "127.0.0.1:4173" && isTestOnlyPath(relativePath)) return true;
   }
   if (label === "Han character") {

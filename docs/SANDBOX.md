@@ -16,7 +16,14 @@ npm ci
 npm run sandbox
 ```
 
-Open `http://127.0.0.1:8787/sandbox`.
+Open `http://127.0.0.1:8790/sandbox`.
+
+Both local sandbox modes default to port **8790**. The separate self-hosted
+Worker started with `npm run dev` defaults to **8787**, so it can run alongside
+either sandbox mode. To run both sandbox modes together, choose an unused
+`SANDBOX_PORT` for one process and use its printed URL in clients and recipes.
+Worker health/search examples and `npm run smoke` target the Worker on 8787;
+the sandbox MCP examples below target 8790.
 
 That is the entry point for the default synthetic experience. It includes
 executable HTTP and MCP recipes, response inspection, copyable local calls, and
@@ -82,8 +89,10 @@ X-Send-From-China-Sandbox-Boundary: synthetic-fixture; no-shipping-rates; no-com
 `GET /sandbox/status` is the authoritative browser label. It reports the
 synthetic data source, absent browser credential, and disabled shipping and
 commerce writes. Browser-safe JSON responses also carry
-`mode: synthetic_local_sandbox`; canonical Worker responses retain their
-normal contract mode.
+`mode: synthetic_local_sandbox`. The local process also labels its unprefixed
+`GET /health` this way, with the same sandbox boundary headers, so a health
+probe cannot mistake it for a separately running Worker. Other canonical
+Worker responses retain their normal contract mode.
 
 Both modes use the closed `shopify-live-sandbox-status/v1` contract. It rejects
 unknown fields and reports `mode`, `verified`, `credential_state`,
@@ -104,7 +113,8 @@ conservative sandbox projection. Products use `availability_band: demo_only`,
 `purchasable: false`, `available: false`, and `illustrative_only: true`.
 Catalog estimates use `availability: demo_only` with the same negative flags
 and remain non-binding. Image, product, cart, checkout, order, payment,
-purchase, and supplier URLs are removed. Canonical responses are not changed.
+purchase, and supplier URLs are removed. Canonical API and MCP responses are
+not changed.
 
 For MCP tool results, the projection is applied to `structuredContent` and the
 text content is regenerated from that exact object. The JSON-RPC envelope and
@@ -215,7 +225,7 @@ validated status contract are authoritative.
 ## Connect an MCP client
 
 Start with `npm run sandbox` for clients that support Streamable HTTP. The
-browser-safe endpoint is `http://127.0.0.1:8787/sandbox/mcp` and needs no custom
+browser-safe endpoint is `http://127.0.0.1:8790/sandbox/mcp` and needs no custom
 headers. Client configuration formats are not interchangeable: in particular,
 a `url` entry without an explicit transport is not a valid Claude Code entry,
 and Claude Desktop does not load a remote HTTP server from
@@ -226,7 +236,7 @@ and Claude Desktop does not load a remote HTTP server from
 Add the running local endpoint with an explicit HTTP transport:
 
 ```bash
-claude mcp add --transport http send-from-china-sandbox http://127.0.0.1:8787/sandbox/mcp
+claude mcp add --transport http send-from-china-sandbox http://127.0.0.1:8790/sandbox/mcp
 claude mcp get send-from-china-sandbox
 ```
 
@@ -238,7 +248,7 @@ project root, trust the project when Claude Code asks, and check `/mcp`:
   "mcpServers": {
     "send-from-china-sandbox": {
       "type": "http",
-      "url": "http://127.0.0.1:8787/sandbox/mcp"
+      "url": "http://127.0.0.1:8790/sandbox/mcp"
     }
   }
 }
@@ -282,7 +292,7 @@ projects, then enable the server and its tools in Cursor settings:
 {
   "mcpServers": {
     "send-from-china-sandbox": {
-      "url": "http://127.0.0.1:8787/sandbox/mcp"
+      "url": "http://127.0.0.1:8790/sandbox/mcp"
     }
   }
 }
@@ -297,7 +307,7 @@ Cascade and enable the server:
 {
   "mcpServers": {
     "send-from-china-sandbox": {
-      "serverUrl": "http://127.0.0.1:8787/sandbox/mcp"
+      "serverUrl": "http://127.0.0.1:8790/sandbox/mcp"
     }
   }
 }
@@ -318,14 +328,14 @@ of any client UI. The middle request must return HTTP `202` with an empty body,
 and the final response must contain `product_search`:
 
 ```bash
-curl -sS http://127.0.0.1:8787/sandbox/mcp \
+curl -sS http://127.0.0.1:8790/sandbox/mcp \
   -H "Content-Type: application/json" \
   --data '{"jsonrpc":"2.0","id":"init","method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl-smoke","version":"1"}}}'
-curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8787/sandbox/mcp \
+curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8790/sandbox/mcp \
   -H "Content-Type: application/json" \
   -H "MCP-Protocol-Version: 2025-06-18" \
   --data '{"jsonrpc":"2.0","method":"notifications/initialized"}'
-curl -sS http://127.0.0.1:8787/sandbox/mcp \
+curl -sS http://127.0.0.1:8790/sandbox/mcp \
   -H "Content-Type: application/json" \
   -H "MCP-Protocol-Version: 2025-06-18" \
   --data '{"jsonrpc":"2.0","id":"tools","method":"tools/list"}'
