@@ -171,15 +171,15 @@ npm run sandbox
 Successful startup prints:
 
 ```text
-Agent Core synthetic sandbox: http://127.0.0.1:8787/sandbox
+Agent Core synthetic sandbox: http://127.0.0.1:8790/sandbox
 The ephemeral tenant credential remains in this process.
 ```
 
-Open `http://127.0.0.1:8787/sandbox`. From a second terminal, verify the closed
+Open `http://127.0.0.1:8790/sandbox`. From a second terminal, verify the closed
 status contract without a credential:
 
 ```bash
-curl -fsS http://127.0.0.1:8787/sandbox/status
+curl -fsS http://127.0.0.1:8790/sandbox/status
 ```
 
 The JSON response reports `mode: "synthetic_local_sandbox"`,
@@ -196,6 +196,11 @@ contract. Sandbox responses apply a final conservative presentation overlay:
 every product and estimate is illustrative, unavailable, and non-purchasable,
 and purchase or external URL evidence is removed. Sandbox discovery points MCP
 clients to `/sandbox/mcp`; canonical deployments still require bearer auth.
+
+The sandbox uses port **8790**; the self-hosted Worker development flow below
+uses **8787**. Both can run at the same time. The sandbox's `/health` and
+`/sandbox/health` identify `mode: synthetic_local_sandbox`, not a separately
+running Worker. Its ephemeral tenant key is unrelated to the Worker test key.
 See the [sandbox boundary and MCP setup](docs/SANDBOX.md).
 
 ### Explicit Shopify read-only mode
@@ -297,6 +302,11 @@ The first setup installs locked dependencies and can take several minutes on a
 clean machine or slow network. After that one-time setup, repeat startup is the
 short path: `npm run dev`.
 
+This starts the self-hosted Worker on `http://127.0.0.1:8787`, independently of
+the zero-account sandbox on port 8790. Check Wrangler's printed listening URL;
+if another process occupies 8787, stop that process or use the printed URL in
+the following Worker commands and MCP configuration.
+
 ```bash
 git clone https://github.com/SuntekCorps-xLab/send-from-china-agent-core.git
 cd send-from-china-agent-core
@@ -321,18 +331,29 @@ PowerShell equivalent:
 $env:TENANT_KEY = "key_test_alpha_1234567890"
 ```
 
-Check the public health endpoint:
+Check the Worker's public health endpoint; it must report
+`mode: published_snapshot_gateway` and `writes_enabled: false`:
 
 ```bash
-curl http://localhost:8787/health
+curl http://127.0.0.1:8787/health
 ```
+
+Run the authenticated smoke check against this Worker profile:
+
+```bash
+npm run smoke
+```
+
+Smoke defaults to `http://127.0.0.1:8787` and rejects the synthetic sandbox
+before sending a tenant credential. If Wrangler uses another port, pass its
+printed URL with `npm run smoke -- --url <worker-url>` or set `AGENT_CORE_URL`.
 
 Search for one desk product within the five products visible to the sample
 tenant. `q` is required and must contain 1–300 characters. `limit` cannot
 exceed the tenant's `max_page_size` (5 for `tenant_alpha`):
 
 ```bash
-curl "http://localhost:8787/api/search?q=desk&limit=5" \
+curl "http://127.0.0.1:8787/api/search?q=desk&limit=5" \
   -H "Authorization: Bearer ${TENANT_KEY}"
 ```
 
@@ -345,14 +366,14 @@ depending on an accidental single-letter match.
 Read one product by public slug:
 
 ```bash
-curl http://localhost:8787/api/products/modular-desk-organizer \
+curl http://127.0.0.1:8787/api/products/modular-desk-organizer \
   -H "Authorization: Bearer ${TENANT_KEY}"
 ```
 
 Create a non-binding catalog estimate (not a carrier shipping rate):
 
 ```bash
-curl http://localhost:8787/api/quote \
+curl http://127.0.0.1:8787/api/quote \
   -H "Authorization: Bearer ${TENANT_KEY}" \
   -H "Content-Type: application/json" \
   -d '{"public_id":"A1b2C3d4E5f6G7h8J9k0Lm","quantity":2,"ship_to":"US"}'
@@ -396,7 +417,7 @@ Use this server definition in an MCP client that supports custom headers:
   "mcpServers": {
     "commerce-catalog": {
       "type": "http",
-      "url": "http://localhost:8787/mcp",
+      "url": "http://127.0.0.1:8787/mcp",
       "headers": {
         "Authorization": "Bearer ${TENANT_KEY}"
       }

@@ -24,6 +24,8 @@ function requireValue(condition, message) {
 const auth = { authorization: `Bearer ${tenantKey}` };
 const health = await json("/health");
 requireValue(health.response.ok && health.body.ok === true, "health check failed");
+requireValue(health.body.mode !== "synthetic_local_sandbox", "Worker profile required; the selected URL serves a synthetic sandbox. Run npm run dev and use its listening URL.");
+requireValue(health.body.mode === "published_snapshot_gateway" && health.body.writes_enabled === false, "Worker profile health contract is missing");
 
 const metadata = await json("/.well-known/send-from-china.json");
 requireValue(metadata.body.capabilities?.shipping_rates === false, "capability metadata is missing");

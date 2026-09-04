@@ -8,7 +8,7 @@ Clients such as Claude Code require the explicit transport type:
   "mcpServers": {
     "send-from-china-sandbox": {
       "type": "http",
-      "url": "http://127.0.0.1:8787/sandbox/mcp"
+      "url": "http://127.0.0.1:8790/sandbox/mcp"
     }
   }
 }
@@ -17,7 +17,7 @@ Clients such as Claude Code require the explicit transport type:
 Or inspect the exact JSON-RPC call with curl:
 
 ```bash
-curl -sS http://127.0.0.1:8787/sandbox/mcp \
+curl -sS http://127.0.0.1:8790/sandbox/mcp \
   -H "Content-Type: application/json" \
   --data-binary @recipes/mcp/product-search.json
 ```

@@ -38,6 +38,9 @@ jobs:
           npm run eval:adversarial:test 2>&1 | tee artifacts/adversarial-contract-tests.log
       - name: Test MCP client documentation and stdio lifecycle
         run: node --test scripts/mcp-client-docs.test.mjs scripts/mcp-stdio-bridge.test.mjs 2>&1 | tee artifacts/mcp-client-tests.log
+      - name: Verify distinct local profiles and copyable first-run commands
+        shell: bash
+        run: node --test scripts/local-profiles.test.mjs scripts/first-run-docs.test.mjs scripts/scan-public.test.mjs 2>&1 | tee artifacts/local-profile-tests.log
       - name: Check release metadata and evidence contracts
         run: npm run release:check 2>&1 | tee artifacts/release-consistency.log
       - name: Upload Search Contract evidence
@@ -84,6 +87,34 @@ jobs:
           mkdir -p artifacts
           cd governance-worker
           npm run verify 2>&1 | tee ../artifacts/worker-verify.log
+      - name: Verify actual local launchers on distinct default ports
+        shell: bash
+        env:
+          WRANGLER_SEND_METRICS: "false"
+        run: |
+          mkdir -p artifacts/local-profiles
+          sandbox_pid=""
+          worker_pid=""
+          cleanup() {
+            for pid in "$sandbox_pid" "$worker_pid"; do
+              if [[ -n "$pid" ]]; then kill -- "-$pid" 2>/dev/null || true; fi
+            done
+          }
+          trap cleanup EXIT
+          setsid npm run sandbox > artifacts/local-profiles/sandbox.log 2>&1 &
+          sandbox_pid=$!
+          setsid npm run dev > artifacts/local-profiles/worker.log 2>&1 &
+          worker_pid=$!
+          for attempt in {1..120}; do
+            kill -0 "$sandbox_pid"
+            kill -0 "$worker_pid"
+            if curl -fsS http://127.0.0.1:8787/health > artifacts/local-profiles/worker-health.json &&
+               curl -fsS http://127.0.0.1:8790/health > artifacts/local-profiles/sandbox-health.json; then
+              break
+            fi
+            sleep 0.25
+          done
+          node scripts/check-running-local-profiles.mjs
       - name: Audit locked dependencies
         run: |
           cd governance-worker

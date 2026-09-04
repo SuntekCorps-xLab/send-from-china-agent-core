@@ -25,7 +25,7 @@ def _safe_base_url(value: str) -> str:
 
 def search(query: str = "desk organizer", base_url: str | None = None) -> dict:
     """Return a bounded result from the local synthetic sandbox."""
-    base = _safe_base_url(base_url or os.environ.get("AGENT_CORE_SANDBOX_URL", "http://127.0.0.1:8787"))
+    base = _safe_base_url(base_url or os.environ.get("AGENT_CORE_SANDBOX_URL", "http://127.0.0.1:8790"))
     url = f"{base}/sandbox/api/search?{urlencode({'q': query, 'limit': 3})}"
     request = Request(url, headers={"Accept": "application/json"}, method="GET")
     with urlopen(request, timeout=10) as response:  # nosec B310: URL is validated loopback-only above

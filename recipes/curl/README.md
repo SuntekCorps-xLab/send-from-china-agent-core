@@ -3,7 +3,7 @@
 With `npm run sandbox` running in the repository root:
 
 ```bash
-curl -sS http://127.0.0.1:8787/sandbox/api/search/v2 \
+curl -sS http://127.0.0.1:8790/sandbox/api/search/v2 \
   -H "Content-Type: application/json" \
   --data-binary @recipes/curl/search-v2.json
 ```

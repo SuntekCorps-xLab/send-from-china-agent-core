@@ -8,7 +8,7 @@ import worker from "../governance-worker/src/index.js";
 import { syntheticSandboxStatus } from "./status-contract.mjs";
 
 const LOOPBACK = ["127", "0", "0", "1"].join(".");
-const DEFAULT_PORT = 8787;
+export const DEFAULT_SANDBOX_PORT = 8790;
 const MAX_BODY_BYTES = 32 * 1024;
 const SANDBOX_PREFIX = "/sandbox";
 const root = path.dirname(fileURLToPath(import.meta.url));
@@ -58,7 +58,7 @@ const SENSITIVE_FORWARD_HEADERS = new Set([
 
 function localOrigin(server, host = LOOPBACK) {
   const address = server.address();
-  const port = typeof address === "object" && address ? address.port : DEFAULT_PORT;
+  const port = typeof address === "object" && address ? address.port : DEFAULT_SANDBOX_PORT;
   const formattedHost = host.includes(":") ? `[${host}]` : host;
   return `http://${formattedHost}:${port}`;
 }
@@ -437,7 +437,7 @@ export function createSandboxServer(options = {}) {
         ...environment,
         ALLOWED_ORIGINS: origin,
       });
-      await sendWorkerResponse(response, workerResponse, sandboxMode, targetPath);
+      await sendWorkerResponse(response, workerResponse, sandboxMode || targetPath === "/health", targetPath);
     } catch {
       const sandboxMode = String(request.url || "").startsWith(`${SANDBOX_PREFIX}/`);
       const code = mode === "shopify_read_only" ? "SERVICE_UNAVAILABLE" : "SANDBOX_INTERNAL_ERROR";
@@ -479,7 +479,7 @@ export async function startSandbox(options = {}) {
   if (!isLoopbackHost(host)) {
     throw new TypeError("The local sandbox can bind only to a loopback address.");
   }
-  const port = options.port === undefined ? DEFAULT_PORT : Number(options.port);
+  const port = options.port === undefined ? DEFAULT_SANDBOX_PORT : Number(options.port);
   if (!Number.isInteger(port) || port < 0 || port > 65535) throw new TypeError("The sandbox port is invalid.");
   const server = createSandboxServer({ ...options, host });
   await listen(server, port, host);
@@ -503,7 +503,7 @@ export async function startSandbox(options = {}) {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const configuredPort = process.env.SANDBOX_PORT ? Number(process.env.SANDBOX_PORT) : DEFAULT_PORT;
+  const configuredPort = process.env.SANDBOX_PORT ? Number(process.env.SANDBOX_PORT) : DEFAULT_SANDBOX_PORT;
   const sandbox = await startSandbox({ port: configuredPort });
   process.stdout.write(`Agent Core synthetic sandbox: ${sandbox.baseUrl}/sandbox\n`);
   process.stdout.write("The ephemeral tenant credential remains in this process.\n");
