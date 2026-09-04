@@ -11,6 +11,12 @@ use a wildcard as a quick fix.
 Queries must be 1 to 300 characters. Page size cannot exceed the tenant's
 `max_page_size`. Cursors are opaque and must be reused exactly as returned.
 
+`q` is required for `GET /api/search`. Restricted tenants cannot call
+`GET /api/catalog` and cannot use a wildcard or empty query to enumerate their
+visible set. Start with the buyer's product intent. When testing the checked-in
+`tenant_alpha` fixture, use `desk`, `garden`, `blocks`, `cable`, or `lunch` as
+known seed queries.
+
 ## `PAYLOAD_TOO_LARGE`
 
 JSON bodies are limited to 32 KiB. Send a compact message history of no more

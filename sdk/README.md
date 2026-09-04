@@ -50,6 +50,10 @@ const search = await client.searchContractV2({
   }],
   limit: 20,
 });
+
+for (const product of search.results) {
+  console.log(product.title);
+}
 ```
 
 `searchContractV2()` calls the authenticated `POST /api/search/v2` endpoint.
@@ -63,10 +67,19 @@ conditions appear in `relaxations`; they are never silently promoted to hard fil
 [Search Contract v2 integration guide](../docs/SEARCH_CONTRACT_V2.md) for the
 schemas, status semantics, direct adapter exports, and versioning policy.
 
+The Search Contract v2 product array is `search.results`. It is not
+`search.items`; integrations using the old example should migrate to
+`results`.
+
 The client deliberately does not include cart, checkout, order, or payment
 methods. A hosted deployment may return a customer-facing product, cart, or
 checkout URL. Pass the exact storefront origins you trust and use
 `client.resolvePurchaseHandoff(product)` before showing that link to a buyer.
+
+The zero-account synthetic sandbox strips purchase URLs and configures no
+trusted commerce origin, so `resolvePurchaseHandoff()` returns `null` there by
+design. It can return a handoff only for an HTTPS URL whose origin exactly
+matches a `commerceOrigins` entry in a connected deployment.
 
 Dynamic sourcing must begin only after a terminal catalog miss and explicit
 customer confirmation. See the

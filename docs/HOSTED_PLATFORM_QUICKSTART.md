@@ -95,10 +95,12 @@ const search = await client.productSearch({
   limit: 20,
 });
 
-const canSource = search.status === "no_match"
+const canSource = Boolean(
+  search.status === "no_match"
   && search.exhaustive === true
   && search.search_scope_exhausted === true
-  && search.search_id;
+  && search.search_id
+);
 ```
 
 ## 4. Start sourcing only after confirmation
@@ -106,6 +108,15 @@ const canSource = search.status === "no_match"
 After a visible confirmation from the customer, pass the exact query,
 criteria, and search proof back with a unique idempotency key. Reuse that key
 only for retries of the identical request.
+
+The reference proof expires after 15 minutes, is bound to one tenant and one
+normalized query/criteria pair, and is stored only in the current Worker
+isolate. A restart, deployment, isolate change, or expiry invalidates it. When
+delivery of `create_sourcing_task` is uncertain, retry the identical request
+with the same idempotency key; never create a new key until the prior outcome
+is known. Criteria object key order does not matter, but normalized values and
+list order must match. `SEARCH_PROOF_MISMATCH` deliberately remains generic so
+an error cannot reflect an unknown or private input field.
 
 ```js
 const created = await client.createSourcingTask({
@@ -135,6 +146,12 @@ The SDK never performs payment. For each governed result, call
 `resolvePurchaseHandoff()`. It accepts only HTTPS URLs on an explicitly
 configured commerce origin. Supplier links and unknown hosts resolve to
 `null`.
+
+In the zero-account synthetic sandbox, commerce origins are intentionally not
+configured and all purchase URLs are removed, so
+`resolvePurchaseHandoff()` always returns `null`. A non-null handoff is possible
+only in a connected deployment whose server/operator has configured the exact
+merchant HTTPS origin.
 
 ```js
 const handoff = client.resolvePurchaseHandoff(results[0]);

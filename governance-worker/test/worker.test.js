@@ -254,6 +254,9 @@ test("MCP discovery is public and catalog calls are tenant-scoped", async () => 
     body: JSON.stringify({ jsonrpc: "2.0", id: "init", method: "initialize", params: {} }),
   });
   assert.equal(initialize.status, 200);
+  const initializeBody = await initialize.json();
+  assert.equal(initializeBody.result.serverInfo.name, "send-from-china-agent-core");
+  assert.equal(JSON.stringify(initializeBody).includes("world-products"), false);
 
   const initialized = await call("/mcp", {
     method: "POST",

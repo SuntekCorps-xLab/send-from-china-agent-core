@@ -2,10 +2,11 @@
 
 # Send From China Agent Core
 
-### Publish once. Expose only what each tenant is allowed to see.
+### Search a live catalog over MCP. Self-host the same guarded contract.
 
-A self-hosted catalog gateway that gives commerce agents a guarded HTTP and MCP
-surface—without connecting the runtime to your private systems.
+Agent Core gives commerce agents a managed, read-only catalog entry point plus
+a self-hosted HTTP and MCP reference—without exposing merchant credentials or
+adding a transaction path.
 
 [![CI](https://github.com/SuntekCorps-xLab/send-from-china-agent-core/actions/workflows/ci.yml/badge.svg)](https://github.com/SuntekCorps-xLab/send-from-china-agent-core/actions/workflows/ci.yml)
 [![Node.js 22](https://img.shields.io/badge/Node.js-22-142b2f)](governance-worker/package.json)
@@ -19,9 +20,10 @@ surface—without connecting the runtime to your private systems.
 <img src="docs/images/agent-core-live.svg" alt="Animated walkthrough of a published catalog passing through tenant, field-policy, and no-egress controls before reaching HTTP and MCP clients" width="100%">
 
 <p>
-  <a href="#try-the-zero-account-sandbox"><strong>⚡ Try sandbox</strong></a> ·
+  <a href="#1-try-live-read-only-mcp"><strong>🌐 Try live read-only MCP</strong></a> ·
+  <a href="#2-run-the-zero-account-local-sandbox"><strong>⚡ Run local sandbox</strong></a> ·
+  <a href="#3-self-host-with-your-own-catalog"><strong>📦 Self-host</strong></a> ·
   <a href="#connect-an-mcp-client"><strong>🔌 MCP setup</strong></a> ·
-  <a href="#publish-your-own-catalog"><strong>📦 Publisher</strong></a> ·
   <a href="docs/SECURITY_MODEL.md"><strong>🛡️ Security model</strong></a> ·
   <a href="docs/ARCHITECTURE.md"><strong>🏗️ Architecture</strong></a> ·
   <a href="ROADMAP.md"><strong>🗺️ Roadmap</strong></a>
@@ -30,9 +32,11 @@ surface—without connecting the runtime to your private systems.
 </div>
 
 > [!IMPORTANT]
-> Agent Core is a security-focused reference gateway, not a hosted marketplace.
-> It deliberately has no customer, payment, order, checkout, supplier, or
-> product-write connection. The included sourcing lifecycle is a synthetic,
+> The managed endpoint permits anonymous reads of allowlisted public catalog
+> fields only. Account, quote, sourcing, request, and write-capable operations
+> remain protected. Neither the managed endpoint nor this reference runtime
+> gives an agent payment, order, checkout, inventory, publication, or product
+> mutation authority. The repository's sourcing lifecycle is a synthetic,
 > non-purchasable fixture for client integration tests.
 
 To connect an external application to this contract or to a compatible hosted
@@ -57,6 +61,60 @@ Compatibility is a contract target, not a deployment claim. Before release,
 the Reference Store must pin an exact Agent Core commit and pass its paired
 verification against that commit. A version pair without that exact-SHA
 evidence is not release-certified.
+
+## 1. Try live read-only MCP
+
+Connect an MCP client directly to the managed public catalog. No account,
+Bearer token, repository checkout, or local server is required for these five
+read tools:
+
+- `product_search`
+- `search_catalog`
+- `browse_catalog`
+- `ask_catalog`
+- `get_product`
+
+```json
+{
+  "mcpServers": {
+    "send-from-china-live": {
+      "type": "http",
+      "url": "https://wp-api.sendfromchina.ai/mcp"
+    }
+  }
+}
+```
+
+For a client-independent check, run the four requests below. Copy a `slug` or
+`handle` from the third response into the final request.
+
+```bash
+curl -sS https://wp-api.sendfromchina.ai/mcp \
+  -H "Content-Type: application/json" \
+  --data '{"jsonrpc":"2.0","id":"init","method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"catalog-quickstart","version":"1"}}}'
+
+curl -sS https://wp-api.sendfromchina.ai/mcp \
+  -H "Content-Type: application/json" \
+  -H "MCP-Protocol-Version: 2025-06-18" \
+  --data '{"jsonrpc":"2.0","id":"tools","method":"tools/list"}'
+
+curl -sS https://wp-api.sendfromchina.ai/mcp \
+  -H "Content-Type: application/json" \
+  -H "MCP-Protocol-Version: 2025-06-18" \
+  --data '{"jsonrpc":"2.0","id":"search","method":"tools/call","params":{"name":"product_search","arguments":{"query":"desk organizer","criteria":{"ship_to":"US"},"operation":"search","limit":5}}}'
+
+curl -sS https://wp-api.sendfromchina.ai/mcp \
+  -H "Content-Type: application/json" \
+  -H "MCP-Protocol-Version: 2025-06-18" \
+  --data '{"jsonrpc":"2.0","id":"product","method":"tools/call","params":{"name":"get_product","arguments":{"slug":"<returned-slug-or-handle>"}}}'
+```
+
+Search results link back to the real Shopify product page. Treat price,
+publication, and availability as point-in-time Shopify facts and re-read the
+product before presenting them as current. Anonymous access does not extend to
+`get_agent_access`, quotes, sourcing, product requests, or any write-capable
+operation; those require a deployment-issued credential and scope. The live
+catalog and all credentials stay outside this repository.
 
 ## What you can build with it
 
@@ -86,7 +144,7 @@ JSONL catalog into a validated build-time snapshot without sending it anywhere.
   </tr>
 </table>
 
-## Try the zero-account sandbox
+## 2. Run the zero-account local sandbox
 
 Run the real HTTP and MCP Worker contract against the checked-in synthetic
 snapshot without registering, configuring a tenant, or exposing a credential to
@@ -193,11 +251,18 @@ fields, and the key never enter the snapshot or publisher report.
 
 <img src="docs/images/agent-core-publish-boundary-live.svg" alt="Animated publishing boundary showing local catalog input and identifier key passing through allowlisting, opaque identifiers, and atomic validation before a public snapshot reaches Agent Core" width="100%">
 
-## 60-second local run
+## First local setup and repeat runs
 
-Requirements: Node.js 22+, npm, and Python 3.11+. Python is used by the full
-verification command and by the optional local snapshot publisher; the
-runtime Worker and JavaScript SDK do not invoke Python.
+Requirements: Node.js 22+, npm, and Python 3.11+. On macOS and Linux the
+verification command tries `python3` and then `python`; on Windows it tries
+`python`. Set `PYTHON=/absolute/path/to/python3.11` when the executable has a
+different name or location. Python is used by the full verification command
+and optional local snapshot publisher; the runtime Worker and JavaScript SDK
+do not invoke Python.
+
+The first setup installs locked dependencies and can take several minutes on a
+clean machine or slow network. After that one-time setup, repeat startup is the
+short path: `npm run dev`.
 
 ```bash
 git clone https://github.com/SuntekCorps-xLab/send-from-china-agent-core.git
@@ -229,12 +294,20 @@ Check the public health endpoint:
 curl http://localhost:8787/health
 ```
 
-Search the five products visible to the sample tenant:
+Search for one desk product within the five products visible to the sample
+tenant. `q` is required and must contain 1–300 characters. `limit` cannot
+exceed the tenant's `max_page_size` (5 for `tenant_alpha`):
 
 ```bash
 curl "http://localhost:8787/api/search?q=desk&limit=5" \
   -H "Authorization: Bearer ${TENANT_KEY}"
 ```
+
+Restricted tenants deliberately cannot enumerate their entire visible set.
+Cold-start agents should begin with the buyer's product intent. For local
+fixture testing, supported seed queries are `desk`, `garden`, `blocks`,
+`cable`, and `lunch`; each finds one of `tenant_alpha`'s five records without
+depending on an accidental single-letter match.
 
 Read one product by public slug:
 
@@ -335,7 +408,7 @@ compatible coding agent the catalog-first flow, catalog-estimate boundary, and
 confirmed sourcing-preview discipline. The skill does not contain an endpoint
 or tenant key; configure the MCP server separately.
 
-## Publish your own catalog
+## 3. Self-host with your own catalog
 
 The gateway includes a standard-library Python publisher. It accepts user-owned
 JSON or JSONL, strips fields outside the public contract, creates stable opaque
@@ -424,6 +497,10 @@ replaced by durable storage for multi-isolate production use.
 | `POST` | `/api/quote` | Yes | Short-lived catalog estimate; excludes shipping and tax |
 | `POST` | `/api/chat` | Yes | Deterministic search conversation example |
 | `POST` | `/mcp` | Mixed | Public discovery; authenticated tool calls |
+
+For `GET /api/search`, `q` is required (1–300 characters) and `limit` must be
+between 1 and the authenticated tenant's `max_page_size`. Restricted tenants
+cannot use search as a full-catalog enumeration mechanism.
 
 The complete request and error contract is in
 [contracts/openapi.yaml](contracts/openapi.yaml).
