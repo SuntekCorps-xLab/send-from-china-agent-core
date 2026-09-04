@@ -27,6 +27,10 @@ if (browsers.some((browser) => !supportedBrowsers.includes(browser)) || new Set(
 }
 const viewports = [{ width: 1440, height: 1000 }, { width: 390, height: 844 }];
 const scenarios = ["http-search", "search-v2", "mcp-list", "mcp-search", "sourcing-preview"];
+const a11yTestFixture = String(process.env.AGENT_CORE_SANDBOX_QA_TEST_FIXTURE || "");
+if (a11yTestFixture && (process.env.NODE_ENV !== "test" || a11yTestFixture !== "unnamed-dialog")) {
+  throw new TypeError("AGENT_CORE_SANDBOX_QA_TEST_FIXTURE is test-only and only supports unnamed-dialog.");
+}
 const report = {
   suite: "agent-core-synthetic-sandbox-browser-qa",
   started_at: new Date().toISOString(),
@@ -37,6 +41,7 @@ const report = {
   cases: [],
   blockers: [],
   tools: {},
+  test_fixture: a11yTestFixture || null,
 };
 
 await mkdir(artifactRoot, { recursive: true });
@@ -67,12 +72,11 @@ async function auditPage(page, result, viewport, state) {
     }).map((element) => ({ tag: element.tagName, className: String(element.className || "") })),
   }));
   const violations = await page.evaluate(async () => {
-    const scan = await window.axe.run(document, {
-      runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] },
-    });
+    const scan = await window.axe.run(document);
     return scan.violations.map((finding) => ({
       id: finding.id,
       impact: finding.impact,
+      tags: finding.tags,
       targets: finding.nodes.map((node) => node.target),
       failure_summaries: finding.nodes.map((node) => node.failureSummary),
     }));
@@ -129,6 +133,16 @@ async function runCase(browser, browserName, viewport, baseUrl) {
     await page.goto(`${baseUrl}/sandbox`, { waitUntil: "networkidle" });
     await page.waitForFunction(() => document.querySelector("[data-runtime-title]")?.textContent.includes("ready"));
     await page.evaluate(axeSource);
+    if (a11yTestFixture === "unnamed-dialog") {
+      await page.evaluate(() => {
+        const dialog = document.createElement("div");
+        dialog.setAttribute("role", "dialog");
+        const button = document.createElement("button");
+        button.textContent = "Close";
+        dialog.append(button);
+        document.body.append(dialog);
+      });
+    }
     assert.equal(await page.locator("main").isVisible(), true);
     await auditPage(page, result, viewport, "initial");
 
