@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { resetDemoSourcingState } from "../../governance-worker/src/sourcing.js";
 import { resetTenantState } from "../../governance-worker/src/tenant.js";
 import { startSandbox } from "../server.mjs";
+import { assertNoA11yViolations } from "./a11y-gate.mjs";
 
 const sandboxRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repositoryRoot = resolve(sandboxRoot, "..");
@@ -73,10 +74,12 @@ async function auditPage(page, result, viewport, state) {
       id: finding.id,
       impact: finding.impact,
       targets: finding.nodes.map((node) => node.target),
+      failure_summaries: finding.nodes.map((node) => node.failureSummary),
     }));
   });
   const audit = { state, overflow, violations };
   result.audits.push(audit);
+  assertNoA11yViolations(violations, state);
   assert.equal(overflow.scrollWidth, viewport.width, `${state}: document has horizontal overflow`);
   assert.deepEqual(overflow.outside, [], `${state}: visible content escaped the viewport without a scroll container`);
   return audit;
