@@ -41,6 +41,9 @@ jobs:
       - name: Verify distinct local profiles and copyable first-run commands
         shell: bash
         run: node --test scripts/local-profiles.test.mjs scripts/first-run-docs.test.mjs scripts/scan-public.test.mjs 2>&1 | tee artifacts/local-profile-tests.log
+      - name: Verify cleanup after successful and failed child checks
+        shell: bash
+        run: node --test scripts/verify-cleanup.test.mjs 2>&1 | tee artifacts/verification-cleanup-tests.log
       - name: Check release metadata and evidence contracts
         run: npm run release:check 2>&1 | tee artifacts/release-consistency.log
       - name: Upload Search Contract evidence

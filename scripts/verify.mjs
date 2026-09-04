@@ -19,6 +19,13 @@ try {
   process.exit(1);
 }
 
+class VerificationCommandFailure extends Error {
+  constructor(status) {
+    super("Verification child command failed.");
+    this.exitCode = status || 1;
+  }
+}
+
 function run(command, args, options = {}) {
   console.log(`\n> ${command} ${args.join(" ")}`);
   const result = spawnSync(command, args, {
@@ -28,10 +35,11 @@ function run(command, args, options = {}) {
     shell: false,
   });
   if (result.error) throw result.error;
-  if (result.status !== 0) process.exit(result.status || 1);
+  if (result.status !== 0) throw new VerificationCommandFailure(result.status);
 }
 
 const temporary = await mkdtemp(join(tmpdir(), "agent-core-"));
+let verified = false;
 try {
   run(npm, [...npmArgs, "--prefix", "governance-worker", "run", "verify"]);
   run(npm, [...npmArgs, "run", "test:sandbox"]);
@@ -39,6 +47,7 @@ try {
   run(process.execPath, ["scripts/verify-recipes.mjs"]);
   run(process.execPath, ["--test", "scripts/first-run-docs.test.mjs"]);
   run(process.execPath, ["--test", "scripts/local-profiles.test.mjs"]);
+  run(process.execPath, ["--test", "scripts/verify-cleanup.test.mjs"]);
   run(process.execPath, ["--test", "scripts/capability-boundaries.test.mjs"]);
   run(process.execPath, ["--test", "scripts/mcp-client-docs.test.mjs"]);
   run(process.execPath, ["--test", "scripts/python-runtime.test.mjs"]);
@@ -70,7 +79,11 @@ try {
   run(process.execPath, ["scripts/validate-snapshot.mjs", snapshot]);
   run(process.execPath, ["scripts/check-doc-links.mjs"]);
   run(process.execPath, ["scripts/scan-public.mjs", "."]);
-  console.log("\nPASS: Agent Core verification");
+  verified = true;
+} catch (error) {
+  if (!(error instanceof VerificationCommandFailure)) throw error;
+  process.exitCode = error.exitCode;
 } finally {
   await rm(temporary, { recursive: true, force: true });
 }
+if (verified) console.log("\nPASS: Agent Core verification");
