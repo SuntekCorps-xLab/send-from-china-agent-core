@@ -29,7 +29,7 @@ test("well-known metadata states authentication and unsupported transaction capa
   assert.equal(body.mcp.discovery_auth_required, false);
   assert.equal(body.mcp.tool_auth, "bearer_tenant_key");
   assert.equal(body.registration.self_service, false);
-  assert.equal(body.version, "1.1.0");
+  assert.equal(body.version, "1.2.0");
   assert.equal(body.capabilities.catalog_estimate, true);
   assert.equal(body.capabilities.search_contract_v2, true);
   assert.equal(body.capabilities.shipping_rates, false);
@@ -256,6 +256,7 @@ test("MCP discovery is public and catalog calls are tenant-scoped", async () => 
   assert.equal(initialize.status, 200);
   const initializeBody = await initialize.json();
   assert.equal(initializeBody.result.serverInfo.name, "send-from-china-agent-core");
+  assert.equal(initializeBody.result.serverInfo.version, "1.2.0");
   assert.equal(JSON.stringify(initializeBody).includes("world-products"), false);
 
   const initialized = await call("/mcp", {

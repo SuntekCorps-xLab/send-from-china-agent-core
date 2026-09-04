@@ -47,7 +47,7 @@ async function route(request, env, id, corsHeaders) {
     return jsonResponse({
       schema_version: 1,
       service: "send-from-china-agent-core",
-      version: "1.1.0",
+      version: "1.2.0",
       mode: "self_hosted_reference",
       mcp: { path: "/mcp", discovery_auth_required: false, tool_auth: "bearer_tenant_key" },
       registration: { self_service: false, key_provisioning: "deployment_operator" },

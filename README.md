@@ -11,7 +11,7 @@ adding a transaction path.
 [![CI](https://github.com/SuntekCorps-xLab/send-from-china-agent-core/actions/workflows/ci.yml/badge.svg)](https://github.com/SuntekCorps-xLab/send-from-china-agent-core/actions/workflows/ci.yml)
 [![Node.js 22](https://img.shields.io/badge/Node.js-22-142b2f)](governance-worker/package.json)
 [![MCP](https://img.shields.io/badge/MCP-2025--06--18-c64b1a)](contracts/openapi.yaml)
-[![Release](https://img.shields.io/badge/release-v1.1.0-e85d16)](CHANGELOG.md)
+[![Release](https://img.shields.io/github/v/release/SuntekCorps-xLab/send-from-china-agent-core?display_name=tag&sort=semver)](https://github.com/SuntekCorps-xLab/send-from-china-agent-core/releases/latest)
 [![Worker egress](https://img.shields.io/badge/Worker%20egress-none-87927a)](docs/SECURITY_MODEL.md)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-6b7c70)](LICENSE)
 
@@ -48,19 +48,20 @@ separate, and never handles payment credentials.
 External agents can use the versioned
 [Search Contract v2](docs/SEARCH_CONTRACT_V2.md) to keep product identity,
 explicit hard constraints, soft ranking context, and transaction context
-separate. The additive SDK 1.1 API includes an explicit compatibility adapter
+separate. The additive SDK 1.2 API includes an explicit compatibility adapter
 for the stable `product_search` v1 tool.
 
 ### Reference Store compatibility
 
 | Agent Core | Send From China Reference Store | Integration status |
 | --- | --- | --- |
-| `1.1.x` | `1.0.x` | Contract-compatible candidate for the closed sandbox status, Search Contract v2, and product-detail routes documented in the [hosted quickstart](docs/HOSTED_PLATFORM_QUICKSTART.md). |
+| `1.2.x` | `1.1.x` | Release target for Search Contract v2, read-only catalog routes, paired verification, and browser QA. Certification still requires an exact-SHA paired artifact. |
 
 Compatibility is a contract target, not a deployment claim. Before release,
 the Reference Store must pin an exact Agent Core commit and pass its paired
 verification against that commit. A version pair without that exact-SHA
-evidence is not release-certified.
+evidence is not release-certified. This table does not claim that a public
+Reference Store App Proxy has passed its real-store journey gate.
 
 ## 1. Try live read-only MCP
 

@@ -12,7 +12,13 @@
    contain parseable SPDX 2.3 documents for Agent Core, the dependency-free
    SDK, and the Worker's locked build and test dependency graph.
 10. Review the complete diff and generated file manifest.
-11. Tag a release only after CI reaches a successful terminal state.
+11. Tag the exact reviewed release commit only after CI and CodeQL reach a
+    successful terminal state.
+12. Validate an independently produced paired E2E artifact against
+    `contracts/paired-release-evidence.v1.schema.json` and generate the release
+    evidence with `npm run release:evidence -- ...`. The generator binds the
+    tagged Git commit and tree; never type or predict a future merge SHA.
+13. Create the GitHub Release and link the generated evidence manifest.
 
 For the first public release, also complete and record every item in
 [`PUBLIC_RELEASE_CHECKLIST.md`](PUBLIC_RELEASE_CHECKLIST.md).

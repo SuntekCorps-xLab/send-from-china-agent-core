@@ -4,6 +4,24 @@ All notable changes to the public reference implementation are documented here.
 
 ## Unreleased
 
+No changes have been accepted after the `1.2.0` release candidate.
+
+## 1.2.0 - 2026-09-04
+
+- Added the invite-protected Hosted Sandbox and its fail-closed Shopify
+  read-only provider, while keeping synthetic and real-store modes explicit.
+- Kept Search Contract v2 authoritative across HTTP, MCP, SDK, and sandbox
+  paths, including deterministic hard constraints and truthful relaxations.
+- Added live read-only MCP onboarding, executable first-call recipes, stable
+  terminal-miss sourcing guidance, and tested SDK response examples.
+- Hardened sourcing proof isolation, idempotency, restart invalidation, and
+  structural request equality without expanding transaction authority.
+- Added cross-platform Python runtime discovery and clarified clean-machine
+  setup, restricted-tenant discovery, and synthetic purchase-handoff limits.
+- Added release consistency checks and a release-time evidence generator so
+  commit, tree, CI, CodeQL, SBOM, browser, security, and paired E2E evidence
+  can be bound without inventing a future merge identity.
+
 - Added tested curl, MCP, JavaScript, and Python sandbox recipes plus a
   dependency-free Agent Core JavaScript starter.
 - Made CodeQL manually triggerable while retaining the documented private-repo

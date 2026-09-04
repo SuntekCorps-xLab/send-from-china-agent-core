@@ -1,6 +1,6 @@
 {
   "name": "send-from-china-agent-core",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -30,6 +30,8 @@
     "qa:sandbox-browser": "node sandbox/scripts/browser-qa.mjs",
     "sandbox": "node sandbox/server.mjs",
     "sandbox:shopify": "node sandbox/shopify-server.mjs",
+    "release:check": "node --test scripts/release-consistency.test.mjs",
+    "release:evidence": "node scripts/generate-release-evidence.mjs",
     "scan": "node scripts/scan-public.mjs .",
     "setup": "node scripts/prepare-local.mjs && npm --prefix governance-worker ci",
     "sdk:test": "node --test sdk/test/client.test.js sdk/test/search-contract-v2.test.js",
