@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { link, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { link, mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -13,6 +14,7 @@ import {
   parseStrictJson,
   readExternalJson,
   repositoryEvidence,
+  writeExternalJson,
 } from "../../offline-safety-v1.mjs";
 import { createSyntheticTrajectoryTasks } from "../generate-synthetic.mjs";
 import {
@@ -449,4 +451,107 @@ test("symbolic input and output paths are rejected before execution", async (con
 test("repository-local inputs are rejected even when they are ignored or read-only", async () => {
   const localSchema = fileURLToPath(new URL("../task.schema.json", import.meta.url));
   await assert.rejects(externalInputPath(localSchema), /outside the repository/);
+});
+
+function windowsShortPath(file) {
+  const result = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", `
+    Add-Type -TypeDefinition 'using System; using System.Text; using System.Runtime.InteropServices; public static class EvalShortPath { [DllImport("kernel32.dll", EntryPoint="GetShortPathNameW", CharSet=CharSet.Unicode, SetLastError=true)] public static extern uint GetShortPathName(string path, StringBuilder buffer, uint size); }'
+    $buffer = [System.Text.StringBuilder]::new(32768)
+    $length = [EvalShortPath]::GetShortPathName($env:EVAL_TEST_LONG_PATH, $buffer, 32768)
+    if ($length -eq 0 -or $length -ge 32768) { throw "GetShortPathNameW failed" }
+    [Console]::Write($buffer.ToString())
+  `], {
+    env: { ...process.env, EVAL_TEST_LONG_PATH: file },
+    encoding: "utf8",
+    shell: false,
+    timeout: 30_000,
+    windowsHide: true,
+  });
+  assert.equal(result.status, 0, result.stderr || result.error?.message);
+  return result.stdout;
+}
+
+test("Windows short aliases read and write external JSON without weakening path guards", {
+  skip: process.platform !== "win32" && "Windows 8.3 paths require Windows",
+}, async (context) => {
+  const directory = await mkdtemp(path.join(tmpdir(), "offline-evaluation-short-alias-"));
+  try {
+    const physical = await realpath(directory);
+    const short = windowsShortPath(physical);
+    if (short.toLowerCase() === physical.toLowerCase()) {
+      context.skip("the temporary volume has no Windows 8.3 alias for this fixture");
+      return;
+    }
+    const payload = { synthetic: true };
+    const longInput = path.join(physical, "synthetic-input-document.json");
+    await writeFile(longInput, JSON.stringify(payload));
+    const shortInput = windowsShortPath(longInput);
+    const shortOutput = path.join(short, "synthetic-output-document.json");
+    await context.test("reads an existing file through both short directory and file aliases", async () => {
+      assert.deepEqual({ ...(await readExternalJson(shortInput)).value }, payload);
+    });
+    await context.test("creates a new file through a short parent alias and refuses to overwrite it", async () => {
+      await writeExternalJson(shortOutput, payload);
+      assert.deepEqual(JSON.parse(await readFile(path.join(physical, "synthetic-output-document.json"), "utf8")), payload);
+      await assert.rejects(writeExternalJson(shortOutput, payload), /already exists/);
+    });
+    await assert.rejects(externalInputPath(`${short}\\unused\\..\\synthetic-input-document.json`), /traversal/);
+    await link(longInput, path.join(physical, "hard-link.json"));
+    await assert.rejects(readExternalJson(shortInput), /hard links/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("Windows extended-length paths retain external access and repository exclusion", {
+  skip: process.platform !== "win32" && "Windows extended-length paths require Windows",
+}, async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "offline-extended-path-"));
+  try {
+    const nested = path.join(directory, ...Array.from({ length: 8 }, (_, index) => `synthetic-long-directory-component-${index}`));
+    assert.ok(nested.length > 260);
+    await mkdir(path.toNamespacedPath(nested), { recursive: true });
+    const input = path.join(nested, "input.json");
+    await writeFile(input, "{}");
+    assert.deepEqual({ ...(await readExternalJson(input)).value }, {});
+    assert.deepEqual({ ...(await readExternalJson(path.toNamespacedPath(input))).value }, {});
+    const output = path.toNamespacedPath(path.join(nested, "output.json"));
+    await writeExternalJson(output, { synthetic: true });
+    assert.deepEqual(JSON.parse(await readFile(output, "utf8")), { synthetic: true });
+    await writeExternalJson(path.join(nested, "ordinary-output.json"), { synthetic: true });
+    const localSchema = fileURLToPath(new URL("../task.schema.json", import.meta.url));
+    for (const local of [localSchema.toUpperCase(), windowsShortPath(localSchema), path.toNamespacedPath(localSchema)]) {
+      await assert.rejects(readExternalJson(local), /outside the repository/);
+      await assert.rejects(externalOutputPath(path.join(path.dirname(local), "new-artifact.json")), /outside the repository/);
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("a symbolic ancestor remains forbidden even when the immediate parent is a real directory", async (context) => {
+  const directory = await mkdtemp(path.join(tmpdir(), "offline-ancestor-link-"));
+  try {
+    const physical = path.join(directory, "physical");
+    await mkdir(path.join(physical, "nested"), { recursive: true });
+    const linked = path.join(directory, "linked");
+    try {
+      await symlink(physical, linked, process.platform === "win32" ? "junction" : "dir");
+    } catch (error) {
+      if (["EPERM", "EACCES", "ENOTSUP"].includes(error?.code)) {
+        context.skip("the host does not permit creating a test symlink");
+        return;
+      }
+      throw error;
+    }
+    await writeFile(path.join(physical, "nested", "input.json"), "{}");
+    const aliases = [linked];
+    if (process.platform === "win32") aliases.push(windowsShortPath(linked), path.toNamespacedPath(linked));
+    for (const alias of aliases) {
+      await assert.rejects(readExternalJson(path.join(alias, "nested", "input.json")), /symbolic path/);
+      await assert.rejects(writeExternalJson(path.join(alias, "nested", "output.json"), {}), /symbolic path/);
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });

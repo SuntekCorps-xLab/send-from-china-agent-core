@@ -76,6 +76,8 @@ parents must already exist so the physical boundary can be checked before an
 exclusive create. Inputs are size-checked before reading through a file handle,
 then handle and path identity, link count, size and timestamps are rechecked.
 Outputs use exclusive handle creation and post-write physical-target checks.
+Windows 8.3 aliases and extended-length paths are accepted after checking every
+path component for symbolic links or junctions and verifying canonical identity.
 The caller must nevertheless provide an external parent directory controlled
 only by the current trusted user; the harness cannot make a directory writable
 by a hostile principal safe against every filesystem race.
