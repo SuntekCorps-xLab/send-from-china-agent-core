@@ -122,6 +122,11 @@ jobs:
         run: |
           mkdir -p artifacts/sandbox-browser
           AGENT_CORE_SANDBOX_QA_ARTIFACT_ROOT="$PWD/artifacts/sandbox-browser" npm run qa:sandbox-browser
+      - name: Prove serious best-practice findings fail the browser gate
+        env:
+          SANDBOX_QA_NODE_MODULES: ${{ github.workspace }}/node_modules
+          AGENT_CORE_A11Y_GATE_E2E: "1"
+        run: node --test sandbox/tests/browser-qa-gate.test.mjs
       - name: Upload browser QA evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

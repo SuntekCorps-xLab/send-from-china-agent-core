@@ -2,13 +2,13 @@
   --ink: #0b3034;
   --deep: #103f41;
   --deep-2: #194f4f;
-  --orange: #ed5b20;
+  --orange: #b43c0c;
   --peach: #f6d7c4;
   --cream: #fbfaf6;
   --paper: #ffffff;
   --sage: #eaf1e9;
   --line: #d8dfd8;
-  --muted: #6e7c77;
+  --muted: #536660;
   --green: #7eb270;
   --shadow: 0 22px 60px rgba(12, 48, 52, .12);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -97,7 +97,7 @@ main { width: min(1480px, calc(100% - 40px)); margin: 0 auto; }
 
 .eyebrow {
   margin: 0 0 13px;
-  color: #d94e17;
+  color: #a9360d;
   font-size: 12px;
   font-weight: 850;
   letter-spacing: .16em;
@@ -206,17 +206,17 @@ h2 { margin: 0; font-size: clamp(31px, 3vw, 48px); line-height: 1; letter-spacin
   text-align: left;
   background: transparent;
   cursor: pointer;
-  transition: transform .18s ease, background .18s ease, border-color .18s ease;
+  transition: transform .18s ease, border-color .18s ease;
 }
 
 .recipe:hover { transform: translateX(3px); background: white; border-color: #dfe3dd; }
 .recipe.active { color: white; background: var(--deep); box-shadow: 0 12px 28px rgba(16, 63, 65, .16); }
 .recipe[hidden] { display: none; }
-.recipe > span:first-child { color: #de6b38; font: 700 13px Georgia, serif; }
+.recipe > span:first-child { color: #a33b12; font: 700 13px Georgia, serif; }
 .recipe.active > span:first-child { color: #ff9b66; }
 .recipe > span:nth-child(2) { min-width: 0; display: grid; gap: 4px; }
 .recipe strong { overflow-wrap: anywhere; font-size: 13px; }
-.recipe small { color: #7b8984; font-size: 10px; }
+.recipe small { color: #536660; font-size: 10px; }
 .recipe.active small { color: #bed2cc; }
 .recipe i { font-style: normal; }
 
@@ -227,7 +227,7 @@ h2 { margin: 0; font-size: clamp(31px, 3vw, 48px); line-height: 1; letter-spacin
 .panel-head { min-height: 51px; display: flex; align-items: center; justify-content: space-between; gap: 15px; }
 .panel-head > div { min-width: 0; display: flex; align-items: center; gap: 11px; }
 .panel-head > div > div { min-width: 0; display: grid; gap: 3px; }
-.panel-head small { color: #6d837b; font-size: 9px; font-weight: 850; letter-spacing: .16em; }
+.panel-head small { color: #526a61; font-size: 9px; font-weight: 850; letter-spacing: .16em; }
 .panel-head strong { overflow-wrap: anywhere; font-family: Georgia, serif; font-size: 19px; font-weight: 600; }
 
 .panel-icon {
@@ -276,7 +276,7 @@ h2 { margin: 0; font-size: clamp(31px, 3vw, 48px); line-height: 1; letter-spacin
   color: #bcd1cc;
   font-size: 10px;
 }
-.code-label span { padding: 4px 7px; border-radius: 5px; color: #fff; background: #d9571d; font-weight: 850; }
+.code-label span { padding: 4px 7px; border-radius: 5px; color: #fff; background: var(--orange); font-weight: 850; }
 .code-label code { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 pre { margin: 0; }
@@ -292,6 +292,7 @@ pre code {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+pre code:focus-visible { outline: 3px solid #f7b38b; outline-offset: -4px; }
 
 .confirmation {
   margin-top: 14px;
@@ -320,7 +321,7 @@ pre code {
   cursor: pointer;
 }
 .primary-action { flex: 1 1 auto; border: 0; color: white; background: var(--orange); }
-.primary-action:hover { background: #d94d16; }
+.primary-action:hover { background: #8f2d08; }
 .primary-action:disabled { cursor: wait; opacity: .55; }
 .primary-action span { margin-left: 9px; }
 .secondary-action { border: 1px solid #ccd4cf; background: white; }
@@ -337,7 +338,7 @@ pre code {
   background: var(--sage);
 }
 .response-summary span { font: 600 17px Georgia, serif; }
-.response-summary small { color: #667a73; font-size: 10px; line-height: 1.5; }
+.response-summary small { color: #4e625b; font-size: 10px; line-height: 1.5; }
 
 .result-cards { margin-bottom: 13px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .result-cards[hidden] { display: none; }
@@ -345,7 +346,7 @@ pre code {
 .result-card > span { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; background: #edf1e8; }
 .result-card div { min-width: 0; display: grid; gap: 3px; }
 .result-card strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
-.result-card small { color: #6f7d78; font-size: 9px; }
+.result-card small { color: #566a63; font-size: 9px; }
 
 .truth-strip {
   margin: 24px 0 48px;
