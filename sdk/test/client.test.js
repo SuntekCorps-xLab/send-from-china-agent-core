@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { createSendFromChinaClient, resolvePurchaseHandoff, SendFromChinaError } from "../src/index.js";
 
@@ -12,6 +13,29 @@ function response(value, options = {}) {
 function toolResult(id, value, isError = false) {
   return response({ jsonrpc: "2.0", id, result: { structuredContent: value, isError } });
 }
+
+test("normalizes long base URL slash runs within a bounded subprocess", () => {
+  const script = `
+    import assert from "node:assert/strict";
+    import { createSendFromChinaClient } from ${JSON.stringify(new URL("../src/index.js", import.meta.url).href)};
+    const baseUrl = "https://agent.example.test/" + "/".repeat(200_000) + "x";
+    let requested;
+    const client = createSendFromChinaClient({
+      baseUrl: "  " + baseUrl + "///  ",
+      fetch: async (url) => {
+        requested = url;
+        return new Response("{}", { headers: { "content-type": "application/json" } });
+      },
+    });
+    await client.getCapabilities();
+    assert.equal(requested, baseUrl + "/.well-known/send-from-china.json");
+  `;
+  const result = spawnSync(process.execPath, ["--input-type=module", "--eval", script], {
+    encoding: "utf8", timeout: 5_000,
+  });
+  assert.equal(result.error, undefined, "base URL normalization exceeded the subprocess budget");
+  assert.equal(result.status, 0, result.stderr);
+});
 
 test("discovers public capabilities without sending the tenant token", async () => {
   let seen;
