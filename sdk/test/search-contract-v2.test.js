@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
@@ -37,6 +38,45 @@ const baseRequest = {
   },
   hard_constraints: [], soft_context: [], transaction_context: [], limit: 20, cursor: null,
 };
+
+test("checks long v1 relaxation URL punctuation within a bounded subprocess", () => {
+  const script = `
+    import assert from "node:assert/strict";
+    import { adaptSearchContractV1ResponseToV2 } from ${JSON.stringify(new URL("../src/index.js", import.meta.url).href)};
+    const reason = "https://shop.example/item/" + "!".repeat(200_000) + "x";
+    const result = adaptSearchContractV1ResponseToV2({
+      relaxations: [{ condition: "material", reason }],
+    }, { request: { product_identity: "desk organizer" } });
+    assert.equal(result.relaxations[0].reason, reason.slice(0, 300));
+  `;
+  const result = spawnSync(process.execPath, ["--input-type=module", "--eval", script], {
+    encoding: "utf8", timeout: 5_000,
+  });
+  assert.equal(result.error, undefined, "relaxation URL filtering exceeded the subprocess budget");
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test("checks the complete v1 relaxation reason before truncating its presentation", () => {
+  const result = adaptSearchContractV1ResponseToV2({
+    relaxations: [{ condition: "material", reason: "Safe context. ".repeat(40) + "Basic Og==" }],
+  }, { request: { product_identity: "desk organizer" } });
+  assert.deepEqual(result.relaxations, []);
+});
+
+test("preserves Basic credential filtering for zero, one, and two padding characters", () => {
+  for (const description of ["Basic YWI6", "Basic YTo=", "Basic Og==", "Basic Og"]) {
+    const result = adaptSearchContractV1ResponseToV2({
+      products: [{ title: "Safe product", description }],
+    }, { request: { product_identity: "desk organizer" } });
+    assert.deepEqual(result.results, [{ title: "Safe product" }]);
+  }
+  for (const description of ["Basic YWJj", "Basic YWI=", "Basic YQ=="]) {
+    const result = adaptSearchContractV1ResponseToV2({
+      products: [{ title: "Safe product", description }],
+    }, { request: { product_identity: "desk organizer" } });
+    assert.deepEqual(result.results, [{ title: "Safe product", description }]);
+  }
+});
 
 test("validation errors expose only stable field and reason categories", () => {
   const rawValue = "supplier_secret_field";

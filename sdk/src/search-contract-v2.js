@@ -419,11 +419,18 @@ function normalizedSecurityText(value) {
     .toLowerCase().replace(/[^a-z0-9]+/gu, "_").replace(/^_+|_+$/gu, "");
 }
 
+function stripTrailingCharacters(value, characters) {
+  let end = value.length;
+  while (end > 0 && characters.includes(value[end - 1])) end -= 1;
+  return value.slice(0, end);
+}
+
 function containsBasicCredential(value) {
   const match = /\bBasic\s+([A-Za-z0-9+/]{2,}={0,2})(?=$|[^A-Za-z0-9+/=])/iu
     .exec(decodedSecurityText(value));
   if (!match) return false;
-  const token = match[1].replace(/=+$/u, "");
+  // The capture permits at most two padding characters; keep suffix removal linear.
+  const token = stripTrailingCharacters(match[1], "=");
   if (!token || token.length % 4 === 1) return false;
   try {
     return globalThis.atob(`${token}${"=".repeat((4 - (token.length % 4)) % 4)}`).includes(":");
@@ -516,7 +523,7 @@ function containsSensitiveUrlSemantics(url, depth = 0) {
 
 function containsPrivateNetworkUrl(value, depth = 0) {
   for (const match of String(value).matchAll(/https?:\/\/[^\s<>"']+/giu)) {
-    const candidate = match[0].replace(/[),.;!?]+$/gu, "");
+    const candidate = stripTrailingCharacters(match[0], "),.;!?");
     try {
       const url = new URL(candidate);
       if (["http:", "https:"].includes(url.protocol)

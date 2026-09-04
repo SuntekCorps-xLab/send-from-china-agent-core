@@ -86,8 +86,14 @@ export class SendFromChinaError extends Error {
   }
 }
 
+function stripTrailingSlashes(value) {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === "/") end -= 1;
+  return value.slice(0, end);
+}
+
 function normalizedBase(value) {
-  const candidate = String(value || "").trim().replace(/\/+$/, "");
+  const candidate = stripTrailingSlashes(String(value || "").trim());
   let url;
   try { url = new URL(candidate); } catch { throw new TypeError("baseUrl must be a valid absolute URL"); }
   const local = url.hostname === "localhost"
@@ -99,7 +105,7 @@ function normalizedBase(value) {
   if (url.username || url.password || url.search || url.hash) {
     throw new TypeError("baseUrl must not contain credentials, a query, or a fragment");
   }
-  return url.href.replace(/\/+$/, "");
+  return stripTrailingSlashes(url.href);
 }
 
 function allowedOrigins(values) {
