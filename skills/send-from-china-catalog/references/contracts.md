@@ -1,10 +1,32 @@
 # Agent Core tool contract
 
-## Discovery and authentication
+## Connection profiles
 
-MCP `initialize` and `tools/list` are public. Every `tools/call` requires the tenant Bearer credential configured by the deployment operator. This repository has no self-service registration flow.
+### Managed live public catalog
 
-Start an authenticated workflow with `get_agent_access`. Stop if the required scope is absent. Cart, checkout, order, and payment permissions are false in the reference server.
+Use the production MCP endpoint:
+
+```text
+https://wp-api.sendfromchina.ai/mcp
+```
+
+Call `initialize` and `tools/list` without an Authorization header. The managed service also allows anonymous calls to these public read tools:
+
+- `product_search`
+- `search_catalog`
+- `browse_catalog`
+- `ask_catalog`
+- `get_product`
+
+These tools return allowlisted public catalog fields. Never infer access to account data, private fields, sourcing, writes, orders, checkout, or payments from anonymous catalog access.
+
+### Local synthetic and self-hosted deployments
+
+Use the endpoint and tenant Bearer credential supplied by the deployment operator. The runtime in this repository requires that credential for every `tools/call` and has no self-service registration flow. Its bundled catalog is synthetic and is not the live Send From China catalog.
+
+### Protected operations
+
+Account, quote, sourcing, and write-capable operations require a deployment-issued key with the necessary scope. Start such a workflow with `get_agent_access` and stop if the credential or scope is absent. Do not invent a key, request one in chat, or send one to a different endpoint. Cart, checkout, order, and payment permissions are false in the reference server.
 
 ## Catalog workflow
 
@@ -29,7 +51,7 @@ Call `product_search` with:
 }
 ```
 
-Use `get_product` for a returned public slug. `criteria_evaluation.enforced` lists hard filters. `criteria_evaluation.informational` lists inputs that were preserved but not evaluated against the snapshot.
+Use `get_product` for a returned public slug or handle. `criteria_evaluation.enforced` lists hard filters. `criteria_evaluation.informational` lists inputs that were preserved but not evaluated against the snapshot.
 
 ## Catalog estimate
 
