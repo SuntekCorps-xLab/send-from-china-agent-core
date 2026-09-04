@@ -26,8 +26,11 @@ function run(command, args, options = {}) {
 const temporary = await mkdtemp(join(tmpdir(), "agent-core-"));
 try {
   run(npm, [...npmArgs, "--prefix", "governance-worker", "run", "verify"]);
-  run(process.execPath, ["--test", "sandbox/tests/sandbox.test.mjs"]);
+  run(npm, [...npmArgs, "run", "test:sandbox"]);
+  run(npm, [...npmArgs, "--prefix", "hosted-sandbox", "run", "verify"]);
   run(process.execPath, ["scripts/verify-recipes.mjs"]);
+  run(process.execPath, ["--test", "scripts/mcp-client-docs.test.mjs"]);
+  run(process.execPath, ["--test", "scripts/mcp-stdio-bridge.test.mjs"]);
   run(process.execPath, ["--test", "starters/agent-core-js/test/starter.test.mjs"]);
   run(python, ["-m", "unittest", "discover", "-s", "recipes/python", "-p", "test_*.py", "-v"]);
   run(process.execPath, ["--test", "sdk/test/client.test.js", "sdk/test/search-contract-v2.test.js"]);
@@ -40,6 +43,7 @@ try {
   run(process.execPath, ["--test", "evals/adversarial-v1/test/adversarial.test.mjs"]);
   run(process.execPath, ["evals/v0/run.mjs", "--suite", "smoke"]);
   run(process.execPath, ["--test", "scripts/generate-tenant-key.test.mjs"]);
+  run(process.execPath, ["--test", "scripts/scan-public.test.mjs"]);
   run(python, ["-m", "unittest", "discover", "-s", "etl-pipeline/tests", "-p", "test_*.py", "-v"]);
   run(python, ["-m", "unittest", "discover", "-s", "publisher/tests", "-p", "test_*.py", "-v"]);
   const snapshot = join(temporary, "published-catalog.json");

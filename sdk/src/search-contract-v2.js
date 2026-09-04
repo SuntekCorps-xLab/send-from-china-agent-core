@@ -4,7 +4,7 @@ const CONDITION_SOURCES = new Set(["explicit", "inferred", "default"]);
 const CONDITION_SCOPES = new Set(["product", "session", "transaction"]);
 const CONDITION_HARDNESS = new Set(["hard", "soft", "informational"]);
 const PRICE_HARD_CONSTRAINTS = new Set(["price_min", "price_max"]);
-const TEXT_HARD_CONSTRAINTS = new Set(["material", "color", "must_have", "exclude"]);
+const TEXT_HARD_CONSTRAINTS = new Set(["material", "color", "model", "must_have", "exclude"]);
 const PRODUCT_HARD_CONSTRAINTS = new Set([...PRICE_HARD_CONSTRAINTS, ...TEXT_HARD_CONSTRAINTS]);
 const TRANSACTION_CONDITIONS = new Set(["ship_to", "quantity", "delivery_days_max"]);
 const WIRE_REQUEST_FIELDS = new Set([
@@ -18,8 +18,12 @@ const V1_CRITERIA = new Set([
 const PUBLIC_SEARCH_PRODUCT_FIELDS = Object.freeze([
   "public_id", "slug", "title", "description", "category", "tags", "images", "attributes",
   "price", "availability_band", "lead_time_days", "as_of", "purchasable",
-  "product_url", "add_to_cart_url",
+  "product_url", "add_to_cart_url", "handle", "availableForSale", "shopify_verified_at",
+  "non_transactional", "transaction_boundary", "writes", "mode", "data_source",
+  "illustrative_only", "available",
 ]);
+const SANDBOX_MODES = new Set(["synthetic_local_sandbox", "shopify_read_only"]);
+const SANDBOX_DATA_SOURCES = new Set(["synthetic_fixture", "shopify_storefront_graphql"]);
 const PRIVATE_ATTRIBUTE_NAMES = new Set([
   "api_key", "competitor_price", "cost", "cost_price", "credential", "credentials",
   "internal_id", "internal_product_id", "margin", "margin_rate", "platform_listing_id",
@@ -42,8 +46,58 @@ export const PUBLIC_ATTRIBUTE_NAMES = Object.freeze([
 ]);
 const PUBLIC_ATTRIBUTE_NAME_SET = new Set(PUBLIC_ATTRIBUTE_NAMES);
 
+export const SEARCH_VALIDATION_FIELDS = Object.freeze([
+  "request", "contract_version", "product_identity", "hard_constraints", "soft_context",
+  "transaction_context", "limit", "cursor", "condition",
+]);
+export const SEARCH_VALIDATION_REASONS = Object.freeze([
+  "invalid_type", "missing_required", "unknown_field", "unsupported_value", "invalid_format",
+  "out_of_range", "not_normalized", "cursor_mismatch", "invalid_value",
+]);
+const SEARCH_VALIDATION_FIELD_SET = new Set(SEARCH_VALIDATION_FIELDS);
+
+function validationDetails(message) {
+  const missing = /^request is missing ([a-z_]+)$/u.exec(message);
+  if (missing) {
+    return {
+      field: SEARCH_VALIDATION_FIELD_SET.has(missing[1]) ? missing[1] : "request",
+      reason: "missing_required",
+    };
+  }
+  const field = [
+    "contract_version", "product_identity", "hard_constraints", "soft_context",
+    "transaction_context", "limit", "cursor",
+  ].find((candidate) => message.includes(candidate))
+    || (message.includes("condition") ? "condition" : "request");
+  let reason = "invalid_value";
+  if (message.includes("unknown field")) reason = "unknown_field";
+  else if (message.includes("does not belong")) reason = "cursor_mismatch";
+  else if (message.includes("not normalized")) reason = "not_normalized";
+  else if (message.includes("lower_snake_case")) reason = "invalid_format";
+  else if (message.includes("unsupported") || message.includes("supports only")) reason = "unsupported_value";
+  else if (message.includes("too long") || /\b(?:at most|from 1 to|1 to 20|1 to 50)\b/u.test(message)) {
+    reason = "out_of_range";
+  } else if (message.includes("must be an object") || message.includes("must be objects")
+    || message.includes("must be an array") || message.includes("must be a string")
+    || message.includes("must be a positive integer") || message.includes("must be a non-negative")
+    || message.includes("must be a string, number, boolean")) {
+    reason = "invalid_type";
+  }
+  return { field, reason };
+}
+
+export class SearchContractValidationError extends TypeError {
+  constructor(message) {
+    super(`Invalid Search Contract v2 request: ${message}`);
+    this.name = "SearchContractValidationError";
+    const details = validationDetails(message);
+    this.field = details.field;
+    this.reason = details.reason;
+  }
+}
+
 function invalid(message) {
-  throw new TypeError(`Invalid Search Contract v2 request: ${message}`);
+  throw new SearchContractValidationError(message);
 }
 
 function hasExactFields(value, fields) {
@@ -115,7 +169,7 @@ function assertTextCriterionValue(value, name) {
 
 function assertHardConstraintValue(condition) {
   if (!PRODUCT_HARD_CONSTRAINTS.has(condition.name)) {
-    invalid("hard_constraints supports only price_min, price_max, material, color, must_have, and exclude");
+    invalid("hard_constraints supports only price_min, price_max, material, color, model, must_have, and exclude");
   }
   if (PRICE_HARD_CONSTRAINTS.has(condition.name)) {
     if (typeof condition.value !== "number" || !Number.isFinite(condition.value) || condition.value < 0) {
@@ -198,6 +252,7 @@ export function normalizeSearchContractV2Request(value = {}) {
 // SDK callers may continue to use normalizeSearchContractV2Request() with its
 // documented ergonomic defaults before sending the request.
 export function parseSearchContractV2Request(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) invalid("request must be an object");
   if (!hasExactFields(value, WIRE_REQUEST_FIELDS)) invalid("request contains an unknown field");
   for (const field of [
     "contract_version", "product_identity", "hard_constraints", "soft_context",
@@ -581,6 +636,9 @@ function publicProduct(value) {
     } else if (field === "slug") {
       const slug = publicString(value.slug, 100, { pattern: /^[a-z0-9-]{1,100}$/u });
       if (slug !== undefined) output.slug = slug;
+    } else if (field === "handle") {
+      const handle = publicString(value.handle, 100, { pattern: /^[a-z0-9-]{1,100}$/u });
+      if (handle !== undefined) output.handle = handle;
     } else if (field === "title") {
       const title = publicString(value.title, 300, { nonEmpty: true });
       if (title !== undefined) output.title = title;
@@ -604,6 +662,24 @@ function publicProduct(value) {
       }
     } else if (field === "purchasable" && typeof value.purchasable === "boolean") {
       output.purchasable = value.purchasable;
+    } else if (field === "availableForSale" && typeof value.availableForSale === "boolean") {
+      output.availableForSale = value.availableForSale;
+    } else if (field === "shopify_verified_at") {
+      if (value.shopify_verified_at === null) output.shopify_verified_at = null;
+      else if (typeof value.shopify_verified_at === "string" && value.shopify_verified_at.length <= 40
+        && Number.isFinite(Date.parse(value.shopify_verified_at))) output.shopify_verified_at = value.shopify_verified_at;
+    } else if (field === "non_transactional" && value.non_transactional === true) {
+      output.non_transactional = true;
+    } else if (field === "transaction_boundary" && value.transaction_boundary === "catalog_read_only_non_transactional") {
+      output.transaction_boundary = value.transaction_boundary;
+    } else if (field === "writes" && value.writes === false) {
+      output.writes = false;
+    } else if (field === "mode" && SANDBOX_MODES.has(value.mode)) {
+      output.mode = value.mode;
+    } else if (field === "data_source" && SANDBOX_DATA_SOURCES.has(value.data_source)) {
+      output.data_source = value.data_source;
+    } else if (["illustrative_only", "available"].includes(field) && typeof value[field] === "boolean") {
+      output[field] = value[field];
     }
   }
   return typeof output.title === "string" && output.title.trim() ? Object.freeze(output) : null;
@@ -727,6 +803,36 @@ export function projectSearchContractV2Response(value) {
       degraded_reason: degradedReason,
     }),
   };
+  const sandboxFields = [
+    "mode", "data_source", "illustrative_only", "purchasable", "available", "writes",
+    "non_transactional", "transaction_boundary", "shopify_verified_at",
+  ];
+  if (sandboxFields.some((field) => Object.hasOwn(value, field))) {
+    if (!sandboxFields.every((field) => Object.hasOwn(value, field))
+      || !SANDBOX_MODES.has(value.mode)
+      || !SANDBOX_DATA_SOURCES.has(value.data_source)
+      || typeof value.illustrative_only !== "boolean"
+      || value.purchasable !== false
+      || value.available !== false
+      || value.writes !== false
+      || value.non_transactional !== true
+      || value.transaction_boundary !== "catalog_read_only_non_transactional"
+      || !(value.shopify_verified_at === null || (typeof value.shopify_verified_at === "string"
+        && value.shopify_verified_at.length <= 40 && Number.isFinite(Date.parse(value.shopify_verified_at))))) {
+      return invalidResponse();
+    }
+    Object.assign(output, {
+      mode: value.mode,
+      data_source: value.data_source,
+      illustrative_only: value.illustrative_only,
+      purchasable: false,
+      available: false,
+      writes: false,
+      non_transactional: true,
+      transaction_boundary: "catalog_read_only_non_transactional",
+      shopify_verified_at: value.shopify_verified_at,
+    });
+  }
   if (value.compatibility !== undefined) {
     const compatibility = value.compatibility;
     if (!compatibility || typeof compatibility !== "object" || Array.isArray(compatibility)
@@ -826,14 +932,16 @@ export function adaptSearchContractV1ResponseToV2(value, context = {}) {
   const results = Object.freeze((Array.isArray(legacy.products) ? legacy.products : [])
     .map(publicProduct).filter(Boolean).slice(0, request.limit));
   const legacyStatus = String(legacy.status || "").toLowerCase();
-  const exhaustive = legacy.exhaustive === true;
-  const scopeExhausted = legacy.search_scope_exhausted === true;
+  const explicitDegraded = legacyStatus === "degraded" || legacy.degraded === true;
+  const exhaustive = legacy.exhaustive === true && !explicitDegraded;
+  const scopeExhausted = legacy.search_scope_exhausted === true && !explicitDegraded;
   const scanLimitReached = legacy.scan_limit_reached === true || legacy.truncated === true;
   const nextCursor = wrapCursor(legacy.next_cursor, request);
   const missingCriteria = Object.freeze((Array.isArray(legacy.missing_criteria) ? legacy.missing_criteria : [])
     .map((item) => String(item).trim().toLowerCase()).filter((item) => /^[a-z][a-z0-9_]{0,63}$/.test(item)));
   let status = "degraded";
-  if (results.length) status = "results";
+  if (explicitDegraded) status = "degraded";
+  else if (results.length) status = "results";
   else if (legacyStatus === "needs_clarification" || missingCriteria.length) status = "needs_clarification";
   else if (legacyStatus === "no_match" && exhaustive && scopeExhausted && !scanLimitReached) status = "no_match";
   const relaxations = Object.freeze([
@@ -868,7 +976,9 @@ export function adaptSearchContractV1ResponseToV2(value, context = {}) {
       global_catalog_exhaustive: legacy.global_catalog_exhaustive === true,
       scan_limit_reached: scanLimitReached,
       degraded,
-      degraded_reason: degraded ? "The v1 response did not prove a complete terminal search outcome." : null,
+      degraded_reason: degraded ? (explicitDegraded
+        ? "The v1 response reported degraded catalog evaluation."
+        : "The v1 response did not prove a complete terminal search outcome.") : null,
     }),
     compatibility: Object.freeze({ adapter: "product_search_v1", legacy_status: publicLegacyStatus }),
   });

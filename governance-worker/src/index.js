@@ -1,5 +1,5 @@
 import { getProduct, listCatalog, searchCatalog } from "./catalog.js";
-import { allowedOrigin, errorResponse, jsonResponse, parseLimit, parseQuery, readJson, requestId } from "./http.js";
+import { allowedOrigin, emptyResponse, errorResponse, jsonResponse, parseLimit, parseQuery, readJson, requestId } from "./http.js";
 import { handleMcp } from "./mcp.js";
 import { createQuote, QuoteError } from "./quote.js";
 import { getSnapshotMeta } from "./snapshot.js";
@@ -8,6 +8,7 @@ import {
   adaptSearchContractV1ResponseToV2,
   adaptSearchContractV2RequestToV1,
   parseSearchContractV2Request,
+  SearchContractValidationError,
 } from "../../sdk/src/search-contract-v2.js";
 
 function lastUserQuery(messages) {
@@ -64,10 +65,18 @@ async function route(request, env, id, corsHeaders) {
       },
     }, 200, id, corsHeaders);
   }
+  if (request.method === "GET" && url.pathname === "/mcp") {
+    return emptyResponse(405, id, { ...corsHeaders, Allow: "POST" });
+  }
   if (request.method === "POST" && url.pathname === "/mcp") {
     const parsed = await readJson(request);
     if (parsed.error) return errorResponse(parsed.error, parsed.error === "PAYLOAD_TOO_LARGE" ? 413 : 400, id, corsHeaders);
-    const response = await handleMcp(parsed.value, { authorization: request.headers.get("Authorization") || "", env });
+    const response = await handleMcp(parsed.value, {
+      authorization: request.headers.get("Authorization") || "",
+      protocolVersion: request.headers.get("MCP-Protocol-Version") || "",
+      env,
+    });
+    if (response.body === null) return emptyResponse(response.status, id, corsHeaders);
     return jsonResponse(response.body, response.status, id, corsHeaders);
   }
 
@@ -95,7 +104,16 @@ async function route(request, env, id, corsHeaders) {
     let adapted;
     try { adapted = adaptSearchContractV2RequestToV1(parseSearchContractV2Request(parsed.value)); }
     catch (error) {
-      if (error instanceof TypeError) return errorResponse("INVALID_SEARCH_CONTRACT", 400, id, corsHeaders);
+      if (error instanceof SearchContractValidationError) {
+        return errorResponse("INVALID_SEARCH_CONTRACT", 400, id, corsHeaders, {
+          field: error.field, reason: error.reason,
+        });
+      }
+      if (error instanceof TypeError) {
+        return errorResponse("INVALID_SEARCH_CONTRACT", 400, id, corsHeaders, {
+          field: "request", reason: "invalid_value",
+        });
+      }
       throw error;
     }
     const effectiveLimit = Math.min(adapted.request.limit, tenant.max_page_size);

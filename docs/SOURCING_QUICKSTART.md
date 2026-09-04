@@ -46,6 +46,11 @@ Call `product_search` with a bounded, structured request:
 }
 ```
 
+This proof flow is MCP-only. HTTP `POST /api/search/v2` and the SDK
+`searchContractV2()` method do not return `search_id`; they cannot be used to
+start `create_sourcing_task`. SDK callers must use
+`productSearch({ operation: "confirm_search" })` for this step.
+
 Only proceed when the server returns `status=no_match`,
 `search_scope_exhausted=true`, `dynamic_request_recommended=true`, and a
 non-empty `search_id`. The `search_id` is a short-lived, tenant-bound proof from

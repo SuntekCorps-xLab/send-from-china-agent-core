@@ -119,13 +119,23 @@ test("Search Contract v2 validates requests and requires authentication", async 
     method: "POST", headers: { ...authorization(ALPHA_KEY), "Content-Type": "application/json" }, body: "{}",
   });
   assert.equal(invalid.status, 400);
-  assert.equal((await invalid.json()).error.code, "INVALID_SEARCH_CONTRACT");
+  assert.deepEqual((await invalid.json()).error, {
+    code: "INVALID_SEARCH_CONTRACT", field: "contract_version", reason: "missing_required",
+  });
   const shorthand = await call("/api/search/v2", {
     method: "POST", headers: { ...authorization(ALPHA_KEY), "Content-Type": "application/json" },
-    body: JSON.stringify({ product_identity: "desk organizer", unexpected: "must not be ignored" }),
+    body: JSON.stringify({
+      product_identity: "desk organizer",
+      supplier_secret_field: "private-value-that-must-not-be-reflected",
+    }),
   });
   assert.equal(shorthand.status, 400);
-  assert.equal((await shorthand.json()).error.code, "INVALID_SEARCH_CONTRACT");
+  const shorthandText = await shorthand.text();
+  assert.deepEqual(JSON.parse(shorthandText).error, {
+    code: "INVALID_SEARCH_CONTRACT", field: "request", reason: "unknown_field",
+  });
+  assert.equal(shorthandText.includes("supplier_secret_field"), false);
+  assert.equal(shorthandText.includes("private-value-that-must-not-be-reflected"), false);
   const oversized = await call("/api/search/v2", {
     method: "POST",
     headers: {
@@ -163,7 +173,9 @@ test("Search Contract v2 cursors are bound to the normalized intent", async () =
     method: "POST", headers, body: JSON.stringify(request("desk organizer", first.pagination.next_cursor)),
   });
   assert.equal(wrongIntent.status, 400);
-  assert.equal((await wrongIntent.json()).error.code, "INVALID_SEARCH_CONTRACT");
+  assert.deepEqual((await wrongIntent.json()).error, {
+    code: "INVALID_SEARCH_CONTRACT", field: "cursor", reason: "cursor_mismatch",
+  });
 });
 
 test("Search Contract v2 reports global scope only for full-catalog tenants", async () => {
@@ -231,6 +243,41 @@ test("CORS allowlist accepts known origins and rejects unknown origins", async (
 });
 
 test("MCP discovery is public and catalog calls are tenant-scoped", async () => {
+  const stream = await call("/mcp");
+  assert.equal(stream.status, 405);
+  assert.equal(stream.headers.get("allow"), "POST");
+  assert.equal(await stream.text(), "");
+
+  const initialize = await call("/mcp", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: "init", method: "initialize", params: {} }),
+  });
+  assert.equal(initialize.status, 200);
+
+  const initialized = await call("/mcp", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }),
+  });
+  assert.equal(initialized.status, 202);
+  assert.equal(await initialized.text(), "");
+
+  const ping = await call("/mcp", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "MCP-Protocol-Version": "2025-06-18" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: "ping", method: "ping" }),
+  });
+  assert.deepEqual((await ping.json()).result, {});
+
+  const unsupportedVersion = await call("/mcp", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "MCP-Protocol-Version": "bogus-version" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: "version", method: "tools/list" }),
+  });
+  assert.equal(unsupportedVersion.status, 400);
+  assert.equal((await unsupportedVersion.json()).error.message, "Unsupported MCP protocol version");
+
   const list = await call("/mcp", { method: "POST", body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }) });
   const listBody = await list.json();
   assert.deepEqual(listBody.result.tools.map((tool) => tool.name), [

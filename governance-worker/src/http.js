@@ -1,6 +1,14 @@
 export const MAX_BODY_BYTES = 32 * 1024;
 export const MAX_QUERY_CHARS = 300;
 export const MAX_PAGE_SIZE = 100;
+const SEARCH_ERROR_FIELDS = new Set([
+  "request", "contract_version", "product_identity", "hard_constraints", "soft_context",
+  "transaction_context", "limit", "cursor", "condition",
+]);
+const SEARCH_ERROR_REASONS = new Set([
+  "invalid_type", "missing_required", "unknown_field", "unsupported_value", "invalid_format",
+  "out_of_range", "not_normalized", "cursor_mismatch", "invalid_value",
+]);
 
 function baseHeaders(requestId) {
   return {
@@ -49,8 +57,25 @@ export function jsonResponse(body, status, id, extraHeaders = {}) {
   });
 }
 
-export function errorResponse(code, status, id, extraHeaders = {}) {
-  return jsonResponse({ error: { code }, request_id: id }, status, id, extraHeaders);
+export function emptyResponse(status, id, extraHeaders = {}) {
+  return new Response(null, {
+    status,
+    headers: {
+      ...baseHeaders(id),
+      ...extraHeaders,
+    },
+  });
+}
+
+export function errorResponse(code, status, id, extraHeaders = {}, details = {}) {
+  const error = { code };
+  if (code === "INVALID_SEARCH_CONTRACT"
+    && SEARCH_ERROR_FIELDS.has(details.field)
+    && SEARCH_ERROR_REASONS.has(details.reason)) {
+    error.field = details.field;
+    error.reason = details.reason;
+  }
+  return jsonResponse({ error, request_id: id }, status, id, extraHeaders);
 }
 
 export function parseLimit(value, fallback = 20, maximum = MAX_PAGE_SIZE) {

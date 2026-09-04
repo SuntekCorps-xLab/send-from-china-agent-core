@@ -18,6 +18,7 @@ import {
   PUBLIC_ATTRIBUTE_NAMES,
   PUBLIC_ATTRIBUTE_POLICY_VERSION,
   SEARCH_CONTRACT_VERSION,
+  SearchContractValidationError,
 } from "../src/index.js";
 
 test("Worker and SDK use one versioned public attribute schema", async () => {
@@ -36,6 +37,22 @@ const baseRequest = {
   },
   hard_constraints: [], soft_context: [], transaction_context: [], limit: 20, cursor: null,
 };
+
+test("validation errors expose only stable field and reason categories", () => {
+  const rawValue = "supplier_secret_field";
+  assert.throws(() => parseSearchContractV2Request({ ...baseRequest, [rawValue]: "not-public" }), (error) => {
+    assert.ok(error instanceof SearchContractValidationError);
+    assert.equal(error.field, "request");
+    assert.equal(error.reason, "unknown_field");
+    assert.equal(JSON.stringify({ field: error.field, reason: error.reason }).includes(rawValue), false);
+    return true;
+  });
+  assert.throws(() => parseSearchContractV2Request(null), (error) => {
+    assert.equal(error.field, "request");
+    assert.equal(error.reason, "invalid_type");
+    return true;
+  });
+});
 
 function response(value) {
   return new Response(JSON.stringify(value), { status: 200, headers: { "content-type": "application/json" } });
@@ -108,8 +125,8 @@ test("publishes strict v2 request and response schemas", async () => {
   assert.deepEqual(hardClauses[2].if.properties.name.enum, ["price_min", "price_max"]);
   assert.equal(hardClauses[2].then.properties.value.type, "number");
   assert.deepEqual(hardClauses[1].properties.name.enum,
-    ["price_min", "price_max", "material", "color", "must_have", "exclude"]);
-  assert.deepEqual(hardClauses[3].if.properties.name.enum, ["material", "color", "must_have", "exclude"]);
+    ["price_min", "price_max", "material", "color", "model", "must_have", "exclude"]);
+  assert.deepEqual(hardClauses[3].if.properties.name.enum, ["material", "color", "model", "must_have", "exclude"]);
   assert.equal(hardClauses[3].then.properties.value.$ref, "#/$defs/textCriterionValue");
   assert.deepEqual(responseSchema.properties.status.enum, ["results", "needs_clarification", "no_match", "degraded"]);
   assert.ok(responseSchema.required.includes("trace_id"));
@@ -145,7 +162,7 @@ test("request schema enforces field-specific hard and transaction values", async
     hard_constraints: [
       hard("price_min", 0), hard("price_max", 30), hard("material", "steel"),
       hard("color", ["navy", "white"]), hard("must_have", "dishwasher safe"),
-      hard("exclude", ["refurbished"]),
+      hard("exclude", ["refurbished"]), hard("model", ["PB-100", "PB-200"]),
     ],
     transaction_context: [
       transaction("ship_to", "US"), transaction("quantity", 2), transaction("delivery_days_max", 7),
@@ -158,6 +175,7 @@ test("request schema enforces field-specific hard and transaction values", async
     ["numeric maximum price as text", { hard_constraints: [hard("price_max", "30")] }],
     ["negative minimum price", { hard_constraints: [hard("price_min", -1)] }],
     ["numeric material", { hard_constraints: [hard("material", 304)] }],
+    ["numeric model", { hard_constraints: [hard("model", 100)] }],
     ["mixed color list", { hard_constraints: [hard("color", ["navy", 5])] }],
     ["empty exclusion", { hard_constraints: [hard("exclude", "   ")] }],
     ["too many exclusions", { hard_constraints: [hard("exclude", Array.from({ length: 21 }, (_, index) => `item-${index}`))] }],
@@ -591,6 +609,50 @@ test("direct v2 projection removes unsafe URL semantics and preserves ordinary p
   }
 });
 
+test("direct v2 projection preserves the closed read-only sandbox truth fields", () => {
+  const verifiedAt = "2026-08-31T00:00:00.000Z";
+  const response = adaptSearchContractV1ResponseToV2({
+    status: "catalog_match",
+    products: [{
+      public_id: "A1b2C3d4E5f6G7h8J9k0Lm",
+      slug: "public-item",
+      handle: "public-item",
+      title: "Public item",
+      price: { amount: 19.95, currency: "USD" },
+      purchasable: false,
+      availableForSale: true,
+      shopify_verified_at: verifiedAt,
+      non_transactional: true,
+      transaction_boundary: "catalog_read_only_non_transactional",
+      writes: false,
+      mode: "shopify_read_only",
+      data_source: "shopify_storefront_graphql",
+      illustrative_only: false,
+      available: false,
+    }],
+    exhaustive: true,
+    search_scope_exhausted: true,
+  }, { request: baseRequest });
+  const projected = projectSearchContractV2Response({
+    ...response,
+    mode: "shopify_read_only",
+    data_source: "shopify_storefront_graphql",
+    illustrative_only: false,
+    purchasable: false,
+    available: false,
+    writes: false,
+    non_transactional: true,
+    transaction_boundary: "catalog_read_only_non_transactional",
+    shopify_verified_at: verifiedAt,
+  });
+  assert.equal(projected.mode, "shopify_read_only");
+  assert.equal(projected.shopify_verified_at, verifiedAt);
+  assert.equal(projected.results[0].handle, "public-item");
+  assert.equal(projected.results[0].availableForSale, true);
+  assert.equal(projected.results[0].writes, false);
+  assert.equal(projected.results[0].non_transactional, true);
+});
+
 test("direct v2 projection removes sensitive values from every public text surface", () => {
   const loopbackHost = ["127", "0", "0", "1"].join(".");
   const responseBase = {
@@ -784,4 +846,37 @@ test("client keeps the explicit v1 compatibility path", async () => {
   assert.equal(called.name, "product_search");
   assert.equal(called.arguments.query, "compact desk");
   assert.equal(result.compatibility.adapter, "product_search_v1");
+});
+
+test("explicit model conditions remain additive and v1 records their unsupported evaluation", () => {
+  const request = normalizeSearchContractV2Request({
+    ...baseRequest,
+    hard_constraints: [{ name: "model", value: "PB-100", source: "explicit", scope: "product", hardness: "hard" }],
+  });
+  assert.deepEqual(parseSearchContractV2Request(request), request);
+  const adapted = adaptSearchContractV2RequestToV1(request);
+  assert.deepEqual(adapted.arguments.criteria, {});
+  assert.deepEqual(adapted.relaxations.map((entry) => entry.condition), ["model"]);
+  const response = adaptSearchContractV1ResponseToV2({ status: "searching", products: [] }, {
+    request, relaxations: adapted.relaxations,
+  });
+  assert.deepEqual(projectSearchContractV2Response(response).normalized_intent.hard_constraints,
+    request.hard_constraints);
+});
+
+test("explicit degraded v1 responses cannot become results or terminal no_match", () => {
+  for (const state of [{ status: "degraded" }, { status: "no_match", degraded: true },
+    { status: "catalog_match", degraded: true }]) {
+    for (const products of [[], [{ title: "Public candidate" }]]) {
+      const response = adaptSearchContractV1ResponseToV2({
+        ...state, products, exhaustive: true, search_scope_exhausted: true,
+      }, { request: baseRequest });
+      assert.equal(response.status, "degraded");
+      assert.equal(response.search_scope.degraded, true);
+      assert.equal(response.search_scope.plan_complete, false);
+      assert.equal(response.search_scope.scope_exhausted, false);
+      assert.match(response.search_scope.degraded_reason, /reported degraded/u);
+      assert.equal(projectSearchContractV2Response(response).status, "degraded");
+    }
+  }
 });

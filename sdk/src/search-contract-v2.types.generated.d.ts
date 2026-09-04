@@ -1,6 +1,6 @@
 // Generated from contracts/search-v2-*.schema.json. Do not edit by hand.
-// request-schema-sha256: 069f1eb612575bc7ec42ccb8a675a21181d8075e5cf76bf90ed75330fd4b2d6b
-// response-schema-sha256: c20bb8e98cd228f82eb2e4975d6f19d2cd5906635fa8c40c0f19910d7b3f642f
+// request-schema-sha256: 56dd44db8440f176eb0a83aaa4cf3be111f21dd26228a1054dfcdfb89454dfdd
+// response-schema-sha256: f763dd3c53bccecc5a6f401ff6b3578903af0ef929b999a1cde596117d1a5b5b
 export type SearchConditionSource = "explicit" | "inferred" | "default";
 export type SearchConditionScope = "product" | "session" | "transaction";
 export type SearchConditionHardness = "hard" | "soft" | "informational";
@@ -23,7 +23,7 @@ export interface SearchProductIdentityCondition extends SearchCondition {
 }
 
 export interface SearchExplicitHardConstraint extends SearchCondition {
-  name: "price_min" | "price_max" | "material" | "color" | "must_have" | "exclude";
+  name: "price_min" | "price_max" | "material" | "color" | "model" | "must_have" | "exclude";
   source: "explicit";
   scope: "product";
   hardness: "hard";
@@ -35,7 +35,7 @@ export interface SearchPriceHardConstraint extends SearchExplicitHardConstraint 
 }
 
 export interface SearchTextHardConstraint extends SearchExplicitHardConstraint {
-  name: "material" | "color" | "must_have" | "exclude";
+  name: "material" | "color" | "model" | "must_have" | "exclude";
   value: string | Array<string>;
 }
 
@@ -144,6 +144,16 @@ export interface SearchProduct {
   "lead_time_days"?: number;
   "as_of"?: string;
   "purchasable"?: boolean;
+  "handle"?: string;
+  "availableForSale"?: boolean;
+  "shopify_verified_at"?: string | null;
+  "non_transactional"?: true;
+  "transaction_boundary"?: "catalog_read_only_non_transactional";
+  "writes"?: false;
+  "mode"?: "synthetic_local_sandbox" | "shopify_read_only";
+  "data_source"?: "synthetic_fixture" | "shopify_storefront_graphql";
+  "illustrative_only"?: boolean;
+  "available"?: boolean;
   "product_url"?: string;
   "add_to_cart_url"?: string;
 }
@@ -186,5 +196,14 @@ export interface SearchContractV2Response {
   results: SearchProduct[];
   pagination: SearchPagination;
   search_scope: SearchScope;
+  mode?: "synthetic_local_sandbox" | "shopify_read_only";
+  data_source?: "synthetic_fixture" | "shopify_storefront_graphql";
+  illustrative_only?: boolean;
+  purchasable?: false;
+  available?: false;
+  writes?: false;
+  non_transactional?: true;
+  transaction_boundary?: "catalog_read_only_non_transactional";
+  shopify_verified_at?: string | null;
   compatibility?: SearchCompatibility;
 }

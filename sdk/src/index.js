@@ -3,11 +3,62 @@ const DEFAULT_POLL_INTERVAL_MS = 2_000;
 const TERMINAL_TASK_STATES = new Set([
   "RESULTS_READY", "COMPLETED", "FAILED", "NO_MATCH", "CANCELED", "CANCELLED",
 ]);
+const SEARCH_ERROR_FIELDS = new Set([
+  "request", "contract_version", "product_identity", "hard_constraints", "soft_context",
+  "transaction_context", "limit", "cursor", "condition",
+]);
+const SEARCH_ERROR_REASONS = new Set([
+  "invalid_type", "missing_required", "unknown_field", "unsupported_value", "invalid_format",
+  "out_of_range", "not_normalized", "cursor_mismatch", "invalid_value",
+]);
+const PUBLIC_ERROR_MESSAGES = Object.freeze({
+  "-32700": "The MCP request could not be parsed",
+  "-32600": "The MCP request is invalid",
+  "-32601": "The MCP method is unavailable",
+  "-32602": "The MCP request parameters are invalid",
+  AUTH_CONFIGURATION_ERROR: "The service authentication configuration is unavailable",
+  CATALOG_STALE: "The published catalog snapshot is too stale for this operation",
+  DEMO_PREVIEW_ONLY: "Only the non-billable preview is available",
+  ENUMERATION_NOT_ALLOWED: "Catalog enumeration is not allowed for this tenant",
+  FREE_PREVIEW_DAILY_LIMIT: "The non-billable preview quota has been reached",
+  IDEMPOTENCY_CONFLICT: "The idempotency key belongs to a different request",
+  INVALID_CREDENTIAL: "The access token was rejected",
+  INVALID_CURSOR: "The pagination cursor is invalid",
+  INVALID_DESTINATION: "The destination is invalid",
+  INVALID_IDEMPOTENCY_KEY: "The idempotency key is invalid",
+  INVALID_JSON: "The request body must be valid JSON",
+  INVALID_LIMIT: "The requested page limit is invalid",
+  INVALID_MESSAGES: "The conversation messages are invalid",
+  INVALID_PARAMS: "The request parameters are invalid",
+  INVALID_PUBLIC_ID: "The public product identifier is invalid",
+  INVALID_QUERY: "The search query is invalid",
+  INVALID_QUANTITY: "The requested quantity is invalid",
+  INVALID_SEARCH_CONTRACT: "The search request is invalid",
+  INVALID_SLUG: "The product handle is invalid",
+  MISSING_CREDENTIAL: "This operation requires an access token",
+  NOT_FOUND: "The requested resource was not found",
+  ORIGIN_NOT_ALLOWED: "The browser origin is not allowed",
+  PAYLOAD_TOO_LARGE: "The request payload is too large",
+  PRICE_NOT_AVAILABLE: "A public price is not available",
+  PRODUCT_NOT_FOUND: "The product was not found",
+  QUOTA_EXCEEDED: "The tenant request quota has been exceeded",
+  SEARCH_PROOF_ALREADY_USED: "The search proof has already been used",
+  SEARCH_PROOF_MISMATCH: "The sourcing request does not match its search proof",
+  SEARCH_PROOF_NOT_FOUND: "The search proof is unavailable or expired",
+  SEARCH_PROOF_REQUIRED: "A terminal search proof is required",
+  SOURCING_DESTINATION_REQUIRED: "A sourcing destination is required",
+  SOURCING_INTENT_REQUIRED: "A sourcing intent is required",
+  SOURCING_TASK_NOT_FOUND: "The sourcing task was not found",
+  USER_CONFIRMATION_REQUIRED: "Explicit user confirmation is required",
+});
 
 export {
   SEARCH_CONTRACT_VERSION,
   PUBLIC_ATTRIBUTE_NAMES,
   PUBLIC_ATTRIBUTE_POLICY_VERSION,
+  SEARCH_VALIDATION_FIELDS,
+  SEARCH_VALIDATION_REASONS,
+  SearchContractValidationError,
   adaptSearchContractV1ResponseToV2,
   adaptSearchContractV2RequestToV1,
   createSearchContractV1Adapter,
@@ -30,6 +81,8 @@ export class SendFromChinaError extends Error {
     this.status = Number.isInteger(options.status) ? options.status : null;
     this.requestId = String(options.requestId || "");
     this.retryAfter = String(options.retryAfter || "");
+    this.searchField = SEARCH_ERROR_FIELDS.has(options.searchField) ? options.searchField : null;
+    this.searchReason = SEARCH_ERROR_REASONS.has(options.searchReason) ? options.searchReason : null;
   }
 }
 
@@ -60,6 +113,20 @@ function allowedOrigins(values) {
 
 function safeCode(value, fallback) {
   return /^[A-Z0-9_:-]{2,100}$/.test(String(value || "")) ? String(value) : fallback;
+}
+
+function publicErrorMessage(code, fallback) {
+  return PUBLIC_ERROR_MESSAGES[code] || fallback;
+}
+
+function safeSearchErrorDetails(value, code) {
+  if (code !== "INVALID_SEARCH_CONTRACT" || !value || typeof value !== "object" || Array.isArray(value)) {
+    return { searchField: null, searchReason: null };
+  }
+  if (!SEARCH_ERROR_FIELDS.has(value.field) || !SEARCH_ERROR_REASONS.has(value.reason)) {
+    return { searchField: null, searchReason: null };
+  }
+  return { searchField: value.field, searchReason: value.reason };
 }
 
 function wait(ms, signal) {
@@ -131,11 +198,14 @@ export function createSendFromChinaClient(options = {}) {
         });
       }
       if (!response.ok) {
-        throw new SendFromChinaError("The Send From China request failed", {
-          code: safeCode(payload?.error?.code || payload?.error, `HTTP_${response.status}`),
+        const code = safeCode(payload?.error?.code || payload?.error, `HTTP_${response.status}`);
+        const details = safeSearchErrorDetails(payload?.error, code);
+        throw new SendFromChinaError(publicErrorMessage(code, "The Send From China request failed"), {
+          code,
           status: response.status,
           requestId,
           retryAfter: response.headers.get("retry-after") || "",
+          ...details,
         });
       }
       return payload;
@@ -157,9 +227,10 @@ export function createSendFromChinaClient(options = {}) {
       method: "POST", signal,
       body: JSON.stringify({ jsonrpc: "2.0", id, method, ...(params ? { params } : {}) }),
     }, { authenticated });
-    if (payload?.error) throw new SendFromChinaError("The MCP server rejected the request", {
-      code: safeCode(payload.error.code, "MCP_ERROR"),
-    });
+    if (payload?.error) {
+      const code = safeCode(payload.error.code, "MCP_ERROR");
+      throw new SendFromChinaError(publicErrorMessage(code, "The MCP server rejected the request"), { code });
+    }
     return payload?.result;
   }
 
@@ -169,9 +240,12 @@ export function createSendFromChinaClient(options = {}) {
     if (!value || typeof value !== "object") {
       throw new SendFromChinaError("The MCP tool returned no structured content", { code: "INVALID_TOOL_RESPONSE" });
     }
-    if (result?.isError || value.error) throw new SendFromChinaError("The Send From China tool could not complete the request", {
-      code: safeCode(value.error, "TOOL_ERROR"),
-    });
+    if (result?.isError || value.error) {
+      const code = safeCode(value.error, "TOOL_ERROR");
+      throw new SendFromChinaError(publicErrorMessage(code, "The Send From China tool could not complete the request"), {
+        code,
+      });
+    }
     return value;
   }
 

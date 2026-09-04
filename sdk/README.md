@@ -3,6 +3,18 @@
 A dependency-free JavaScript client for the public Agent Core contract and
 compatible Send From China hosted deployments.
 
+This workspace package is intentionally not published to the npm registry.
+Install it from a checked-out repository before using the package-name import:
+
+```bash
+npm install --save file:../send-from-china-agent-core/sdk
+```
+
+The local package exports `src/index.js`, so consumers should use the scoped
+package name below after that install. They should not import a nonexistent
+`sdk/index.js` file. Repository-local examples may instead import
+`../sdk/src/index.js` directly.
+
 ```js
 import { createSendFromChinaClient } from "@send-from-china/agent-sdk";
 
@@ -60,6 +72,29 @@ Dynamic sourcing must begin only after a terminal catalog miss and explicit
 customer confirmation. See the
 [Hosted Platform quickstart](../docs/HOSTED_PLATFORM_QUICKSTART.md) for the
 complete flow.
+
+## Safe error handling
+
+SDK failures use `SendFromChinaError`. Branch on the stable `code` property;
+known HTTP, JSON-RPC, and tool codes also receive stable public messages. An
+unknown or malformed upstream code remains a generic request, MCP, or tool
+failure and upstream error text is never reflected.
+
+An `INVALID_SEARCH_CONTRACT` response may include the optional, allowlisted
+`field` and `reason` properties. These identify categories such as `limit` plus
+`out_of_range`, never the rejected value or an unknown/private field name. The
+SDK exposes the pair as `searchField` and `searchReason`; both are `null` when
+the response omits either category or sends an unknown value.
+
+```js
+try {
+  await client.searchContractV2(request);
+} catch (error) {
+  if (error instanceof SendFromChinaError && error.code === "INVALID_SEARCH_CONTRACT") {
+    console.error(error.searchField, error.searchReason);
+  }
+}
+```
 
 ## Development
 

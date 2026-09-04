@@ -1,3 +1,7 @@
+import { createSandboxBrowserClient } from "./browser-client.mjs";
+
+const browserClient = createSandboxBrowserClient();
+
 const searchV2Body = {
   contract_version: "2.0",
   product_identity: {
@@ -114,6 +118,7 @@ const elements = {
 };
 
 let selected = "http-search";
+let runtimeMode = "synthetic_local_sandbox";
 
 function pretty(value) {
   return JSON.stringify(value, null, 2);
@@ -141,7 +146,10 @@ function selectScenario(name) {
 
 function filterRecipes(protocol) {
   for (const filter of elements.filters) filter.classList.toggle("active", filter.dataset.protocol === protocol);
-  for (const recipe of elements.recipes) recipe.hidden = protocol !== "all" && recipe.dataset.kind !== protocol;
+  for (const recipe of elements.recipes) {
+    const unavailableInLive = runtimeMode === "shopify_read_only" && recipe.dataset.scenario !== "search-v2";
+    recipe.hidden = unavailableInLive || (protocol !== "all" && recipe.dataset.kind !== protocol);
+  }
   const current = elements.recipes.find((recipe) => recipe.dataset.scenario === selected);
   if (current?.hidden) {
     const firstVisible = elements.recipes.find((recipe) => !recipe.hidden);
@@ -150,15 +158,7 @@ function filterRecipes(protocol) {
 }
 
 async function requestJson(path, init = {}) {
-  const response = await fetch(path, init);
-  let payload;
-  try { payload = await response.json(); }
-  catch { throw new Error(`The sandbox returned non-JSON with HTTP ${response.status}.`); }
-  if (!response.ok) {
-    const code = payload?.error?.code || `HTTP_${response.status}`;
-    throw new Error(code);
-  }
-  return payload;
+  return browserClient.requestJson(path, init);
 }
 
 async function mcpCall(id, name, args) {
@@ -285,7 +285,9 @@ async function runSelected() {
     renderCards(products);
     elements.responseCode.textContent = pretty(payload);
     elements.responseSummary.firstElementChild.textContent = responseHeadline(selected, payload, products);
-    elements.responseSummary.lastElementChild.textContent = "Evaluated by the real Worker, then conservatively projected as illustrative and non-purchasable.";
+    elements.responseSummary.lastElementChild.textContent = runtimeMode === "shopify_read_only"
+      ? "Returned from the verified Storefront query as read-only and non-transactional."
+      : "Evaluated by the real Worker, then conservatively projected as illustrative and non-purchasable.";
     setResponseState("success", "200 · Success");
   } catch (error) {
     renderCards([]);
@@ -326,7 +328,9 @@ async function copyText(value) {
 async function copySelected() {
   try {
     await copyText(localCurl(scenarios[selected]));
-    elements.copyStatus.textContent = "Copied a local, zero-account call.";
+    elements.copyStatus.textContent = runtimeMode === "shopify_read_only"
+      ? "Copied a local read-only sandbox call."
+      : "Copied a local, zero-account call.";
   } catch {
     elements.copyStatus.textContent = "Copy was unavailable; select the request text manually.";
   }
@@ -334,13 +338,20 @@ async function copySelected() {
 
 async function loadRuntime() {
   try {
-    const [status, health] = await Promise.all([
-      requestJson("/sandbox/status"),
-      requestJson("/sandbox/health"),
-    ]);
-    if (status.mode !== "synthetic_local_sandbox" || status.credential_exposed !== false) {
+    const status = await browserClient.getStatus();
+    if (!status.verified || status.credential_exposed !== false || status.writes !== false) {
       throw new Error("SANDBOX_BOUNDARY_UNAVAILABLE");
     }
+    runtimeMode = status.mode;
+    if (status.mode === "shopify_read_only") {
+      for (const filter of elements.filters) filter.hidden = filter.dataset.protocol === "mcp";
+      for (const recipe of elements.recipes) recipe.hidden = recipe.dataset.scenario !== "search-v2";
+      selectScenario("search-v2");
+      elements.runtimeTitle.textContent = "Verified Shopify read-only catalog";
+      elements.productCount.textContent = "Published products only";
+      return;
+    }
+    const health = await requestJson("/sandbox/health");
     elements.runtimeTitle.textContent = "Guarded synthetic fixture ready";
     elements.productCount.textContent = `${health.product_count} products`;
   } catch {

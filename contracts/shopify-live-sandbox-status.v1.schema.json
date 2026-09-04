@@ -1,0 +1,226 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/contracts/shopify-live-sandbox-status.v1.schema.json",
+  "title": "Shopify Live Sandbox Status v1",
+  "description": "A closed truth contract for the explicit synthetic and Shopify read-only sandbox modes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract",
+    "mode",
+    "verified",
+    "credential_state",
+    "data_source",
+    "api_version",
+    "quota",
+    "writes",
+    "non_transactional",
+    "capabilities",
+    "checked_at",
+    "error_code",
+    "purchasable",
+    "shipping_rates",
+    "commerce_writes",
+    "credential_exposed"
+  ],
+  "properties": {
+    "contract": { "const": "shopify-live-sandbox-status/v1" },
+    "mode": { "enum": ["synthetic_local_sandbox", "shopify_read_only"] },
+    "verified": { "type": "boolean" },
+    "credential_state": {
+      "enum": [
+        "mock_ready",
+        "credential_missing",
+        "authentication_failed",
+        "permission_required",
+        "quota_exceeded",
+        "service_unavailable",
+        "succeeded"
+      ]
+    },
+    "data_source": { "enum": ["synthetic_fixture", "shopify_storefront_graphql"] },
+    "api_version": {
+      "oneOf": [
+        { "type": "null" },
+        { "const": "2026-07" }
+      ]
+    },
+    "quota": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["limit", "remaining", "window_seconds", "concurrency_limit", "reset_at"],
+      "properties": {
+        "limit": { "type": "integer", "minimum": 0 },
+        "remaining": { "type": "integer", "minimum": 0 },
+        "window_seconds": { "type": "integer", "minimum": 0 },
+        "concurrency_limit": { "type": "integer", "minimum": 0 },
+        "reset_at": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
+        }
+      }
+    },
+    "writes": { "const": false },
+    "non_transactional": { "const": true },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "doctor",
+        "catalog_search",
+        "search_contract_v2",
+        "product_detail",
+        "storefront_health",
+        "cart",
+        "checkout",
+        "order",
+        "payment",
+        "inventory",
+        "publication",
+        "product_mutation"
+      ],
+      "properties": {
+        "doctor": { "const": true },
+        "catalog_search": { "type": "boolean" },
+        "search_contract_v2": { "type": "boolean" },
+        "product_detail": { "type": "boolean" },
+        "storefront_health": { "type": "boolean" },
+        "cart": { "const": false },
+        "checkout": { "const": false },
+        "order": { "const": false },
+        "payment": { "const": false },
+        "inventory": { "const": false },
+        "publication": { "const": false },
+        "product_mutation": { "const": false }
+      }
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
+    },
+    "error_code": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "enum": [
+            "CREDENTIAL_MISSING",
+            "AUTHENTICATION_FAILED",
+            "PERMISSION_REQUIRED",
+            "QUOTA_EXCEEDED",
+            "SERVICE_UNAVAILABLE"
+          ]
+        }
+      ]
+    },
+    "purchasable": { "const": false },
+    "shipping_rates": { "const": false },
+    "commerce_writes": { "const": false },
+    "credential_exposed": { "const": false }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "mode": { "const": "synthetic_local_sandbox" } }, "required": ["mode"] },
+      "then": {
+        "properties": {
+          "verified": { "const": true },
+          "credential_state": { "const": "mock_ready" },
+          "data_source": { "const": "synthetic_fixture" },
+          "api_version": { "type": "null" },
+          "error_code": { "type": "null" },
+          "capabilities": {
+            "properties": {
+              "catalog_search": { "const": true },
+              "search_contract_v2": { "const": true },
+              "product_detail": { "const": true },
+              "storefront_health": { "const": false }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "mode": { "const": "shopify_read_only" } }, "required": ["mode"] },
+      "then": {
+        "properties": {
+          "data_source": { "const": "shopify_storefront_graphql" },
+          "api_version": { "const": "2026-07" }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "verified": { "const": true } }, "required": ["verified"] },
+            "then": {
+              "properties": {
+                "credential_state": { "const": "succeeded" },
+                "error_code": { "type": "null" },
+                "capabilities": {
+                  "properties": {
+                    "catalog_search": { "const": true },
+                    "search_contract_v2": { "const": true },
+                    "product_detail": { "const": true },
+                    "storefront_health": { "const": true }
+                  }
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "credential_state": {
+                  "enum": [
+                    "credential_missing",
+                    "authentication_failed",
+                    "permission_required",
+                    "quota_exceeded",
+                    "service_unavailable"
+                  ]
+                },
+                "error_code": { "type": "string" },
+                "capabilities": {
+                  "properties": {
+                    "catalog_search": { "const": false },
+                    "search_contract_v2": { "const": false },
+                    "product_detail": { "const": false },
+                    "storefront_health": { "const": false }
+                  }
+                }
+              },
+              "oneOf": [
+                {
+                  "properties": {
+                    "credential_state": { "const": "credential_missing" },
+                    "error_code": { "const": "CREDENTIAL_MISSING" }
+                  }
+                },
+                {
+                  "properties": {
+                    "credential_state": { "const": "authentication_failed" },
+                    "error_code": { "const": "AUTHENTICATION_FAILED" }
+                  }
+                },
+                {
+                  "properties": {
+                    "credential_state": { "const": "permission_required" },
+                    "error_code": { "const": "PERMISSION_REQUIRED" }
+                  }
+                },
+                {
+                  "properties": {
+                    "credential_state": { "const": "quota_exceeded" },
+                    "error_code": { "const": "QUOTA_EXCEEDED" }
+                  }
+                },
+                {
+                  "properties": {
+                    "credential_state": { "const": "service_unavailable" },
+                    "error_code": { "const": "SERVICE_UNAVAILABLE" }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

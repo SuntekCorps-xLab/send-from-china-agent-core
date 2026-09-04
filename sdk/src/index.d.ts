@@ -41,6 +41,13 @@ export interface SendFromChinaClientOptions {
   commerceOrigins?: string[];
 }
 
+export type SearchValidationField =
+  | "request" | "contract_version" | "product_identity" | "hard_constraints"
+  | "soft_context" | "transaction_context" | "limit" | "cursor" | "condition";
+export type SearchValidationReason =
+  | "invalid_type" | "missing_required" | "unknown_field" | "unsupported_value"
+  | "invalid_format" | "out_of_range" | "not_normalized" | "cursor_mismatch" | "invalid_value";
+
 export interface SendFromChinaClient {
   getCapabilities(options?: { signal?: AbortSignal }): Promise<Record<string, unknown>>;
   listTools(options?: { signal?: AbortSignal }): Promise<Record<string, unknown>[]>;
@@ -67,6 +74,12 @@ export interface SendFromChinaClient {
 export declare const SEARCH_CONTRACT_VERSION: "2.0";
 export declare const PUBLIC_ATTRIBUTE_POLICY_VERSION: "public-product-attributes/v1";
 export declare const PUBLIC_ATTRIBUTE_NAMES: readonly PublicProductAttributeName[];
+export declare const SEARCH_VALIDATION_FIELDS: readonly SearchValidationField[];
+export declare const SEARCH_VALIDATION_REASONS: readonly SearchValidationReason[];
+export declare class SearchContractValidationError extends TypeError {
+  field: SearchValidationField;
+  reason: SearchValidationReason;
+}
 export declare function projectSearchContractV2Response(value: Record<string, unknown>): SearchContractV2Response;
 export declare function normalizeSearchContractV2Request(value: SearchContractV2Request): NormalizedSearchContractV2Request;
 export declare function parseSearchContractV2Request(value: SearchContractV2WireRequest): NormalizedSearchContractV2Request;
@@ -93,6 +106,8 @@ export declare class SendFromChinaError extends Error {
   status: number | null;
   requestId: string;
   retryAfter: string;
+  searchField: SearchValidationField | null;
+  searchReason: SearchValidationReason | null;
 }
 
 export declare function resolvePurchaseHandoff(product: Record<string, unknown>, options?: {

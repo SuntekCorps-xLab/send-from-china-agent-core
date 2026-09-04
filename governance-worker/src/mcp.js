@@ -67,6 +67,8 @@ const TOOLS = [
   { name: "list_sourcing_results", description: "Page through up to three non-purchasable fixture preview results.", inputSchema: { type: "object", properties: { task_id: { type: "string", minLength: 1, maxLength: 180 }, cursor: { type: "string" }, limit: { type: "integer", minimum: 1, maximum: 100, default: 50 } }, required: ["task_id"], additionalProperties: false } },
 ];
 
+export const MCP_PROTOCOL_VERSION = "2025-06-18";
+
 function result(id, value) { return { jsonrpc: "2.0", id, result: value }; }
 function failure(id, code, message) { return { jsonrpc: "2.0", id: id ?? null, error: { code, message } }; }
 function toolResult(value, isError = false) {
@@ -81,9 +83,19 @@ export async function handleMcp(payload, options = {}) {
   if (!payload || payload.jsonrpc !== "2.0" || typeof payload.method !== "string") {
     return { status: 400, body: failure(payload?.id, -32600, "Invalid Request") };
   }
+  if (payload.method !== "initialize" && options.protocolVersion
+      && options.protocolVersion !== MCP_PROTOCOL_VERSION) {
+    return { status: 400, body: failure(payload.id, -32600, "Unsupported MCP protocol version") };
+  }
+  if (!("id" in payload)) {
+    return { status: 202, body: null };
+  }
+  if (payload.method === "ping") {
+    return { status: 200, body: result(payload.id, {}) };
+  }
   if (payload.method === "initialize") {
     return { status: 200, body: result(payload.id, {
-      protocolVersion: "2025-06-18", capabilities: { tools: {} },
+      protocolVersion: MCP_PROTOCOL_VERSION, capabilities: { tools: {} },
       serverInfo: { name: "send-from-china-agent-core", version: "1.1.0" },
       instructions: "Discover tools without a credential. Tool calls require a tenant key. get_quote returns a catalog estimate, not a shipping rate. Sourcing is an illustrative, non-purchasable preview after a confirmed terminal catalog miss.",
     }) };

@@ -92,7 +92,7 @@ const transactionNames = requestSchema.properties.transaction_context.items.allO
 const unknownTransactionNames = transactionNames.filter((name) => (
   !["ship_to", "quantity", "delivery_days_max"].includes(name)
 ));
-const canonicalHardConstraintNames = ["price_min", "price_max", "material", "color", "must_have", "exclude"];
+const canonicalHardConstraintNames = ["price_min", "price_max", "material", "color", "model", "must_have", "exclude"];
 const unknownHardConstraintNames = hardConstraintNames.filter((name) => !canonicalHardConstraintNames.includes(name));
 if (hardConstraintNames.length !== canonicalHardConstraintNames.length || unknownHardConstraintNames.length
   || canonicalHardConstraintNames.some((name) => !hardConstraintNames.includes(name))
@@ -255,6 +255,15 @@ export interface SearchContractV2Response {
   results: SearchProduct[];
   pagination: SearchPagination;
   search_scope: SearchScope;
+  mode?: ${schemaType(responseSchema.properties.mode)};
+  data_source?: ${schemaType(responseSchema.properties.data_source)};
+  illustrative_only?: boolean;
+  purchasable?: false;
+  available?: false;
+  writes?: false;
+  non_transactional?: true;
+  transaction_boundary?: ${schemaType(responseSchema.properties.transaction_boundary)};
+  shopify_verified_at?: string | null;
   compatibility?: SearchCompatibility;
 }
 `;
