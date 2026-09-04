@@ -9,6 +9,48 @@ permissions:
   contents: read
 
 jobs:
+  shell-failure-propagation:
+    runs-on: ubuntu-latest
+    steps:
+      # Only this synthetic probe may fail without immediately stopping the job.
+      # The final assertion must reject a successful or incorrectly failed probe.
+      - name: Probe a failing producer through tee using the inherited shell
+        id: producer-failure
+        continue-on-error: true
+        run: |
+          mkdir -p artifacts/shell-failure-propagation
+          trap 'code=$?; printf "%s\n" "$code" > artifacts/shell-failure-propagation/failure-exit.txt; exit "$code"' EXIT
+          set -o > artifacts/shell-failure-propagation/failure-shell.txt
+          (printf '%s\n' 'synthetic-producer-exit-7'; exit 7) | tee artifacts/shell-failure-propagation/failure-output.txt
+      - name: Probe a successful producer through tee using the inherited shell
+        id: producer-success
+        run: |
+          trap 'code=$?; printf "%s\n" "$code" > artifacts/shell-failure-propagation/success-exit.txt; exit "$code"' EXIT
+          set -o > artifacts/shell-failure-propagation/success-shell.txt
+          (printf '%s\n' 'synthetic-producer-exit-0'; exit 0) | tee artifacts/shell-failure-propagation/success-output.txt
+      - name: Require exact pipeline failure and success outcomes
+        if: always()
+        env:
+          FAILURE_OUTCOME: ${{ steps.producer-failure.outcome }}
+          SUCCESS_OUTCOME: ${{ steps.producer-success.outcome }}
+        run: |
+          printf 'failure=%s\nsuccess=%s\n' "$FAILURE_OUTCOME" "$SUCCESS_OUTCOME" > artifacts/shell-failure-propagation/outcomes.txt
+          test "$FAILURE_OUTCOME" = failure
+          test "$SUCCESS_OUTCOME" = success
+          test "$(cat artifacts/shell-failure-propagation/failure-exit.txt)" = 7
+          test "$(cat artifacts/shell-failure-propagation/success-exit.txt)" = 0
+          grep -Fx 'synthetic-producer-exit-7' artifacts/shell-failure-propagation/failure-output.txt
+          grep -Fx 'synthetic-producer-exit-0' artifacts/shell-failure-propagation/success-output.txt
+          for options in artifacts/shell-failure-propagation/*-shell.txt; do
+            awk '$1 == "pipefail" && $2 == "on" { found = 1 } END { exit !found }' "$options"
+          done
+      - name: Upload shell failure propagation evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: shell-failure-propagation
+          path: artifacts/shell-failure-propagation/
+
   search-contract:
     runs-on: ubuntu-latest
     steps:
