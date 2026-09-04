@@ -37,6 +37,7 @@ try {
   run(npm, [...npmArgs, "run", "test:sandbox"]);
   run(npm, [...npmArgs, "--prefix", "hosted-sandbox", "run", "verify"]);
   run(process.execPath, ["scripts/verify-recipes.mjs"]);
+  run(process.execPath, ["--test", "scripts/first-run-docs.test.mjs"]);
   run(process.execPath, ["--test", "scripts/mcp-client-docs.test.mjs"]);
   run(process.execPath, ["--test", "scripts/python-runtime.test.mjs"]);
   run(process.execPath, ["--test", "scripts/release-consistency.test.mjs"]);

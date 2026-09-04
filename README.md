@@ -151,12 +151,35 @@ Run the real HTTP and MCP Worker contract against the checked-in synthetic
 snapshot without registering, configuring a tenant, or exposing a credential to
 the browser:
 
+**Clean-checkout requirements:** Node.js 22.x and npm 10.x. The release CI uses
+that pair. Python, Shopify CLI, a Shopify account, and environment variables are
+not needed for this path.
+
 ```bash
+git clone --depth 1 https://github.com/SuntekCorps-xLab/send-from-china-agent-core.git
+cd send-from-china-agent-core
 npm ci
+npm run test:sandbox
 npm run sandbox
 ```
 
-Open `http://127.0.0.1:8787/sandbox`. The workbench includes executable HTTP
+Successful startup prints:
+
+```text
+Agent Core synthetic sandbox: http://127.0.0.1:8787/sandbox
+The ephemeral tenant credential remains in this process.
+```
+
+Open `http://127.0.0.1:8787/sandbox`. From a second terminal, verify the closed
+status contract without a credential:
+
+```bash
+curl -fsS http://127.0.0.1:8787/sandbox/status
+```
+
+The JSON response reports `mode: "synthetic_local_sandbox"`,
+`data_source: "synthetic_fixture"`, `writes: false`, and `verified: true`.
+Stop the server with <kbd>Ctrl</kbd>+<kbd>C</kbd>. The workbench includes executable HTTP
 search, Search Contract v2, MCP discovery and product search, plus a terminal
 miss → explicit confirmation → illustrative sourcing recipe. All sandbox cards
 are synthetic; there are no carrier rates, commerce writes, or external image
@@ -171,6 +194,10 @@ clients to `/sandbox/mcp`; canonical deployments still require bearer auth.
 See the [sandbox boundary and MCP setup](docs/SANDBOX.md).
 
 ### Explicit Shopify read-only mode
+
+This is a separate, credentialed operator path. Do not use it for the
+zero-account quickstart above, and do not put its token in browser code, shell
+history, source files, logs, or issue reports.
 
 The sandbox has two explicit modes:
 
