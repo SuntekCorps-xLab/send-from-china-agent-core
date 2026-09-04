@@ -23,6 +23,7 @@ adding a transaction path.
   <a href="#1-try-live-read-only-mcp"><strong>🌐 Try live read-only MCP</strong></a> ·
   <a href="#2-run-the-zero-account-local-sandbox"><strong>⚡ Run local sandbox</strong></a> ·
   <a href="#3-self-host-with-your-own-catalog"><strong>📦 Self-host</strong></a> ·
+  <a href="docs/WHAT_IT_IS.md"><strong>🎯 Scope</strong></a> ·
   <a href="#connect-an-mcp-client"><strong>🔌 MCP setup</strong></a> ·
   <a href="docs/SECURITY_MODEL.md"><strong>🛡️ Security model</strong></a> ·
   <a href="docs/ARCHITECTURE.md"><strong>🏗️ Architecture</strong></a> ·
@@ -50,6 +51,10 @@ External agents can use the versioned
 explicit hard constraints, soft ranking context, and transaction context
 separate. The additive SDK 1.2 API includes an explicit compatibility adapter
 for the stable `product_search` v1 tool.
+
+Read [What it is / What it is not](docs/WHAT_IT_IS.md) for the shortest
+capability boundary, including what a real Shopify product-page link proves—and
+what it does not yet prove about checkout, orders, or channel attribution.
 
 ### Reference Store compatibility
 
@@ -151,12 +156,35 @@ Run the real HTTP and MCP Worker contract against the checked-in synthetic
 snapshot without registering, configuring a tenant, or exposing a credential to
 the browser:
 
+**Clean-checkout requirements:** Node.js 22.x and npm 10.x. The release CI uses
+that pair. Python, Shopify CLI, a Shopify account, and environment variables are
+not needed for this path.
+
 ```bash
+git clone --depth 1 https://github.com/SuntekCorps-xLab/send-from-china-agent-core.git
+cd send-from-china-agent-core
 npm ci
+npm run test:sandbox
 npm run sandbox
 ```
 
-Open `http://127.0.0.1:8787/sandbox`. The workbench includes executable HTTP
+Successful startup prints:
+
+```text
+Agent Core synthetic sandbox: http://127.0.0.1:8787/sandbox
+The ephemeral tenant credential remains in this process.
+```
+
+Open `http://127.0.0.1:8787/sandbox`. From a second terminal, verify the closed
+status contract without a credential:
+
+```bash
+curl -fsS http://127.0.0.1:8787/sandbox/status
+```
+
+The JSON response reports `mode: "synthetic_local_sandbox"`,
+`data_source: "synthetic_fixture"`, `writes: false`, and `verified: true`.
+Stop the server with <kbd>Ctrl</kbd>+<kbd>C</kbd>. The workbench includes executable HTTP
 search, Search Contract v2, MCP discovery and product search, plus a terminal
 miss → explicit confirmation → illustrative sourcing recipe. All sandbox cards
 are synthetic; there are no carrier rates, commerce writes, or external image
@@ -171,6 +199,10 @@ clients to `/sandbox/mcp`; canonical deployments still require bearer auth.
 See the [sandbox boundary and MCP setup](docs/SANDBOX.md).
 
 ### Explicit Shopify read-only mode
+
+This is a separate, credentialed operator path. Do not use it for the
+zero-account quickstart above, and do not put its token in browser code, shell
+history, source files, logs, or issue reports.
 
 The sandbox has two explicit modes:
 
@@ -352,7 +384,10 @@ destination.
 ## Connect an MCP client
 
 MCP discovery is public so clients can call `initialize` and `tools/list`
-before a key is configured. Every `tools/call` requires a tenant credential.
+before a key is configured. In the bundled local and self-hosted Worker
+profiles, every `tools/call` requires a tenant credential. The managed public
+endpoint described in section 1 separately allows the five named catalog-read
+tools without a credential.
 
 Use this server definition in an MCP client that supports custom headers:
 
@@ -393,11 +428,13 @@ tools in this repository.
 
 ### One guarded runtime, two protocols
 
-HTTP and MCP can discover the service anonymously, but every product request or
-`tools/call` crosses the same deployment-held credential check, tenant scope,
-quota, published snapshot, and positive response policy. This reference does not
-issue keys or provide a self-service OAuth or registration flow; deployment
-operators configure tenant credentials outside the repository.
+In the bundled local and self-hosted Worker profiles, HTTP and MCP can discover
+the service anonymously, but every product request or `tools/call` crosses the
+same deployment-held credential check, tenant scope, quota, published snapshot,
+and positive response policy. The managed endpoint's five anonymous read tools
+use its own public-read policy instead. This reference does not issue keys or
+provide a self-service OAuth or registration flow; deployment operators
+configure tenant credentials outside the repository.
 
 <img src="docs/images/agent-core-runtime-boundary-live.svg" alt="Animated Agent Core runtime showing HTTP and MCP clients sharing authentication, tenant scope, a published snapshot, and a positive public-field policy" width="100%">
 
@@ -406,8 +443,10 @@ operators configure tenant credentials outside the repository.
 The repository includes an installable example under
 [`skills/send-from-china-catalog`](skills/send-from-china-catalog). It teaches a
 compatible coding agent the catalog-first flow, catalog-estimate boundary, and
-confirmed sourcing-preview discipline. The skill does not contain an endpoint
-or tenant key; configure the MCP server separately.
+confirmed sourcing-preview discipline. The skill names the managed public MCP
+endpoint for its five anonymous read tools, but contains no tenant key or other
+credential. Configure a different endpoint and its operator-issued credential
+separately for local or self-hosted profiles.
 
 ## 3. Self-host with your own catalog
 

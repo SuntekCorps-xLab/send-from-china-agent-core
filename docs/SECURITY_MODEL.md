@@ -21,7 +21,11 @@ system credentials.
 - All network input is untrusted.
 - Browser origins are allowed only when configured.
 - Health and MCP discovery disclose capability metadata but no product data.
-- HTTP product data and MCP tool calls require a tenant credential.
+- In the bundled local and self-hosted Worker profiles, HTTP product data and
+  MCP tool calls require a tenant credential. The separately operated managed
+  endpoint may expose only its five documented catalog-read tools anonymously;
+  account, quote, sourcing, request, and write-capable operations stay
+  credentialed.
 - Tenant product identifiers are intersected with the published snapshot.
 - Restricted tenants cannot enumerate the full catalog.
 - A product outside a tenant scope returns the same not-found behavior as an
