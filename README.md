@@ -286,6 +286,7 @@ Use this server definition in an MCP client that supports custom headers:
 {
   "mcpServers": {
     "commerce-catalog": {
+      "type": "http",
       "url": "http://localhost:8787/mcp",
       "headers": {
         "Authorization": "Bearer ${TENANT_KEY}"
@@ -294,6 +295,11 @@ Use this server definition in an MCP client that supports custom headers:
   }
 }
 ```
+
+The configuration filename and accepted transport fields differ by client.
+For tested local setup commands, Claude Desktop's stdio requirement, Cursor and
+Windsurf paths, and first-run diagnostics, see
+[Connect an MCP client](docs/SANDBOX.md#connect-an-mcp-client).
 
 Available tools:
 

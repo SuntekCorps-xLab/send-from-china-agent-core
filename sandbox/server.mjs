@@ -34,6 +34,7 @@ const STATIC_ASSETS = new Map([
 const SAFE_EXACT_ROUTES = new Map([
   ["GET /.well-known/send-from-china.json", false],
   ["GET /health", false],
+  ["GET /mcp", false],
   ["GET /api/search", true],
   ["POST /api/search/v2", true],
   ["POST /api/quote", true],

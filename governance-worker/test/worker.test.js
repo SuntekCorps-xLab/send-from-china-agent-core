@@ -243,6 +243,41 @@ test("CORS allowlist accepts known origins and rejects unknown origins", async (
 });
 
 test("MCP discovery is public and catalog calls are tenant-scoped", async () => {
+  const stream = await call("/mcp");
+  assert.equal(stream.status, 405);
+  assert.equal(stream.headers.get("allow"), "POST");
+  assert.equal(await stream.text(), "");
+
+  const initialize = await call("/mcp", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: "init", method: "initialize", params: {} }),
+  });
+  assert.equal(initialize.status, 200);
+
+  const initialized = await call("/mcp", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }),
+  });
+  assert.equal(initialized.status, 202);
+  assert.equal(await initialized.text(), "");
+
+  const ping = await call("/mcp", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "MCP-Protocol-Version": "2025-06-18" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: "ping", method: "ping" }),
+  });
+  assert.deepEqual((await ping.json()).result, {});
+
+  const unsupportedVersion = await call("/mcp", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "MCP-Protocol-Version": "bogus-version" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: "version", method: "tools/list" }),
+  });
+  assert.equal(unsupportedVersion.status, 400);
+  assert.equal((await unsupportedVersion.json()).error.message, "Unsupported MCP protocol version");
+
   const list = await call("/mcp", { method: "POST", body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }) });
   const listBody = await list.json();
   assert.deepEqual(listBody.result.tools.map((tool) => tool.name), [

@@ -214,8 +214,69 @@ validated status contract are authoritative.
 
 ## Connect an MCP client
 
-For a local, zero-account fixture session, point a Streamable HTTP MCP client at
-the browser-safe route without custom headers:
+Start with `npm run sandbox` for clients that support Streamable HTTP. The
+browser-safe endpoint is `http://127.0.0.1:8787/sandbox/mcp` and needs no custom
+headers. Client configuration formats are not interchangeable: in particular,
+a `url` entry without an explicit transport is not a valid Claude Code entry,
+and Claude Desktop does not load a remote HTTP server from
+`claude_desktop_config.json`.
+
+### Claude Code CLI or desktop app
+
+Add the running local endpoint with an explicit HTTP transport:
+
+```bash
+claude mcp add --transport http send-from-china-sandbox http://127.0.0.1:8787/sandbox/mcp
+claude mcp get send-from-china-sandbox
+```
+
+For project-scoped configuration, put the following in `.mcp.json` at the
+project root, trust the project when Claude Code asks, and check `/mcp`:
+
+```json
+{
+  "mcpServers": {
+    "send-from-china-sandbox": {
+      "type": "http",
+      "url": "http://127.0.0.1:8787/sandbox/mcp"
+    }
+  }
+}
+```
+
+### Claude Desktop consumer app
+
+Claude Desktop does not load an HTTP `url` entry from
+`claude_desktop_config.json`. For this local fixture, use the included stdio
+bridge instead. It starts its own loopback-only synthetic sandbox, so do not
+also run `npm run sandbox` for this configuration.
+
+On Windows, edit `%APPDATA%\Claude\claude_desktop_config.json`. On macOS, edit
+`~/Library/Application Support/Claude/claude_desktop_config.json`. Use absolute
+paths for both Node.js and the checked-out bridge file:
+
+```json
+{
+  "mcpServers": {
+    "send-from-china-sandbox": {
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "C:\\absolute\\path\\send-from-china-agent-core\\scripts\\mcp-stdio-bridge.mjs"
+      ]
+    }
+  }
+}
+```
+
+Use `which node` on macOS to find the absolute Node.js path and use forward
+slashes for the bridge path. Fully quit Claude Desktop, relaunch it, then check
+that `product_search` appears in its tools. Organization policy must allow
+developer-defined local MCP servers.
+
+### Cursor
+
+Put this in `.cursor/mcp.json` for one project or `~/.cursor/mcp.json` for all
+projects, then enable the server and its tools in Cursor settings:
 
 ```json
 {
@@ -227,8 +288,59 @@ the browser-safe route without custom headers:
 }
 ```
 
-This endpoint is loopback-only. A deployed Agent Core endpoint uses the
-canonical `/mcp` route and a deployment-issued bearer credential.
+### Windsurf
+
+Put this in `~/.codeium/windsurf/mcp_config.json`, then open the MCP settings in
+Cascade and enable the server:
+
+```json
+{
+  "mcpServers": {
+    "send-from-china-sandbox": {
+      "serverUrl": "http://127.0.0.1:8787/sandbox/mcp"
+    }
+  }
+}
+```
+
+### Other stdio-only clients
+
+Configure the client to run an absolute Node.js executable with
+`scripts/mcp-stdio-bridge.mjs` as its single argument. The dependency-free
+bridge accepts newline-delimited JSON-RPC on stdin, writes only JSON-RPC to
+stdout, bounds every frame, and relays only to an ephemeral loopback sandbox.
+It does not accept a caller-selected URL, credential, or live mode.
+
+### Verify and troubleshoot
+
+With `npm run sandbox` still running, prove the complete lifecycle independently
+of any client UI. The middle request must return HTTP `202` with an empty body,
+and the final response must contain `product_search`:
+
+```bash
+curl -sS http://127.0.0.1:8787/sandbox/mcp \
+  -H "Content-Type: application/json" \
+  --data '{"jsonrpc":"2.0","id":"init","method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl-smoke","version":"1"}}}'
+curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8787/sandbox/mcp \
+  -H "Content-Type: application/json" \
+  -H "MCP-Protocol-Version: 2025-06-18" \
+  --data '{"jsonrpc":"2.0","method":"notifications/initialized"}'
+curl -sS http://127.0.0.1:8787/sandbox/mcp \
+  -H "Content-Type: application/json" \
+  -H "MCP-Protocol-Version: 2025-06-18" \
+  --data '{"jsonrpc":"2.0","id":"tools","method":"tools/list"}'
+```
+
+If this lifecycle works but the client does not list tools, check the exact
+configuration file, the client-specific transport field, project trust or
+organization policy, and fully restart the client. `claude mcp get
+send-from-china-sandbox` gives Claude Code's connection status. The stdio bridge
+must never print diagnostic text to stdout because stdout is reserved for MCP
+frames.
+
+This endpoint and the bridge are loopback-only synthetic fixtures. A deployed
+Agent Core endpoint uses the canonical `/mcp` route and a deployment-issued
+bearer credential; do not copy a tenant key into the synthetic configuration.
 
 ## Four access states
 

@@ -1,5 +1,5 @@
 import { getProduct, listCatalog, searchCatalog } from "./catalog.js";
-import { allowedOrigin, errorResponse, jsonResponse, parseLimit, parseQuery, readJson, requestId } from "./http.js";
+import { allowedOrigin, emptyResponse, errorResponse, jsonResponse, parseLimit, parseQuery, readJson, requestId } from "./http.js";
 import { handleMcp } from "./mcp.js";
 import { createQuote, QuoteError } from "./quote.js";
 import { getSnapshotMeta } from "./snapshot.js";
@@ -65,10 +65,18 @@ async function route(request, env, id, corsHeaders) {
       },
     }, 200, id, corsHeaders);
   }
+  if (request.method === "GET" && url.pathname === "/mcp") {
+    return emptyResponse(405, id, { ...corsHeaders, Allow: "POST" });
+  }
   if (request.method === "POST" && url.pathname === "/mcp") {
     const parsed = await readJson(request);
     if (parsed.error) return errorResponse(parsed.error, parsed.error === "PAYLOAD_TOO_LARGE" ? 413 : 400, id, corsHeaders);
-    const response = await handleMcp(parsed.value, { authorization: request.headers.get("Authorization") || "", env });
+    const response = await handleMcp(parsed.value, {
+      authorization: request.headers.get("Authorization") || "",
+      protocolVersion: request.headers.get("MCP-Protocol-Version") || "",
+      env,
+    });
+    if (response.body === null) return emptyResponse(response.status, id, corsHeaders);
     return jsonResponse(response.body, response.status, id, corsHeaders);
   }
 

@@ -29,6 +29,8 @@ try {
   run(npm, [...npmArgs, "run", "test:sandbox"]);
   run(npm, [...npmArgs, "--prefix", "hosted-sandbox", "run", "verify"]);
   run(process.execPath, ["scripts/verify-recipes.mjs"]);
+  run(process.execPath, ["--test", "scripts/mcp-client-docs.test.mjs"]);
+  run(process.execPath, ["--test", "scripts/mcp-stdio-bridge.test.mjs"]);
   run(process.execPath, ["--test", "starters/agent-core-js/test/starter.test.mjs"]);
   run(python, ["-m", "unittest", "discover", "-s", "recipes/python", "-p", "test_*.py", "-v"]);
   run(process.execPath, ["--test", "sdk/test/client.test.js", "sdk/test/search-contract-v2.test.js"]);

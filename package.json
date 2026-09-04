@@ -26,6 +26,7 @@
     "eval:security": "node evals/v0/run.mjs --suite security",
     "eval:smoke": "node evals/v0/run.mjs --suite smoke",
     "eval:test": "node --test evals/v0/test/*.test.mjs",
+    "mcp:stdio": "node scripts/mcp-stdio-bridge.mjs",
     "qa:sandbox-browser": "node sandbox/scripts/browser-qa.mjs",
     "sandbox": "node sandbox/server.mjs",
     "sandbox:shopify": "node sandbox/shopify-server.mjs",

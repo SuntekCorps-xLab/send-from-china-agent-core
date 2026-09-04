@@ -246,6 +246,20 @@ test("sandbox discovery points agents at the injected-scope MCP route", async ()
   assert.match(initialize.body.result.instructions, /without supplying a tenant credential/);
   assert.match(initialize.body.result.instructions, /canonical \/mcp deployment still requires a bearer/iu);
   assert.doesNotMatch(JSON.stringify(initialize.body), new RegExp(sandbox.token, "u"));
+
+  const stream = await fetch(`${sandbox.baseUrl}/sandbox/mcp`, { redirect: "error" });
+  assert.equal(stream.status, 405);
+  assert.equal(stream.headers.get("allow"), "POST");
+  assert.equal(await stream.text(), "");
+
+  const initialized = await fetch(`${sandbox.baseUrl}/sandbox/mcp`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }),
+    redirect: "error",
+  });
+  assert.equal(initialized.status, 202);
+  assert.equal(await initialized.text(), "");
 });
 
 test("the wrapper rejects enumeration, arbitrary proxies, invalid JSON, and large bodies", async () => {

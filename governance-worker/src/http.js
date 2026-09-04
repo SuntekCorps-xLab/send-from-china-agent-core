@@ -57,6 +57,16 @@ export function jsonResponse(body, status, id, extraHeaders = {}) {
   });
 }
 
+export function emptyResponse(status, id, extraHeaders = {}) {
+  return new Response(null, {
+    status,
+    headers: {
+      ...baseHeaders(id),
+      ...extraHeaders,
+    },
+  });
+}
+
 export function errorResponse(code, status, id, extraHeaders = {}, details = {}) {
   const error = { code };
   if (code === "INVALID_SEARCH_CONTRACT"

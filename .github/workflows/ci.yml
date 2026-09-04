@@ -36,6 +36,8 @@ jobs:
         run: |
           npm run eval:agent-trajectory:test 2>&1 | tee artifacts/agent-trajectory-contract-tests.log
           npm run eval:adversarial:test 2>&1 | tee artifacts/adversarial-contract-tests.log
+      - name: Test MCP client documentation and stdio lifecycle
+        run: node --test scripts/mcp-client-docs.test.mjs scripts/mcp-stdio-bridge.test.mjs 2>&1 | tee artifacts/mcp-client-tests.log
       - name: Upload Search Contract evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
