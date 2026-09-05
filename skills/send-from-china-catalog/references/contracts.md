@@ -18,11 +18,15 @@ Call `initialize` and `tools/list` without an Authorization header. The managed 
 - `ask_catalog`
 - `get_product`
 
+Call `get_product` with the `handle` returned by search.
+
 These tools return allowlisted public catalog fields. Never infer access to account data, private fields, sourcing, writes, orders, checkout, or payments from anonymous catalog access.
 
 ### Local synthetic and self-hosted deployments
 
 Use the endpoint and tenant Bearer credential supplied by the deployment operator. The runtime in this repository requires that credential for every `tools/call` and has no self-service registration flow. Its bundled catalog is synthetic and is not the live Send From China catalog.
+
+Call `get_product` with the returned public `slug` in this profile.
 
 ### Protected operations
 
@@ -51,7 +55,7 @@ Call `product_search` with:
 }
 ```
 
-Use `get_product` for a returned public slug or handle. `criteria_evaluation.enforced` lists hard filters. `criteria_evaluation.informational` lists inputs that were preserved but not evaluated against the snapshot.
+Use the product identity required by the selected connection profile. `criteria_evaluation.enforced` lists hard filters. `criteria_evaluation.informational` lists inputs that were preserved but not evaluated against the snapshot.
 
 ## Catalog estimate
 

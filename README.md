@@ -91,8 +91,8 @@ read tools:
 }
 ```
 
-For a client-independent check, run the four requests below. Copy a `slug` or
-`handle` from the third response into the final request.
+For a client-independent check, run the four requests below. Copy the `handle`
+field from one product in the third response into the final request.
 
 ```bash
 curl -sS https://wp-api.sendfromchina.ai/mcp \
@@ -112,7 +112,7 @@ curl -sS https://wp-api.sendfromchina.ai/mcp \
 curl -sS https://wp-api.sendfromchina.ai/mcp \
   -H "Content-Type: application/json" \
   -H "MCP-Protocol-Version: 2025-06-18" \
-  --data '{"jsonrpc":"2.0","id":"product","method":"tools/call","params":{"name":"get_product","arguments":{"slug":"<returned-slug-or-handle>"}}}'
+  --data '{"jsonrpc":"2.0","id":"product","method":"tools/call","params":{"name":"get_product","arguments":{"handle":"<returned-handle>"}}}'
 ```
 
 Search results link back to the real Shopify product page. Treat price,
