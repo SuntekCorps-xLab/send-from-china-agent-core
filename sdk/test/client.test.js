@@ -14,6 +14,24 @@ function toolResult(id, value, isError = false) {
   return response({ jsonrpc: "2.0", id, result: { structuredContent: value, isError } });
 }
 
+function trackedAbortController() {
+  const controller = new AbortController();
+  const listeners = new Set();
+  const signal = {
+    get aborted() { return controller.signal.aborted; },
+    get reason() { return controller.signal.reason; },
+    addEventListener(name, listener, options) {
+      listeners.add(listener);
+      controller.signal.addEventListener(name, listener, options);
+    },
+    removeEventListener(name, listener) {
+      listeners.delete(listener);
+      controller.signal.removeEventListener(name, listener);
+    },
+  };
+  return { controller, signal, listeners };
+}
+
 test("normalizes long base URL slash runs within a bounded subprocess", () => {
   const script = `
     import assert from "node:assert/strict";
@@ -50,6 +68,178 @@ test("discovers public capabilities without sending the tenant token", async () 
   assert.equal(capabilities.capabilities.catalog_search, true);
   assert.equal(seen.url, "https://agent.example.test/.well-known/send-from-china.json");
   assert.equal(seen.headers.has("authorization"), false);
+});
+
+test("does not dispatch an already-aborted request", async () => {
+  const reason = 0;
+  const controller = new AbortController();
+  controller.abort(reason);
+  let calls = 0;
+  const client = createSendFromChinaClient({
+    baseUrl: "https://agent.example.test",
+    fetch: async () => {
+      calls += 1;
+      return response({ ok: true });
+    },
+  });
+
+  await assert.rejects(client.getCapabilities({ signal: controller.signal }), (error) => {
+    assert.ok(error instanceof SendFromChinaError);
+    assert.equal(error.code, "REQUEST_ABORTED");
+    assert.equal(error.message, "The Send From China request was canceled");
+    assert.equal(error.cause, reason);
+    return true;
+  });
+  assert.equal(calls, 0);
+});
+
+test("reports in-flight caller cancellation with a stable SDK error", async () => {
+  const reason = new SendFromChinaError("caller cancellation detail", { code: "CALLER_REASON" });
+  const { controller, signal, listeners } = trackedAbortController();
+  let forwardedSignal;
+  let markStarted;
+  const started = new Promise((resolve) => { markStarted = resolve; });
+  const client = createSendFromChinaClient({
+    baseUrl: "https://agent.example.test",
+    fetch: async (_url, init) => {
+      forwardedSignal = init.signal;
+      markStarted();
+      return new Promise((_resolve, reject) => {
+        init.signal.addEventListener("abort", () => reject(init.signal.reason), { once: true });
+      });
+    },
+  });
+
+  const pending = client.getCapabilities({ signal });
+  const rejection = assert.rejects(pending, (error) => {
+    assert.ok(error instanceof SendFromChinaError);
+    assert.equal(error.code, "REQUEST_ABORTED");
+    assert.equal(error.message, "The Send From China request was canceled");
+    assert.equal(error.cause, reason);
+    assert.equal(String(error).includes(reason.message), false);
+    return true;
+  });
+  await started;
+  assert.equal(forwardedSignal.aborted, false);
+  controller.abort(reason);
+  await rejection;
+  assert.equal(forwardedSignal.aborted, true);
+  assert.equal(forwardedSignal.reason, reason);
+  assert.equal(listeners.size, 0);
+});
+
+test("does not return a payload after caller cancellation during body parsing", async () => {
+  const reason = new Error("caller canceled while reading");
+  const { controller, signal, listeners } = trackedAbortController();
+  let markParsing;
+  const parsing = new Promise((resolve) => { markParsing = resolve; });
+  let releaseBody;
+  const bodyReleased = new Promise((resolve) => { releaseBody = resolve; });
+  const client = createSendFromChinaClient({
+    baseUrl: "https://agent.example.test",
+    fetch: async () => ({
+      ok: true,
+      headers: new Headers(),
+      async json() {
+        markParsing();
+        await bodyReleased;
+        return { ok: true };
+      },
+    }),
+  });
+
+  const pending = client.getCapabilities({ signal });
+  const rejection = assert.rejects(pending, (error) => {
+    assert.ok(error instanceof SendFromChinaError);
+    assert.equal(error.code, "REQUEST_ABORTED");
+    assert.equal(error.message, "The Send From China request was canceled");
+    assert.equal(error.cause, reason);
+    return true;
+  });
+  await parsing;
+  controller.abort(reason);
+  releaseBody();
+  await rejection;
+  assert.equal(listeners.size, 0);
+});
+
+test("keeps timeout classification while a response body is being read", async () => {
+  let forwardedSignal;
+  let markParsing;
+  const parsing = new Promise((resolve) => { markParsing = resolve; });
+  let releaseBody;
+  const bodyReleased = new Promise((resolve) => { releaseBody = resolve; });
+  const client = createSendFromChinaClient({
+    baseUrl: "https://agent.example.test",
+    timeoutMs: 10,
+    fetch: async (_url, init) => {
+      forwardedSignal = init.signal;
+      return {
+        ok: true,
+        headers: new Headers(),
+        async json() {
+          markParsing();
+          await bodyReleased;
+          return { ok: true };
+        },
+      };
+    },
+  });
+
+  const pending = client.getCapabilities();
+  const rejection = assert.rejects(pending, (error) => {
+    assert.ok(error instanceof SendFromChinaError);
+    assert.equal(error.code, "REQUEST_TIMEOUT");
+    assert.equal(error.message, "The Send From China request timed out");
+    return true;
+  });
+  await parsing;
+  if (!forwardedSignal.aborted) {
+    await new Promise((resolve) => forwardedSignal.addEventListener("abort", resolve, { once: true }));
+  }
+  releaseBody();
+  await rejection;
+});
+
+test("keeps timeout classification when caller cancellation happens later", async () => {
+  const { controller, signal, listeners } = trackedAbortController();
+  const client = createSendFromChinaClient({
+    baseUrl: "https://agent.example.test",
+    timeoutMs: 10,
+    fetch: async (_url, init) => new Promise((_resolve, reject) => {
+      init.signal.addEventListener("abort", () => {
+        controller.abort(new Error("late caller cancellation"));
+        reject(init.signal.reason);
+      }, { once: true });
+    }),
+  });
+
+  await assert.rejects(client.getCapabilities({ signal }), (error) => {
+    assert.ok(error instanceof SendFromChinaError);
+    assert.equal(error.code, "REQUEST_TIMEOUT");
+    assert.equal(error.message, "The Send From China request timed out");
+    return true;
+  });
+  assert.equal(controller.signal.aborted, true);
+  assert.equal(listeners.size, 0);
+});
+
+test("cleans up request cancellation and timeout state after success", async () => {
+  const { signal, listeners } = trackedAbortController();
+  let forwardedSignal;
+  const client = createSendFromChinaClient({
+    baseUrl: "https://agent.example.test",
+    timeoutMs: 10,
+    fetch: async (_url, init) => {
+      forwardedSignal = init.signal;
+      return response({ ok: true });
+    },
+  });
+
+  assert.deepEqual(await client.getCapabilities({ signal }), { ok: true });
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.equal(listeners.size, 0);
+  assert.equal(forwardedSignal.aborted, false);
 });
 
 test("calls MCP tools with bearer authentication and returns structured content", async () => {

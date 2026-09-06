@@ -93,6 +93,13 @@ known HTTP, JSON-RPC, and tool codes also receive stable public messages. An
 unknown or malformed upstream code remains a generic request, MCP, or tool
 failure and upstream error text is never reflected.
 
+HTTP and MCP request methods accept an optional `AbortSignal`. Cancellation
+before dispatch or during an in-flight request rejects with code
+`REQUEST_ABORTED` and the fixed message `The Send From China request was
+canceled`; the caller's signal reason is available only as the error `cause`.
+An SDK-owned request deadline remains code `REQUEST_TIMEOUT`, including when the
+caller signal is canceled later.
+
 An `INVALID_SEARCH_CONTRACT` response may include the optional, allowlisted
 `field` and `reason` properties. These identify categories such as `limit` plus
 `out_of_range`, never the rejected value or an unknown/private field name. The

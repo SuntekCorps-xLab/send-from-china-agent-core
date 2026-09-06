@@ -75,7 +75,7 @@ import {
 
 export class SendFromChinaError extends Error {
   constructor(message, options = {}) {
-    super(message, options.cause ? { cause: options.cause } : undefined);
+    super(message, Object.hasOwn(options, "cause") ? { cause: options.cause } : undefined);
     this.name = "SendFromChinaError";
     this.code = String(options.code || "REQUEST_FAILED");
     this.status = Number.isInteger(options.status) ? options.status : null;
@@ -84,6 +84,13 @@ export class SendFromChinaError extends Error {
     this.searchField = SEARCH_ERROR_FIELDS.has(options.searchField) ? options.searchField : null;
     this.searchReason = SEARCH_ERROR_REASONS.has(options.searchReason) ? options.searchReason : null;
   }
+}
+
+function requestAbortedError(signal) {
+  return new SendFromChinaError("The Send From China request was canceled", {
+    code: "REQUEST_ABORTED",
+    cause: signal?.reason === undefined ? new DOMException("Aborted", "AbortError") : signal.reason,
+  });
 }
 
 function stripTrailingSlashes(value) {
@@ -182,12 +189,24 @@ export function createSendFromChinaClient(options = {}) {
   let requestSequence = 0;
 
   async function request(path, init = {}, { authenticated = true, timeout = timeoutMs } = {}) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(new Error("Request timed out")), timeout);
     const externalSignal = init.signal;
-    const abort = () => controller.abort(externalSignal.reason);
+    if (externalSignal?.aborted) throw requestAbortedError(externalSignal);
+    const controller = new AbortController();
+    let abortSource = "";
+    const abortRequest = (source, reason) => {
+      if (abortSource) return;
+      abortSource = source;
+      controller.abort(reason);
+    };
+    const timer = setTimeout(() => abortRequest("timeout", new Error("Request timed out")), timeout);
+    const abort = () => abortRequest("external", externalSignal.reason);
+    const throwIfAborted = () => {
+      if (abortSource) throw controller.signal.reason;
+    };
     externalSignal?.addEventListener("abort", abort, { once: true });
     try {
+      if (externalSignal?.aborted) abort();
+      throwIfAborted();
       const headers = new Headers(init.headers || {});
       headers.set("accept", "application/json");
       if (init.body !== undefined) headers.set("content-type", "application/json; charset=utf-8");
@@ -196,13 +215,16 @@ export function createSendFromChinaClient(options = {}) {
         headers.set("authorization", `Bearer ${token}`);
       }
       const response = await fetchImpl(`${baseUrl}${path}`, { ...init, headers, signal: controller.signal });
+      throwIfAborted();
       const requestId = response.headers.get("x-request-id") || response.headers.get("cf-ray") || "";
       let payload = null;
       try { payload = await response.json(); } catch {
+        throwIfAborted();
         if (response.ok) throw new SendFromChinaError("The service returned invalid JSON", {
           code: "INVALID_RESPONSE", status: response.status, requestId,
         });
       }
+      throwIfAborted();
       if (!response.ok) {
         const code = safeCode(payload?.error?.code || payload?.error, `HTTP_${response.status}`);
         const details = safeSearchErrorDetails(payload?.error, code);
@@ -216,10 +238,15 @@ export function createSendFromChinaClient(options = {}) {
       }
       return payload;
     } catch (error) {
+      if (abortSource === "external") throw requestAbortedError(externalSignal);
+      if (abortSource === "timeout") {
+        throw new SendFromChinaError("The Send From China request timed out", {
+          code: "REQUEST_TIMEOUT", cause: error,
+        });
+      }
       if (error instanceof SendFromChinaError) throw error;
-      const timedOut = controller.signal.aborted && !externalSignal?.aborted;
-      throw new SendFromChinaError(timedOut ? "The Send From China request timed out" : "Could not reach Send From China", {
-        code: timedOut ? "REQUEST_TIMEOUT" : "NETWORK_ERROR", cause: error,
+      throw new SendFromChinaError("Could not reach Send From China", {
+        code: "NETWORK_ERROR", cause: error,
       });
     } finally {
       clearTimeout(timer);
