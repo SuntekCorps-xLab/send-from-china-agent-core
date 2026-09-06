@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+import { handleMcp } from "../governance-worker/src/mcp.js";
+
 const sandboxGuide = await readFile(new URL("../docs/SANDBOX.md", import.meta.url), "utf8");
 const recipe = await readFile(new URL("../recipes/mcp/README.md", import.meta.url), "utf8");
 const readme = await readFile(new URL("../README.md", import.meta.url), "utf8");
@@ -114,4 +116,35 @@ test("catalog skill keeps hosted public reads separate from protected and self-h
   assert.match(catalogContracts, /bundled catalog is synthetic/u);
   assert.match(catalogContracts, /Account, quote, sourcing, and write-capable operations require a deployment-issued key/u);
   assert.doesNotMatch(catalogContracts, /^MCP `initialize` and `tools\/list` are public\. Every `tools\/call` requires/mu);
+});
+
+test("managed-live and self-hosted get_product examples use their own schemas", async () => {
+  const liveStart = readme.indexOf("## 1. Try live read-only MCP");
+  const liveEnd = readme.indexOf("## What you can build with it", liveStart);
+  assert.ok(liveStart >= 0 && liveEnd > liveStart);
+  const liveSection = readme.slice(liveStart, liveEnd);
+  const liveBodies = [...liveSection.matchAll(/--data '([^'\r\n]+)'/gu)]
+    .map((match) => JSON.parse(match[1]));
+  const liveProductCall = liveBodies.find((body) => body.params?.name === "get_product");
+  assert.ok(liveProductCall, "managed-live quickstart must include get_product");
+  assert.deepEqual(Object.keys(liveProductCall.params.arguments), ["handle"]);
+  assert.equal(liveProductCall.params.arguments.handle, "<returned-handle>");
+  assert.doesNotMatch(liveSection, /\bslug\b/iu);
+
+  const discovery = await handleMcp({ jsonrpc: "2.0", id: "tools", method: "tools/list" });
+  const selfHostedSchema = discovery.body.result.tools
+    .find((tool) => tool.name === "get_product")?.inputSchema;
+  assert.ok(selfHostedSchema, "self-hosted tools/list must include get_product");
+  assert.deepEqual(Object.keys(selfHostedSchema.properties), ["slug"]);
+  assert.deepEqual(selfHostedSchema.required, ["slug"]);
+  assert.equal(selfHostedSchema.additionalProperties, false);
+
+  const localAndSelfHostedSections = readme.slice(liveEnd);
+  assert.match(localAndSelfHostedSections, /Read one product by public slug:/u);
+  assert.match(localAndSelfHostedSections, /`get_product` \| Product detail by public slug/u);
+
+  assert.match(catalogSkill, /managed live[\s\S]*?`get_product` with the `handle` returned by search/iu);
+  assert.match(catalogSkill, /local synthetic or self-hosted[\s\S]*?`get_product` with the returned public `slug`/iu);
+  assert.match(catalogContracts, /Managed live public catalog[\s\S]*?`get_product` with the `handle` returned by search/iu);
+  assert.match(catalogContracts, /Local synthetic and self-hosted deployments[\s\S]*?`get_product` with the returned public `slug`/iu);
 });
