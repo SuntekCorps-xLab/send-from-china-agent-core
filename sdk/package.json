@@ -9,5 +9,5 @@
   "types": "./src/index.d.ts",
   "exports": { ".": { "types": "./src/index.d.ts", "default": "./src/index.js" } },
   "files": ["src", "README.md", "LICENSE"],
-  "scripts": { "test": "node --test test/client.test.js test/search-contract-v2.test.js" }
+  "scripts": { "test": "node --test test/client.test.js test/search-contract-v2.test.js test/managed-public-catalog.test.js" }
 }

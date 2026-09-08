@@ -67,6 +67,12 @@ export {
   projectSearchContractV2Response,
 } from "./search-contract-v2.js";
 
+export {
+  MANAGED_PUBLIC_CATALOG,
+  ManagedPublicCatalogError,
+  createManagedPublicCatalogClient,
+} from "./managed-public-catalog.js";
+
 import {
   adaptSearchContractV1ResponseToV2,
   adaptSearchContractV2RequestToV1,

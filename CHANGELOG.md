@@ -4,7 +4,9 @@ All notable changes to the public reference implementation are documented here.
 
 ## Unreleased
 
-No changes have been accepted after the `1.2.0` release candidate.
+- Added a fixed-endpoint, anonymous, read-only managed catalog SDK profile and
+  executable hosted MCP, self-hosted MCP, and self-hosted HTTP product-link
+  examples. Tests use injected fixtures and keep default verification offline.
 
 ## 1.2.0 - 2026-09-04
 

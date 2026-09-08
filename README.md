@@ -115,6 +115,26 @@ curl -sS https://wp-api.sendfromchina.ai/mcp \
   --data '{"jsonrpc":"2.0","id":"product","method":"tools/call","params":{"name":"get_product","arguments":{"handle":"<returned-handle>"}}}'
 ```
 
+The dependency-free SDK also exposes a closed managed profile. It fixes the
+same endpoint, discovers the five read tools before use, sends no credential,
+and has no arbitrary-tool or write method:
+
+```js
+import { createManagedPublicCatalogClient } from "@send-from-china/agent-sdk";
+
+const client = createManagedPublicCatalogClient();
+const search = await client.productSearch({
+  query: "desk organizer", mode: "catalog", operation: "confirm_search", limit: 5,
+});
+const summary = search.products[0];
+const product = summary ? await client.getProduct({ handle: summary.handle }) : null;
+const handoff = product ? client.resolvePurchaseHandoff(product) : null;
+```
+
+See the [managed public catalog profiles](docs/MANAGED_PUBLIC_CATALOG.md) and
+the tested [`catalog-read-profiles.mjs`](examples/catalog-read-profiles.mjs)
+for separate hosted MCP, self-hosted MCP, and self-hosted HTTP sequences.
+
 Search results link back to the real Shopify product page. Treat price,
 publication, and availability as point-in-time Shopify facts and re-read the
 product before presenting them as current. Anonymous access does not extend to

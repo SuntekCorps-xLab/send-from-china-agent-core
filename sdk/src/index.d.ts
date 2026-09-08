@@ -41,6 +41,80 @@ export interface SendFromChinaClientOptions {
   commerceOrigins?: string[];
 }
 
+export interface ManagedPublicCatalogClientOptions {
+  fetch?: typeof fetch;
+  timeoutMs?: number;
+  maxResponseBytes?: number;
+  maxConcurrency?: number;
+}
+
+export type ManagedPublicCatalogErrorCode =
+  | "INVALID_ARGUMENT" | "INVALID_RESPONSE" | "REQUEST_ABORTED" | "REQUEST_TIMEOUT"
+  | "RESPONSE_TOO_LARGE" | "CONCURRENCY_LIMIT" | "QUOTA_EXCEEDED"
+  | "SERVICE_UNAVAILABLE" | "NETWORK_ERROR" | "DISCOVERY_REQUIRED";
+
+export interface ManagedPublicCatalogHandoff {
+  kind: "product";
+  url: string;
+  requires_user: true;
+}
+
+export interface ManagedPublicProduct {
+  title: string;
+  handle: string;
+  price: { amount: number; currency: string };
+  product_url: string;
+  image_url?: string;
+  summary?: string;
+  catalog_available: boolean;
+  purchasable: boolean;
+  purchase_status: string;
+  available?: boolean;
+  commercial_review_required?: boolean;
+  cart_verification_required?: boolean;
+  market_compatibility?: {
+    status: string;
+    review_required: boolean;
+    country: string;
+    reason: string;
+  };
+}
+
+export interface ManagedPublicSearchResponse {
+  status: "results" | "needs_clarification" | "no_match" | "degraded";
+  action: string;
+  mode: "catalog" | "recommendations";
+  products: readonly ManagedPublicProduct[];
+  count: number;
+  has_more: boolean;
+  next_cursor: string | null;
+  exhaustive: boolean;
+  search_scope_exhausted: boolean;
+  degraded: boolean;
+  retrieval_incomplete: boolean;
+  boundary: { writes: false; transaction: "public_product_link_only" };
+}
+
+export interface ManagedPublicCatalogClient {
+  ready(options?: { signal?: AbortSignal }): Promise<{
+    endpoint: "https://wp-api.sendfromchina.ai/mcp";
+    protocolVersion: "2025-06-18";
+    tools: readonly string[];
+    anonymous: true;
+    writes: false;
+  }>;
+  productSearch(args: {
+    query?: string;
+    criteria?: Record<string, unknown>;
+    mode?: "catalog" | "recommendations";
+    operation?: "search" | "confirm_search" | "more";
+    limit?: number;
+    cursor?: string;
+  }, options?: { signal?: AbortSignal }): Promise<ManagedPublicSearchResponse>;
+  getProduct(args: { handle: string }, options?: { signal?: AbortSignal }): Promise<ManagedPublicProduct>;
+  resolvePurchaseHandoff(product: ManagedPublicProduct | Record<string, unknown>): ManagedPublicCatalogHandoff | null;
+}
+
 export type SearchValidationField =
   | "request" | "contract_version" | "product_identity" | "hard_constraints"
   | "soft_context" | "transaction_context" | "limit" | "cursor" | "condition";
@@ -114,3 +188,18 @@ export declare function resolvePurchaseHandoff(product: Record<string, unknown>,
   commerceOrigins?: string[];
 }): { kind: string; url: string; requires_user: true } | null;
 export declare function createSendFromChinaClient(options: SendFromChinaClientOptions): SendFromChinaClient;
+export declare const MANAGED_PUBLIC_CATALOG: Readonly<{
+  endpoint: "https://wp-api.sendfromchina.ai/mcp";
+  storefrontOrigin: "https://sendfromchina.ai";
+  protocolVersion: "2025-06-18";
+  tools: readonly string[];
+  writes: false;
+}>;
+export declare class ManagedPublicCatalogError extends Error {
+  code: ManagedPublicCatalogErrorCode;
+  status: number | null;
+  retryAfter: string;
+}
+export declare function createManagedPublicCatalogClient(
+  options?: ManagedPublicCatalogClientOptions,
+): ManagedPublicCatalogClient;
