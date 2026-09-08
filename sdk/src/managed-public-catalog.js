@@ -216,8 +216,8 @@ function validateSearch(value) {
     "price_flexible", "quantity", "ship_to", "delivery_days_max", "colors", "materials",
     "must_have", "exclude", "keywords",
   ]));
-  exactKeys(value.pagination, new Set(["limit", "cursor", "next_cursor", "has_more"]));
-  exactKeys(value.search_scope, new Set([
+  const pagination = exactKeys(value.pagination, new Set(["limit", "cursor", "next_cursor", "has_more"]));
+  const searchScope = exactKeys(value.search_scope, new Set([
     "plan_complete", "scope_exhausted", "global_catalog_exhaustive", "scan_limit_reached",
     "degraded", "degraded_reason",
   ]));
@@ -225,10 +225,28 @@ function validateSearch(value) {
   if (!Number.isInteger(value.count) || value.count !== products.length
     || typeof value.has_more !== "boolean" || typeof value.exhaustive !== "boolean"
     || typeof value.search_scope_exhausted !== "boolean" || typeof value.degraded !== "boolean"
-    || typeof value.retrieval_incomplete !== "boolean") {
+    || typeof value.retrieval_incomplete !== "boolean" || typeof value.scan_limit_reached !== "boolean"
+    || typeof value.bounded_plan_complete !== "boolean" || typeof value.global_catalog_exhaustive !== "boolean"
+    || typeof pagination.has_more !== "boolean"
+    || typeof searchScope.plan_complete !== "boolean" || typeof searchScope.scope_exhausted !== "boolean"
+    || typeof searchScope.global_catalog_exhaustive !== "boolean"
+    || typeof searchScope.scan_limit_reached !== "boolean" || typeof searchScope.degraded !== "boolean"
+    || (value.degradation_reason !== null && typeof value.degradation_reason !== "string")
+    || (searchScope.degraded_reason !== null && typeof searchScope.degraded_reason !== "string")) {
     fail("INVALID_RESPONSE");
   }
-  if (value.status === "no_match" && (products.length || !value.exhaustive || !value.search_scope_exhausted)) fail("INVALID_RESPONSE");
+  if (pagination.next_cursor !== null && typeof pagination.next_cursor !== "string") fail("INVALID_RESPONSE");
+  if (pagination.has_more !== value.has_more || pagination.next_cursor !== value.next_cursor
+    || searchScope.plan_complete !== value.bounded_plan_complete
+    || searchScope.scope_exhausted !== value.search_scope_exhausted
+    || searchScope.global_catalog_exhaustive !== value.global_catalog_exhaustive
+    || searchScope.scan_limit_reached !== value.scan_limit_reached
+    || searchScope.degraded !== value.degraded
+    || searchScope.degraded_reason !== value.degradation_reason) fail("INVALID_RESPONSE");
+  if (value.status === "no_match" && (products.length || value.has_more || value.next_cursor !== null
+    || !value.exhaustive || !value.search_scope_exhausted || !value.bounded_plan_complete
+    || value.scan_limit_reached || value.degraded || value.retrieval_incomplete
+    || value.degradation_reason !== null)) fail("INVALID_RESPONSE");
   if ((value.status === "degraded") !== value.degraded) fail("INVALID_RESPONSE");
   if (value.next_cursor !== null && typeof value.next_cursor !== "string") fail("INVALID_RESPONSE");
   if (value.has_more !== Boolean(value.next_cursor)) fail("INVALID_RESPONSE");

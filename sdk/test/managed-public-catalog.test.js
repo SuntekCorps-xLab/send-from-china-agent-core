@@ -143,8 +143,12 @@ function search(overrides = {}) {
     next_cursor: null,
     exhaustive: true,
     search_scope_exhausted: true,
+    scan_limit_reached: false,
+    global_catalog_exhaustive: false,
     degraded: false,
     retrieval_incomplete: false,
+    degradation_reason: null,
+    bounded_plan_complete: true,
     pagination: { limit: 5, cursor: null, next_cursor: null, has_more: false },
     search_scope: {
       plan_complete: true,
@@ -488,6 +492,51 @@ test("documented managed flow handles a truthful terminal miss without product d
   assert.equal(result.product, null);
   assert.equal(result.purchaseHandoff, null);
   assert.equal(fixture.calls.length, 3);
+});
+
+test("managed terminal no_match rejects incomplete, capped, degraded, and inconsistent retrieval state", async () => {
+  const contradictoryNoMatch = search({
+    status: "no_match",
+    results: [],
+    count: 0,
+    has_more: false,
+    next_cursor: null,
+    exhaustive: true,
+    search_scope_exhausted: true,
+    scan_limit_reached: true,
+    degraded: false,
+    retrieval_incomplete: true,
+    bounded_plan_complete: true,
+    search_scope: {
+      plan_complete: false,
+      scope_exhausted: false,
+      global_catalog_exhaustive: false,
+      scan_limit_reached: true,
+      degraded: true,
+      degraded_reason: "provider_failure",
+    },
+  });
+  const fixture = managedFixture({ search: contradictoryNoMatch });
+  const client = createManagedPublicCatalogClient({ fetch: fixture.fetch });
+  await assert.rejects(client.productSearch({ query: "fixture" }), { code: "INVALID_RESPONSE" });
+  assert.deepEqual(fixture.calls.map((call) => call.body.method), ["initialize", "tools/list", "tools/call"]);
+
+  for (const overrides of [
+    { retrieval_incomplete: true },
+    { scan_limit_reached: true },
+    { bounded_plan_complete: false },
+    { search_scope_exhausted: false },
+    { degraded: true },
+    { degradation_reason: "provider_failure" },
+  ]) {
+    const current = managedFixture({ search: search({
+      status: "no_match", results: [], count: 0, ...overrides,
+    }) });
+    await assert.rejects(
+      createManagedPublicCatalogClient({ fetch: current.fetch }).productSearch({ query: "fixture" }),
+      { code: "INVALID_RESPONSE" },
+    );
+  }
 });
 
 test("documented self-hosted MCP SDK flow uses slug and tenant authorization", async () => {
