@@ -37,6 +37,13 @@ catalog payloads, and treat every result as non-transactional. Price,
 point-in-time Storefront facts, not authority to create a cart, checkout, order,
 payment, inventory change, publication, or product mutation.
 
+The hosted public MCP and self-hosted profiles are intentionally different.
+For anonymous managed reads, use `createManagedPublicCatalogClient()` and pass
+the search result `handle` to `getProduct()`. For self-hosted HTTP or MCP, use
+`createSendFromChinaClient()` with a tenant token and pass the public `slug`.
+The tested end-to-end snippets are in the
+[managed public catalog guide](MANAGED_PUBLIC_CATALOG.md).
+
 ## 1. Configure the client
 
 Install the package from `sdk/` using the exact

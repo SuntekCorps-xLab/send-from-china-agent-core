@@ -15,6 +15,35 @@ package name below after that install. They should not import a nonexistent
 `sdk/index.js` file. Repository-local examples may instead import
 `../sdk/src/index.js` directly.
 
+## Anonymous managed public catalog
+
+Use the closed managed profile for the five anonymous, read-only catalog tools.
+It fixes `https://wp-api.sendfromchina.ai/mcp`, accepts no endpoint or token,
+verifies MCP discovery, and exposes only search, product detail, and public
+product-page handoff methods.
+
+```js
+import { createManagedPublicCatalogClient } from "@send-from-china/agent-sdk";
+
+const client = createManagedPublicCatalogClient();
+const search = await client.productSearch({
+  query: "desk organizer", mode: "catalog", operation: "confirm_search", limit: 5,
+});
+const summary = search.products[0];
+const product = summary ? await client.getProduct({ handle: summary.handle }) : null;
+const handoff = product ? client.resolvePurchaseHandoff(product) : null;
+```
+
+`handoff` is either `null` or a user-controlled HTTPS link to the exact public
+product page. It is never a cart, checkout, order, or payment operation. See
+the [managed public catalog guide](../docs/MANAGED_PUBLIC_CATALOG.md).
+
+Managed-profile failures use `ManagedPublicCatalogError` and its small public
+code set. Server error text, raw responses, queries, and discovery metadata are
+not attached to the error. A quota response is not retried automatically.
+
+## Authenticated self-hosted client
+
 ```js
 import { createSendFromChinaClient } from "@send-from-china/agent-sdk";
 

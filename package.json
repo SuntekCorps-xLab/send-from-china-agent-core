@@ -34,7 +34,7 @@
     "release:evidence": "node scripts/generate-release-evidence.mjs",
     "scan": "node scripts/scan-public.mjs .",
     "setup": "node scripts/prepare-local.mjs && npm --prefix governance-worker ci",
-    "sdk:test": "node --test sdk/test/client.test.js sdk/test/search-contract-v2.test.js",
+    "sdk:test": "node --test sdk/test/client.test.js sdk/test/search-contract-v2.test.js sdk/test/managed-public-catalog.test.js",
     "smoke": "node scripts/smoke-public.mjs",
     "smoke:shopify:live": "node sandbox/shopify-live-smoke.mjs",
     "tenant:key": "node scripts/generate-tenant-key.mjs",
