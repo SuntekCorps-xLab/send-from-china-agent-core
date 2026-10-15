@@ -50,7 +50,7 @@ jobs:
           done
       - name: Upload shell failure propagation evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: shell-failure-propagation
           path: artifacts/shell-failure-propagation/
@@ -94,7 +94,7 @@ jobs:
         run: npm run release:check 2>&1 | tee artifacts/release-consistency.log
       - name: Upload Search Contract evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: search-contract-verification
           path: artifacts/
@@ -114,7 +114,7 @@ jobs:
           exit $LASTEXITCODE
       - name: Upload Windows offline eval evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: offline-eval-windows-verification
           path: artifacts/offline-eval-windows.log
@@ -170,7 +170,7 @@ jobs:
           npm audit --audit-level=high 2>&1 | tee ../artifacts/npm-audit.log
       - name: Upload Worker evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: worker-verification
           path: artifacts/
@@ -200,7 +200,7 @@ jobs:
           node governance-worker/node_modules/wrangler/bin/wrangler.js deploy --dry-run --env staging --config hosted-sandbox/wrangler.toml --outdir hosted-sandbox/.wrangler/hosted-staging-dry-run 2>&1 | tee artifacts/hosted-sandbox-staging-dry-run.log
       - name: Upload hosted sandbox evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: hosted-sandbox-verification
           path: artifacts/
@@ -229,7 +229,7 @@ jobs:
         run: node --test sandbox/tests/browser-qa-gate.test.mjs
       - name: Upload browser QA evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: sandbox-browser-verification
           path: artifacts/sandbox-browser/
@@ -258,7 +258,7 @@ jobs:
           node scripts/validate-snapshot.mjs /tmp/published-catalog.json
       - name: Upload Python evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: python-verification
           path: artifacts/
@@ -277,7 +277,7 @@ jobs:
           node scripts/scan-public.mjs . 2>&1 | tee artifacts/public-safety-scan.log
       - name: Upload safety evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: public-safety-scan
           path: artifacts/
@@ -313,7 +313,7 @@ jobs:
         run: |
           node -e "const fs=require('node:fs'); for (const file of fs.readdirSync('artifacts/sbom')) { const document=JSON.parse(fs.readFileSync('artifacts/sbom/'+file,'utf8')); if (document.spdxVersion !== 'SPDX-2.3' || document.SPDXID !== 'SPDXRef-DOCUMENT' || !Array.isArray(document.packages) || document.packages.length === 0) throw new Error('Invalid SPDX document: '+file); }"
       - name: Upload SPDX SBOMs
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: spdx-sbom-${{ github.sha }}
           path: artifacts/sbom/*.spdx.json
